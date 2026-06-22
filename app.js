@@ -243,6 +243,7 @@ function listenToFirebaseRealtime() {
       // 첫 로드 때 멤버가 한 명도 없다면(최초 설치) 초기 데모 데이터를 집어넣음
       if (state.members.length === 0) {
         // initializeDemoDataToFirebase();
+        renderApp();
       } else {
         // 멤버가 있다면 필터 활성화
         if (state.filters.memberIds.length === 0) {
