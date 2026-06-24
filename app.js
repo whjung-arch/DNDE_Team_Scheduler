@@ -1,19 +1,10 @@
 // ==========================================
-// 1. 파이어베이스 초기화 및 설정 (보내주신 비밀키 적용)
+// [로컬 서버 연동 시스템] 파이어베이스 대신 내 컴퓨터 백엔드 서버 주소 설정
 // ==========================================
-const firebaseConfig = {
-  apiKey: "AIzaSyCyO308QCoCoFFm61pntZBlm34Ynvr1Rxs",
-  authDomain: "team-scheduler-86b2f.firebaseapp.com",
-  projectId: "team-scheduler-86b2f",
-  storageBucket: "team-scheduler-86b2f.appspot.com",
-  messagingSenderId: "542881484318",
-  appId: "1:542881484318:web:758073989c1355a898680f",
-  measurementId: "G-5Z9WNMY6T4"
-};
+// ⚠️ 중요: 아래 '192.168.X.X' 부분을 방금 1단계에서 찾은 회원님의 진짜 사내 IP 주소로 꼭 바꾸어 주세요!
+const SERVER_URL = 'http://192.168.2.118:3000/api/data';
 
-// 파이어베이스 및 데이터베이스(Firestore) 연결
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+// --- 기본 컬러 팔레트 및 상태(State) 구조는 기존 코드 그대로 유지합니다 ---
 
 // --- 기본 컬러 팔레트 ---
 const COLOR_PALETTE = [
@@ -219,81 +210,48 @@ const state = {
   }
 };
 
-// --- 초기화 및 DOM 로드 완료 핸들러 ---
+// // --- 초기화 및 DOM 로드 완료 핸들러 ---
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   setupEventListeners();
-  // 실시간으로 서버 데이터 감지하고 화면을 갱신하는 리스너 작동
-  listenToFirebaseRealtime();
+  loadDataFromServer(); // 파이어베이스 대신 내 컴퓨터 서버에서 데이터를 가져옵니다!
 });
 
 // ==========================================
-// 2. 파이어베이스 실시간 데이터 동기화 리스너
+// 2. 내 컴퓨터 서버 연동 데이터 동기화 함수
 // ==========================================
-function listenToFirebaseRealtime() {
-  let loadedCollections = 0;
+// ⚠️ 중요: 아래 주소의 '192.168.X.X' 부분을 1단계에서 확인하신 사내 IP 주소로 변경해 주세요!
+const SERVER_URL = 'http://192.168.2.118:3000/api/data';
 
-  function checkAndRender() {
-    loadedCollections++;
-    if (loadedCollections >= 3) {
-      // 테마는 UI 설정이므로 로컬 유지
-      state.theme = localStorage.getItem('ts_theme') || 'light';
-      document.documentElement.setAttribute('data-theme', state.theme);
+function loadDataFromServer() {
+  fetch(SERVER_URL)
+    .then(response => response.json())
+    .then(data => {
+      // 서버에서 가져온 데이터를 프로그램 상태(state)에 주입합니다.
+      if (data) {
+        state.members = data.members || [];
+        state.events = data.events || [];
+        state.reports = data.reports || [];
+      }
 
-      // 첫 로드 때 멤버가 한 명도 없다면(최초 설치) 초기 데모 데이터를 집어넣음
+      // 만약 서버에 멤버 데이터가 없다면(최초 실행) 빈 화면을 그리고, 있으면 필터를 채운 뒤 그립니다.
       if (state.members.length === 0) {
-        // initializeDemoDataToFirebase();
         renderApp();
       } else {
-        // 멤버가 있다면 필터 활성화
         if (state.filters.memberIds.length === 0) {
           state.filters.memberIds = state.members.map(m => m.id);
         }
         renderApp();
       }
-    }
-  }
-
-  // A. 멤버 데이터 실시간 감지
-  db.collection("members").onSnapshot((snapshot) => {
-    const members = [];
-    snapshot.forEach((doc) => members.push(doc.data()));
-    state.members = members;
-    if (loadedCollections < 3) checkAndRender(); else renderApp();
-  });
-
-  // B. 일정 데이터 실시간 감지
-  db.collection("events").onSnapshot((snapshot) => {
-    const events = [];
-    snapshot.forEach((doc) => events.push(doc.data()));
-    state.events = events;
-    if (loadedCollections < 3) checkAndRender(); else renderApp();
-  });
-
-  // C. 프로젝트/주간보고 데이터 실시간 감지
-  db.collection("reports").onSnapshot((snapshot) => {
-    const reports = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      // 계산서 회차 마이그레이션 보정
-      if (!data.invoices || !Array.isArray(data.invoices) || data.invoices.length < 5) {
-        const invoices = [];
-        invoices.push({
-          status: data.invoiceStatus || 'unissued',
-          amount: data.invoiceStatus === 'issued' ? (Number(data.amount) || 0) : 0,
-          date: data.invoiceDate || ''
-        });
-        for (let i = 1; i < 5; i++) {
-          invoices.push({ status: 'unissued', amount: 0, date: '' });
-        }
-        data.invoices = invoices;
-      }
-      reports.push(data);
+    })
+    .catch(error => {
+      console.error("내 컴퓨터 서버 연결 실패:", error);
+      showToast("내 컴퓨터 백엔드 서버 연결에 실패했습니다.");
+      renderApp(); // 에러가 나더라도 일단 기본 틀은 그리도록 처리
     });
-    state.reports = reports;
-    if (loadedCollections < 3) checkAndRender(); else renderApp();
-  });
 }
+
+
 
 // 최초 구동 시 클라우드 서버에 데모 데이터 심어주는 함수
 function initializeDemoDataToFirebase() {
@@ -326,11 +284,28 @@ function initializeDemoDataToFirebase() {
   });
 }
 
-// 기존 saveData는 로컬에 임시 세이브 및 에이전트 동기화만 유지
+// 일정을 바꾸거나 등록할 때 내 컴퓨터 서버에 데이터를 덮어씌워 보관하는 기능
 function saveData() {
-  localStorage.setItem('ts_members', JSON.stringify(state.members));
-  localStorage.setItem('ts_events', JSON.stringify(state.events));
-  localStorage.setItem('ts_reports', JSON.stringify(state.reports));
+  const payload = {
+    members: state.members,
+    events: state.events,
+    reports: state.reports
+  };
+
+  fetch(SERVER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+    .then(response => response.json())
+    .then(res => {
+      console.log(res.message);
+      // 내 화면을 갱신
+      renderApp();
+    })
+    .catch(error => {
+      console.error("서버에 데이터를 저장하는 중 에러 발생:", error);
+    });
 }
 
 // --- 테마 설정 ---
