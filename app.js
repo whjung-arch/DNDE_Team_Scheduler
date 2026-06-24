@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 2. 내 컴퓨터 서버 연동 데이터 동기화 함수
 // ==========================================
 // ⚠️ 중요: 아래 주소의 '192.168.X.X' 부분을 1단계에서 확인하신 사내 IP 주소로 변경해 주세요!
-const SERVER_URL = 'http://192.168.2.118:3000/api/data';
+
 
 function loadDataFromServer() {
   fetch(SERVER_URL)
