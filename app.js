@@ -1474,41 +1474,24 @@ function renderInvoiceView() {
     const isExpanded = expandedInvoiceIds.has(report.id);
 
     const tr = document.createElement('tr');
-    const memberOptions = state.members.map(m => `
-      <option value="${m.id}" ${report.assignee === m.id ? 'selected' : ''}>${escapeHTML(m.name)}</option>
-    `).join('');
-
     tr.innerHTML = `
-      <td>
-        <div class="reporter-label" style="display: flex; align-items: center; gap: 0.3rem; min-width: 100px;">
-          <span class="reporter-dot" style="background-color: ${member ? member.color : '#ccc'}; flex-shrink: 0;"></span>
-          <select class="invoice-edit-select" onchange="updateInvoiceReportField('${report.id}', 'assignee', this.value)" style="padding: 0.2rem 0.4rem; font-size: 0.8rem;">
-            <option value="">미배정</option>
-            ${memberOptions}
-          </select>
-        </div>
-      </td>
-      <td>
-        <input type="text" class="invoice-edit-input" value="${escapeHTML(report.project)}" onchange="updateInvoiceReportField('${report.id}', 'project', this.value)" style="font-weight: 600; min-width: 120px;">
-      </td>
-      <td>
-        <input type="text" class="invoice-edit-input" value="${escapeHTML(report.client)}" onchange="updateInvoiceReportField('${report.id}', 'client', this.value)" style="min-width: 100px;">
-      </td>
-      <td>
-        <input type="date" class="invoice-edit-input" value="${report.endDate}" onchange="updateInvoiceReportField('${report.id}', 'endDate', this.value)" style="min-width: 120px; font-family: inherit;">
-      </td>
-      <td>
-        <input type="number" class="invoice-edit-input" value="${totalAmount}" onchange="updateInvoiceReportField('${report.id}', 'amount', this.value)" style="text-align: right; width: 80px;">
-      </td>
-      <td>
-        <select class="invoice-edit-select" onchange="updateInvoiceReportField('${report.id}', 'status', this.value)" style="min-width: 80px;">
-          <option value="ongoing" ${report.status === 'ongoing' ? 'selected' : ''}>진행중</option>
-          <option value="completed" ${report.status === 'completed' ? 'selected' : ''}>완료</option>
-        </select>
-      </td>
+      <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${member ? member.color : '#ccc'};"></span><span>${escapeHTML(member ? member.name : '미배정')}</span></div></td>
+      <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
+      <td>${report.endDate}</td><td style="text-align: right;">${totalAmount.toLocaleString()}</td>
+      <td><span class="status-badge ${report.status === 'completed' ? 'status-completed' : 'status-ongoing'}">${report.status === 'completed' ? '완료' : '진행중'}</span></td>
       <td style="text-align: right; color: var(--success); font-weight: bold;">${report._currentYearIssued.toLocaleString()} ${targetYear !== 'all' ? `<span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${targetYear}년분)</span>` : ''}</td>
       <td style="text-align: right; color: ${balance > 0 ? '#ef4444' : 'var(--success)'};">${balance.toLocaleString()}</td>
-      <td><button class="btn-secondary toggle-expand-btn" onclick="toggleInvoiceExpand('${report.id}')">발행 관리</button></td>
+      <td>
+        <div style="display: flex; gap: 0.25rem; align-items: center;">
+          <button class="btn-secondary toggle-expand-btn" onclick="toggleInvoiceExpand('${report.id}')">발행 관리</button>
+          <button class="member-action-btn" onclick="openReportModal('${report.id}')" title="수정">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path>
+            </svg>
+          </button>
+        </div>
+      </td>
     `;
     tableBody.appendChild(tr);
 
@@ -1607,82 +1590,6 @@ window.handleInvoiceRemarksChange = function (reportId, newRemarks) {
     .then(() => showToast('계산서 비고란이 업데이트되었습니다.'));
 };
 
-window.updateInvoiceReportField = function (reportId, field, value) {
-  const report = state.reports.find(r => r.id === reportId);
-  if (!report) return;
-
-  const batch = db.batch();
-  const reportRef = db.collection("reports").doc(reportId);
-  const eventRef = db.collection("events").doc('e_r_' + reportId);
-
-  const updatedFields = {};
-
-  if (field === 'assignee') {
-    updatedFields.assignee = value;
-  } else if (field === 'project') {
-    updatedFields.project = value;
-  } else if (field === 'client') {
-    updatedFields.client = value;
-  } else if (field === 'endDate') {
-    updatedFields.endDate = value;
-    if (report.startDate && value < report.startDate) {
-      alert('종료일은 시작일보다 빠를 수 없습니다.');
-      renderInvoiceView();
-      return;
-    }
-  } else if (field === 'amount') {
-    updatedFields.amount = Number(value) || 0;
-  } else if (field === 'status') {
-    updatedFields.status = value;
-    if (value === 'completed') {
-      updatedFields.finalCompleted = true;
-      updatedFields.progress = 100;
-      updatedFields.progressModified = true;
-    } else {
-      updatedFields.finalCompleted = false;
-      if (report.progress === 100) {
-        updatedFields.progress = 90;
-        updatedFields.progressModified = true;
-      }
-    }
-  }
-
-  batch.update(reportRef, updatedFields);
-
-  const finalReport = { ...report, ...updatedFields };
-  const eventId = 'e_r_' + reportId;
-
-  if (!finalReport.finalCompleted) {
-    const title = `[프로젝트] ${finalReport.project}`;
-    const eventData = {
-      id: eventId,
-      title,
-      startDate: finalReport.startDate || '',
-      startTime: '09:00',
-      endDate: finalReport.endDate || '',
-      endTime: '18:00',
-      assignee: finalReport.assignee || '',
-      category: 'project',
-      priority: 'medium',
-      client: finalReport.client || '',
-      description: `프로젝트 연동 일정 (${finalReport.client || ''})`
-    };
-    batch.set(eventRef, eventData);
-  } else {
-    batch.delete(eventRef);
-  }
-
-  batch.commit()
-    .then(() => {
-      showToast('프로젝트 정보 및 연동 스케줄이 실시간 업데이트되었습니다.');
-    })
-    .catch(err => {
-      console.error(err);
-      showToast('업데이트 중 오류가 발생했습니다.');
-      renderInvoiceView();
-    });
-};
-
 // [서버 삭제] 완료 프로젝트 삭제
 window.deleteCompletedProject = function (reportId) {
   if (confirm('정말 이 완료된 프로젝트를 데이터베이스에서 영구 삭제하시겠습니까?')) {
@@ -1740,7 +1647,17 @@ function renderCompletedProjectsView() {
       <td style="text-align: right;">${(Number(report.amount) || 0).toLocaleString()}</td>
       <td><span class="status-badge status-completed">완료</span></td>
       <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(report.remarks || '')}">${escapeHTML(report.remarks || '-')}</td>
-      <td><button class="member-action-btn" onclick="deleteCompletedProject('${report.id}')" style="color: var(--danger);">삭제</button></td>
+      <td>
+        <div style="display: flex; gap: 0.25rem; align-items: center;">
+          <button class="member-action-btn" onclick="openReportModal('${report.id}')" title="수정">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path>
+            </svg>
+          </button>
+          <button class="member-action-btn" onclick="deleteCompletedProject('${report.id}')" style="color: var(--danger);" title="삭제">삭제</button>
+        </div>
+      </td>
     `;
     tableBody.appendChild(tr);
   });
