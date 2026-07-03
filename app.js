@@ -218,6 +218,7 @@ const state = {
     completed: { currentPage: 1, pageSize: 10 }
   }
 };
+const expandedInvoiceIds = new Set();
 
 // --- 초기화 및 DOM 로드 완료 핸들러 ---
 document.addEventListener('DOMContentLoaded', () => {
