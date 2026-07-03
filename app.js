@@ -1335,24 +1335,38 @@ function renderInvoiceView() {
   if (!tableBody) return;
   tableBody.innerHTML = '';
 
-  const filteredReports = state.reports.filter(report => {
-    if (report.status !== 'completed' && report.status !== 'ongoing') return false;
-    if (!state.filters.memberIds.includes(report.assignee)) return false;
-    if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
-    if (state.filters.endDate && report.startDate > state.filters.endDate) return false;
-    if (state.filters.client !== 'all' && report.client !== state.filters.client) return false;
-    if (state.filters.invoiceYear !== 'all') {
-      const year = report.startDate ? report.startDate.substring(0, 4) : '';
-      if (year !== state.filters.invoiceYear) return false;
-    }
-    return true;
-  });
+  const targetYear = state.filters.invoiceYear;
+  let sumTotal = 0;
+  let sumIssued = 0;
+  const invoiceReports = [];
 
-  let sumTotal = 0, sumIssued = 0;
-  filteredReports.forEach(r => {
-    sumTotal += (Number(r.amount) || 0);
-    if (r.invoices) {
-      r.invoices.forEach(inv => { if (inv.status === 'issued') sumIssued += (Number(inv.amount) || 0); });
+  state.reports.forEach(report => {
+    if (report.status !== 'completed' && report.status !== 'ongoing') return;
+    if (!state.filters.memberIds.includes(report.assignee)) return;
+    if (state.filters.startDate && report.endDate < state.filters.startDate) return;
+    if (state.filters.endDate && report.startDate > state.filters.endDate) return;
+    if (state.filters.client !== 'all' && report.client !== state.filters.client) return;
+
+    let hasInvoiceInTargetYear = false;
+    let projectIssuedSumInTargetYear = 0;
+
+    if (report.invoices && Array.isArray(report.invoices)) {
+      report.invoices.forEach(inv => {
+        if (inv.status === 'issued' && inv.date) {
+          const invYear = inv.date.substring(0, 4);
+          if (targetYear === 'all' || invYear === targetYear) {
+            hasInvoiceInTargetYear = true;
+            sumIssued += (Number(inv.amount) || 0);
+            projectIssuedSumInTargetYear += (Number(inv.amount) || 0);
+          }
+        }
+      });
+    }
+
+    if (targetYear === 'all' || hasInvoiceInTargetYear) {
+      sumTotal += (Number(report.amount) || 0);
+      report._currentYearIssued = projectIssuedSumInTargetYear;
+      invoiceReports.push(report);
     }
   });
 
@@ -1360,15 +1374,18 @@ function renderInvoiceView() {
   document.getElementById('invoice-sum-issued').textContent = sumIssued.toLocaleString() + ' 만원';
   document.getElementById('invoice-sum-unissued').textContent = (sumTotal - sumIssued).toLocaleString() + ' 만원';
 
-  filteredReports.sort((a, b) => b.endDate.localeCompare(a.endDate));
+  invoiceReports.sort((a, b) => b.endDate.localeCompare(a.endDate));
 
-  const totalItems = filteredReports.length;
+  const totalItems = invoiceReports.length;
   const pageSize = state.pagination.invoice.pageSize;
   const totalPages = Math.ceil(totalItems / pageSize);
   if (state.pagination.invoice.currentPage > totalPages) state.pagination.invoice.currentPage = Math.max(1, totalPages);
 
   const start = (state.pagination.invoice.currentPage - 1) * pageSize;
-  const pageReports = filteredReports.slice(start, start + pageSize);
+  const pageReports = invoiceReports.slice(start, start + pageSize);
+  // -----------------------------------------------------------------
+  // 🟢 [교체 구간 끝] 이 아래에 있는 if (pageReports.length === 0) { 부터는 기존 코드 그대로 둡니다.
+  // -----------------------------------------------------------------
 
   if (pageReports.length === 0) {
     tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 3rem;">프로젝트 내역이 없습니다.</td></tr>`;
@@ -1392,7 +1409,7 @@ function renderInvoiceView() {
       <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
       <td>${report.endDate}</td><td style="text-align: right;">${totalAmount.toLocaleString()}</td>
       <td><span class="status-badge ${report.status === 'completed' ? 'status-completed' : 'status-ongoing'}">${report.status === 'completed' ? '완료' : '진행중'}</span></td>
-      <td style="text-align: right; color: var(--success);">${totalIssued.toLocaleString()}</td>
+      <td style="text-align: right; color: var(--success); font-weight: bold;">${report._currentYearIssued.toLocaleString()} ${targetYear !== 'all' ? `<span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${targetYear}년분)</span>` : ''}</td>
       <td style="text-align: right; color: ${balance > 0 ? '#ef4444' : 'var(--success)'};">${balance.toLocaleString()}</td>
       <td><button class="btn-secondary toggle-expand-btn" onclick="toggleInvoiceExpand('${report.id}')">발행 관리</button></td>
     `;
