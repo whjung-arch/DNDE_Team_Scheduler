@@ -1582,3 +1582,43 @@ select.invoice-status-select.issued {
   }
 }
 
+/* 세금계산서 필터 탭 스타일 */
+.invoice-tab-container {
+  display: flex;
+  background: var(--bg-hover);
+  padding: 0.25rem;
+  border-radius: 8px;
+  width: fit-content;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1.25rem;
+}
+
+.invoice-tab-btn {
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.invoice-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.invoice-tab-btn.active {
+  background: var(--bg-card);
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* 팀원 벌크 액션 텍스트 버튼 호버 */
+.member-bulk-actions button:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+

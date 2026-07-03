@@ -28,15 +28,22 @@
       <div class="sidebar-scroll">
         <!-- 팀원 섹션 -->
         <div class="sidebar-group">
-          <div class="group-header">
+          <div class="group-header" style="display: flex; justify-content: space-between; align-items: center;">
             <span class="group-title">팀원 목록</span>
-            <button class="btn-icon-sm" id="btn-add-member" title="팀원 추가" aria-label="팀원 추가">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-            </button>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <div class="member-bulk-actions" style="display: flex; align-items: center; gap: 0.25rem;">
+                <button id="btn-select-all-members" class="btn-text-xs" title="전체 선택" style="font-size: 0.7rem; background: none; border: none; color: var(--primary); cursor: pointer; padding: 2px 4px; border-radius: 4px; font-weight: 500;">전체 선택</button>
+                <span style="color: var(--border-color); font-size: 0.7rem;">|</span>
+                <button id="btn-deselect-all-members" class="btn-text-xs" title="전체 해제" style="font-size: 0.7rem; background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 2px 4px; border-radius: 4px; font-weight: 500;">전체 해제</button>
+              </div>
+              <button class="btn-icon-sm" id="btn-add-member" title="팀원 추가" aria-label="팀원 추가">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="member-list" id="member-list-container">
             <!-- 동적 생성 팀원 목록 -->
@@ -332,6 +339,13 @@
             <button class="btn-primary" id="btn-add-invoice-project"
               style="padding: 0.4rem 0.75rem; font-size: 0.85rem;">추가 등록</button>
           </div>
+        </div>
+
+        <!-- 세금계산서 발행 완료 구분 탭 -->
+        <div class="invoice-tab-container">
+          <button class="invoice-tab-btn active" data-status="all">전체</button>
+          <button class="invoice-tab-btn" data-status="completed">발행완료</button>
+          <button class="invoice-tab-btn" data-status="pending">발행미완료</button>
         </div>
 
         <!-- 세금계산서 발행 통계 카드 -->
