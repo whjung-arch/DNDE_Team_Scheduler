@@ -206,7 +206,8 @@ const state = {
     client: 'all',
     invoiceYear: 'all',
     completedYear: 'all',
-    reportAssignee: 'all'
+    reportAssignee: 'all',
+    invoiceStatus: 'all'
   },
   currentView: 'timeline',
   currentDate: new Date(),
@@ -417,6 +418,43 @@ function setupEventListeners() {
     resetPaginationPages();
     renderApp();
   });
+
+  // 팀원 전체 선택 / 전체 해제 리스너
+  const btnSelectAll = document.getElementById('btn-select-all-members');
+  if (btnSelectAll) {
+    btnSelectAll.addEventListener('click', () => {
+      state.filters.memberIds = state.members.map(m => m.id);
+      resetPaginationPages();
+      renderApp();
+    });
+  }
+
+  const btnDeselectAll = document.getElementById('btn-deselect-all-members');
+  if (btnDeselectAll) {
+    btnDeselectAll.addEventListener('click', () => {
+      state.filters.memberIds = [];
+      resetPaginationPages();
+      renderApp();
+    });
+  }
+
+  // 세금계산서 구분 탭 리스너 등록
+  const invoiceTabContainer = document.querySelector('.invoice-tab-container');
+  if (invoiceTabContainer) {
+    invoiceTabContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('.invoice-tab-btn');
+      if (!btn) return;
+
+      // 탭 active 클래스 토글
+      invoiceTabContainer.querySelectorAll('.invoice-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // 필터 상태 업데이트 및 렌더링
+      state.filters.invoiceStatus = btn.dataset.status;
+      state.pagination.invoice.currentPage = 1;
+      renderApp();
+    });
+  }
 
   const btnAddInvoiceProj = document.getElementById('btn-add-invoice-project');
   if (btnAddInvoiceProj) {
@@ -1336,6 +1374,16 @@ function renderInvoiceView() {
   tableBody.innerHTML = '';
 
   const targetYear = state.filters.invoiceYear;
+  const invoiceStatusFilter = state.filters.invoiceStatus || 'all';
+
+  // 세금계산서 구분 탭 UI 액티브 클래스 상태 동기화
+  const tabContainer = document.querySelector('.invoice-tab-container');
+  if (tabContainer) {
+    tabContainer.querySelectorAll('.invoice-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.status === invoiceStatusFilter);
+    });
+  }
+
   let sumTotal = 0;
   let sumIssued = 0;
   const invoiceReports = [];
@@ -1366,7 +1414,29 @@ function renderInvoiceView() {
     if (targetYear === 'all' || hasInvoiceInTargetYear) {
       sumTotal += (Number(report.amount) || 0);
       report._currentYearIssued = projectIssuedSumInTargetYear;
-      invoiceReports.push(report);
+
+      // 발행완료 판정: 발행금액(총 금액) > 0 이고 잔금이 0인 상태
+      const totalAmount = Number(report.amount) || 0;
+      let totalIssued = 0;
+      if (report.invoices) {
+        report.invoices.forEach(inv => {
+          if (inv.status === 'issued') totalIssued += (Number(inv.amount) || 0);
+        });
+      }
+      const balance = totalAmount - totalIssued;
+      const isCompleted = totalAmount > 0 && balance === 0;
+
+      // 구분 필터링 조건
+      let matchesStatus = true;
+      if (invoiceStatusFilter === 'completed') {
+        matchesStatus = isCompleted;
+      } else if (invoiceStatusFilter === 'pending') {
+        matchesStatus = !isCompleted;
+      }
+
+      if (matchesStatus) {
+        invoiceReports.push(report);
+      }
     }
   });
 
