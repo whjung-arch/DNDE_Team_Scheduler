@@ -224,10 +224,52 @@ const expandedInvoiceIds = new Set();
 // --- 초기화 및 DOM 로드 완료 핸들러 ---
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
-  setupEventListeners();
-  // 실시간으로 서버 데이터 감지하고 화면을 갱신하는 리스너 작동
-  listenToFirebaseRealtime();
+  setupLogin();
 });
+
+function setupLogin() {
+  const loginContainer = document.getElementById('login-container');
+  const appContainer = document.getElementById('app-container');
+  const loginForm = document.getElementById('login-form');
+  const usernameInput = document.getElementById('login-username');
+  const passwordInput = document.getElementById('login-password');
+  const errorMsg = document.getElementById('login-error-msg');
+
+  // 로그인 상태 확인 (세션스토리지)
+  const isLoggedIn = sessionStorage.getItem('is_logged_in') === 'true';
+
+  if (isLoggedIn) {
+    if (loginContainer) loginContainer.style.display = 'none';
+    if (appContainer) appContainer.style.display = 'flex';
+    setupEventListeners();
+    listenToFirebaseRealtime();
+  } else {
+    if (loginContainer) loginContainer.style.display = 'flex';
+    if (appContainer) appContainer.style.display = 'none';
+
+    if (loginForm) {
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+
+        if (username === 'dnde' && password === 'dnde0co0kr') {
+          sessionStorage.setItem('is_logged_in', 'true');
+          if (loginContainer) loginContainer.style.display = 'none';
+          if (appContainer) appContainer.style.display = 'flex';
+          setupEventListeners();
+          listenToFirebaseRealtime();
+          showToast('CAE파트 일정 관리 시스템에 오신 것을 환영합니다.');
+        } else {
+          errorMsg.textContent = '아이디 또는 비밀번호가 일치하지 않습니다.';
+          errorMsg.style.display = 'block';
+          passwordInput.value = '';
+          passwordInput.focus();
+        }
+      });
+    }
+  }
+}
 
 // ==========================================
 // 2. 파이어베이스 실시간 데이터 동기화 리스너
