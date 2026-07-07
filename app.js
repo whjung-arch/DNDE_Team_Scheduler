@@ -247,6 +247,9 @@ function setupLogin() {
 
   firebase.auth().onAuthStateChanged((user) => {
     const btnReset = document.getElementById('btn-reset');
+    const btnExport = document.getElementById('btn-export');
+    const btnImport = document.getElementById('btn-import-trigger');
+
     if (user) {
       sessionStorage.setItem('is_logged_in', 'true');
       sessionStorage.setItem('logged_in_user', user.email);
@@ -254,9 +257,10 @@ function setupLogin() {
       if (loginContainer) loginContainer.style.display = 'none';
       if (appContainer) appContainer.style.display = 'flex';
 
-      if (btnReset) {
-        btnReset.style.display = (user.email === 'whjung@dnde.co.kr') ? 'flex' : 'none';
-      }
+      const showAdminActions = (user.email === 'whjung@dnde.co.kr');
+      if (btnReset) btnReset.style.display = showAdminActions ? 'flex' : 'none';
+      if (btnExport) btnExport.style.display = showAdminActions ? 'flex' : 'none';
+      if (btnImport) btnImport.style.display = showAdminActions ? 'flex' : 'none';
 
       setupEventListeners();
       listenToFirebaseRealtime();
@@ -268,9 +272,9 @@ function setupLogin() {
       if (loginContainer) loginContainer.style.display = 'flex';
       if (appContainer) appContainer.style.display = 'none';
 
-      if (btnReset) {
-        btnReset.style.display = 'none';
-      }
+      if (btnReset) btnReset.style.display = 'none';
+      if (btnExport) btnExport.style.display = 'none';
+      if (btnImport) btnImport.style.display = 'none';
     }
   });
 
