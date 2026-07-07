@@ -403,6 +403,11 @@
           </div>
         </div>
 
+        <!-- 팀원별 매출 요약 보드 -->
+        <div class="member-revenue-summary" id="member-revenue-summary" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+          <!-- 동적 생성 팀원 매출 칩 -->
+        </div>
+
         <div class="invoice-table-wrapper">
           <table class="invoice-table">
             <thead>
@@ -686,6 +691,37 @@
             완료</button>
           <button class="btn-secondary" type="button" id="btn-cancel-report-modal">취소</button>
           <button class="btn-primary" type="submit" id="btn-submit-report">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2차 비밀번호 확인 모달 -->
+  <div class="modal-overlay" id="modal-secondary-auth">
+    <div class="modal-container" style="max-width: 380px;">
+      <div class="modal-header">
+        <h3 class="modal-title">2차 보안 비밀번호 확인</h3>
+        <button class="btn-close" id="btn-close-secondary-modal" aria-label="닫기">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <form id="form-secondary-auth" style="margin: 0;">
+        <div class="modal-body" style="padding: 1.5rem 1rem;">
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            이 뷰에 진입하려면 2차 보안 비밀번호를 입력해야 합니다.
+          </p>
+          <div class="form-group">
+            <label class="form-label" for="secondary-password">비밀번호</label>
+            <input class="form-control" type="password" id="secondary-password" placeholder="비밀번호 입력" required autocomplete="current-password">
+          </div>
+          <div id="secondary-error-msg" class="login-error-message" style="display: none; margin-top: 0.5rem; margin-bottom: 0;"></div>
+        </div>
+        <div class="modal-footer" style="padding: 1rem;">
+          <button class="btn-secondary" type="button" id="btn-cancel-secondary-modal">취소</button>
+          <button class="btn-primary" type="submit">확인</button>
         </div>
       </form>
     </div>

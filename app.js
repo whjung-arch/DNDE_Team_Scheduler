@@ -204,7 +204,7 @@ const state = {
     startDate: '',
     endDate: '',
     client: 'all',
-    invoiceYear: 'all',
+    invoiceYear: new Date().getFullYear().toString(),
     completedYear: 'all',
     reportAssignee: 'all',
     invoiceStatus: 'all'
@@ -590,6 +590,36 @@ function setupEventListeners() {
   fileImport.addEventListener('change', importData);
 
   document.getElementById('btn-reset').addEventListener('click', resetData);
+
+  // 2차 패스워드 확인 모달 리스너
+  const formSecondary = document.getElementById('form-secondary-auth');
+  if (formSecondary) {
+    formSecondary.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const password = document.getElementById('secondary-password').value;
+      if (password === 'Qkqfkaus21!') {
+        sessionStorage.setItem('secondary_auth', 'true');
+        closeSecondaryAuthModal();
+        if (pendingView) {
+          switchView(pendingView);
+        }
+      } else {
+        const errorMsg = document.getElementById('secondary-error-msg');
+        errorMsg.textContent = '2차 보안 비밀번호가 일치하지 않습니다.';
+        errorMsg.style.display = 'block';
+        document.getElementById('secondary-password').value = '';
+        document.getElementById('secondary-password').focus();
+      }
+    });
+  }
+  const btnCloseSecModal = document.getElementById('btn-close-secondary-modal');
+  if (btnCloseSecModal) {
+    btnCloseSecModal.addEventListener('click', closeSecondaryAuthModal);
+  }
+  const btnCancelSecModal = document.getElementById('btn-cancel-secondary-modal');
+  if (btnCancelSecModal) {
+    btnCancelSecModal.addEventListener('click', closeSecondaryAuthModal);
+  }
 }
 
 // --- 일정/팀원 필터링 연산 ---
@@ -953,7 +983,18 @@ function navigateCalendar(direction) {
   renderApp();
 }
 
+let pendingView = null;
+
 function switchView(view) {
+  if (view === 'invoice' || view === 'completed') {
+    const isAuthorized = sessionStorage.getItem('secondary_auth') === 'true';
+    if (!isAuthorized) {
+      pendingView = view;
+      openSecondaryAuthModal();
+      return;
+    }
+  }
+
   state.currentView = view;
   document.getElementById('view-btn-timeline').classList.toggle('active', view === 'timeline');
   document.getElementById('view-btn-report').classList.toggle('active', view === 'report');
@@ -965,6 +1006,24 @@ function switchView(view) {
   else if (view === 'invoice') document.getElementById('main-view-title').textContent = '세금계산서 발행현황';
   else if (view === 'completed') document.getElementById('main-view-title').textContent = '프로젝트 완료 현황';
   renderApp();
+}
+
+function openSecondaryAuthModal() {
+  const modal = document.getElementById('modal-secondary-auth');
+  if (modal) {
+    document.getElementById('secondary-password').value = '';
+    document.getElementById('secondary-error-msg').style.display = 'none';
+    modal.classList.add('active');
+    setTimeout(() => {
+      document.getElementById('secondary-password').focus();
+    }, 100);
+  }
+}
+
+function closeSecondaryAuthModal() {
+  const modal = document.getElementById('modal-secondary-auth');
+  if (modal) modal.classList.remove('active');
+  pendingView = null;
 }
 
 // --- 일정 추가/수정 모달 로직 ---
@@ -1486,6 +1545,56 @@ function renderInvoiceView() {
   document.getElementById('invoice-sum-issued').textContent = sumIssued.toLocaleString() + ' 만원';
   document.getElementById('invoice-sum-unissued').textContent = (sumTotal - sumIssued).toLocaleString() + ' 만원';
 
+  // 팀원별 매출 요약 집계
+  const memberRevenues = {};
+  state.members.forEach(m => {
+    memberRevenues[m.id] = {
+      name: m.name,
+      color: m.color,
+      totalAmount: 0,
+      issuedAmount: 0
+    };
+  });
+
+  invoiceReports.forEach(report => {
+    const assignee = report.assignee;
+    if (memberRevenues[assignee]) {
+      memberRevenues[assignee].totalAmount += (Number(report.amount) || 0);
+
+      let issued = 0;
+      if (report.invoices) {
+        report.invoices.forEach(inv => {
+          if (inv.status === 'issued') {
+            issued += (Number(inv.amount) || 0);
+          }
+        });
+      }
+      memberRevenues[assignee].issuedAmount += issued;
+    }
+  });
+
+  const revenueContainer = document.getElementById('member-revenue-summary');
+  if (revenueContainer) {
+    const revenueItemsHtml = Object.values(memberRevenues)
+      .filter(m => m.totalAmount > 0)
+      .map(m => `
+        <div class="revenue-chip" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 0.5rem 0.85rem; border-radius: 20px; display: flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); font-size: 0.8rem; transition: transform 0.2s ease;">
+          <span class="reporter-dot" style="background-color: ${m.color}; margin: 0; width: 8px; height: 8px; flex-shrink: 0;"></span>
+          <span style="font-weight: 600; color: var(--text-primary);">${escapeHTML(m.name)}:</span>
+          <span style="color: var(--primary); font-weight: 700;">${m.totalAmount.toLocaleString()} 만원</span>
+          <span style="color: var(--text-muted); font-size: 0.7rem; font-weight: normal; margin-left: 0.1rem;">(발행완료: ${m.issuedAmount.toLocaleString()}만)</span>
+        </div>
+      `).join('');
+
+    if (revenueItemsHtml) {
+      revenueContainer.innerHTML = revenueItemsHtml;
+      revenueContainer.style.display = 'flex';
+    } else {
+      revenueContainer.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); padding: 0.25rem 0.5rem;">선택 기간 내 매출 내역이 존재하지 않습니다.</span>`;
+      revenueContainer.style.display = 'flex';
+    }
+  }
+
   invoiceReports.sort((a, b) => b.endDate.localeCompare(a.endDate));
 
   const totalItems = invoiceReports.length;
@@ -1740,7 +1849,13 @@ function updateYearFilterDropdown() {
   const selectInvoice = document.getElementById('filter-invoice-year');
   if (selectInvoice) {
     const currentSelected = state.filters.invoiceYear;
-    const years = [...new Set(state.reports.map(r => r.startDate ? r.startDate.substring(0, 4) : null).filter(y => y))].sort((a, b) => b.localeCompare(a));
+    let years = [...new Set(state.reports.map(r => r.startDate ? r.startDate.substring(0, 4) : null).filter(y => y))];
+    const currentYear = new Date().getFullYear().toString();
+    if (!years.includes(currentYear)) {
+      years.push(currentYear);
+    }
+    years.sort((a, b) => b.localeCompare(a));
+
     selectInvoice.innerHTML = '<option value="all">전체 연도</option>';
     years.forEach(year => {
       const opt = document.createElement('option');
