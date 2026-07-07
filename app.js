@@ -245,48 +245,49 @@ function setupLogin() {
   const passwordInput = document.getElementById('login-password');
   const errorMsg = document.getElementById('login-error-msg');
 
-  // 로그인 상태 확인 (세션스토리지)
-  const isLoggedIn = sessionStorage.getItem('is_logged_in') === 'true';
+  // 실시간 파이어베이스 인증 상태 감지 리스너 등록
+  firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+      sessionStorage.setItem('is_logged_in', 'true');
+      sessionStorage.setItem('logged_in_user', user.email);
 
-  if (isLoggedIn) {
-    if (loginContainer) loginContainer.style.display = 'none';
-    if (appContainer) appContainer.style.display = 'flex';
-    setupEventListeners();
-    listenToFirebaseRealtime();
-  } else {
-    if (loginContainer) loginContainer.style.display = 'flex';
-    if (appContainer) appContainer.style.display = 'none';
+      if (loginContainer) loginContainer.style.display = 'none';
+      if (appContainer) appContainer.style.display = 'flex';
 
-    if (loginForm) {
-      loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const username = usernameInput.value.trim();
-        const password = passwordInput.value;
+      setupEventListeners();
+      listenToFirebaseRealtime();
+    } else {
+      sessionStorage.removeItem('is_logged_in');
+      sessionStorage.removeItem('logged_in_user');
+      sessionStorage.removeItem('secondary_auth');
 
-        // 🟢 [보안 완벽 적용] 파이어베이스가 원격 클라우드에서 직접 이메일/비밀번호 검증
-        firebase.auth().signInWithEmailAndPassword(username, password)
-          .then((userCredential) => {
-            // 로그인 성공 시 세션스토리지에 인증 플래그 및 사용자 계정명 저장
-            sessionStorage.setItem('is_logged_in', 'true');
-            sessionStorage.setItem('logged_in_user', username); // 👈 팩트: 누락되었던 핵심 정보 복원 완료!
-
-            if (loginContainer) loginContainer.style.display = 'none';
-            if (appContainer) appContainer.style.display = 'flex';
-
-            setupEventListeners();
-            listenToFirebaseRealtime();
-            showToast('CAE파트 일정 관리 시스템에 오신 것을 환영합니다.');
-          })
-          .catch((error) => {
-            // 로그인 실패 시 에러 처리 (아이디/비번이 다르거나 파이어베이스에 미등록된 계정일 때)
-            console.error("Firebase Auth Error:", error.code, error.message);
-            errorMsg.textContent = '아이디 또는 비밀번호가 일치하지 않습니다.';
-            errorMsg.style.display = 'block';
-            passwordInput.value = '';
-            passwordInput.focus();
-          });
-      });
+      if (loginContainer) loginContainer.style.display = 'flex';
+      if (appContainer) appContainer.style.display = 'none';
     }
+  });
+
+  if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+
+      // 세션 지속성 설정 후 로그인 시도 (창 닫으면 자동 로그아웃)
+      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.SESSION)
+        .then(() => {
+          return firebase.auth().signInWithEmailAndPassword(username, password);
+        })
+        .then((userCredential) => {
+          showToast('CAE파트 일정 관리 시스템에 오신 것을 환영합니다.');
+        })
+        .catch((error) => {
+          console.error("Firebase Auth Error:", error.code, error.message);
+          errorMsg.textContent = '아이디 또는 비밀번호가 일치하지 않습니다.';
+          errorMsg.style.display = 'block';
+          passwordInput.value = '';
+          passwordInput.focus();
+        });
+    });
   }
 }
 
