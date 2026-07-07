@@ -2,10 +2,10 @@
 // 1. 파이어베이스 초기화 및 설정 (보내주신 비밀키 적용)
 // ==========================================
 const firebaseConfig = {
-  apiKey: "AIzaSyCyO308QCoCoFFm61pntZBlm34Ynvr1Rxs",
+  apiKey: "AIzaSyCyO3O8QCoCoFFm61pntZBlm34Ynvr1Rxs",
   authDomain: "team-scheduler-86b2f.firebaseapp.com",
   projectId: "team-scheduler-86b2f",
-  storageBucket: "team-scheduler-86b2f.appspot.com",
+  storageBucket: "team-scheduler-86b2f.firebasestorage.app",
   messagingSenderId: "542881484318",
   appId: "1:542881484318:web:758073989c1355a898680f",
   measurementId: "G-5Z9WNMY6T4"
