@@ -1543,7 +1543,11 @@ function renderInvoiceView() {
       });
     }
 
-    if (targetYear === 'all' || hasInvoiceInTargetYear) {
+    const projStartYear = report.startDate ? report.startDate.substring(0, 4) : '';
+    const projEndYear = report.endDate ? report.endDate.substring(0, 4) : '';
+    const isProjectInTargetYear = (projStartYear === targetYear || projEndYear === targetYear);
+
+    if (targetYear === 'all' || hasInvoiceInTargetYear || isProjectInTargetYear) {
       sumTotal += (Number(report.amount) || 0);
       report._currentYearIssued = projectIssuedSumInTargetYear;
 
@@ -1572,15 +1576,19 @@ function renderInvoiceView() {
     }
   });
 
+  const summaryCardsContainer = document.querySelector('.invoice-summary-cards');
   const loggedInUser = sessionStorage.getItem('logged_in_user');
   if (loggedInUser === 'whjung@dnde.co.kr') {
+    if (summaryCardsContainer) {
+      summaryCardsContainer.style.display = 'flex';
+    }
     document.getElementById('invoice-sum-total').textContent = sumTotal.toLocaleString() + ' 만원';
     document.getElementById('invoice-sum-issued').textContent = sumIssued.toLocaleString() + ' 만원';
     document.getElementById('invoice-sum-unissued').textContent = (sumTotal - sumIssued).toLocaleString() + ' 만원';
   } else {
-    document.getElementById('invoice-sum-total').textContent = '권한 없음';
-    document.getElementById('invoice-sum-issued').textContent = '권한 없음';
-    document.getElementById('invoice-sum-unissued').textContent = '권한 없음';
+    if (summaryCardsContainer) {
+      summaryCardsContainer.style.display = 'none';
+    }
   }
 
   // 팀원별 매출 요약 집계
