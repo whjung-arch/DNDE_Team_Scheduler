@@ -215,7 +215,7 @@ const state = {
     endDate: '',
     client: 'all',
     invoiceYear: new Date().getFullYear().toString(),
-    completedYear: 'all',
+    completedYear: new Date().getFullYear().toString(),
     reportAssignee: 'all',
     invoiceStatus: 'all'
   },
@@ -1947,7 +1947,13 @@ function updateYearFilterDropdown() {
   const selectCompleted = document.getElementById('filter-completed-year');
   if (selectCompleted) {
     const currentSelected = state.filters.completedYear;
-    const years = [...new Set(state.reports.filter(r => r.finalCompleted).map(r => r.startDate ? r.startDate.substring(0, 4) : null).filter(y => y))].sort((a, b) => b.localeCompare(a));
+    let years = [...new Set(state.reports.filter(r => r.finalCompleted).map(r => r.startDate ? r.startDate.substring(0, 4) : null).filter(y => y))];
+    const currentYear = new Date().getFullYear().toString();
+    if (!years.includes(currentYear)) {
+      years.push(currentYear);
+    }
+    years.sort((a, b) => b.localeCompare(a));
+
     selectCompleted.innerHTML = '<option value="all">전체 연도</option>';
     years.forEach(year => {
       const opt = document.createElement('option');
