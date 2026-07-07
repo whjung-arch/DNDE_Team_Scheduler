@@ -627,7 +627,8 @@ function getFilteredEvents() {
   return state.events.filter(event => {
     if (state.filters.category !== 'all' && event.category !== state.filters.category) return false;
     if (state.filters.priority !== 'all' && event.priority !== state.filters.priority) return false;
-    if (!state.filters.memberIds.includes(event.assignee)) return false;
+    const isAssigneeExist = state.members.some(m => m.id === event.assignee);
+    if (isAssigneeExist && !state.filters.memberIds.includes(event.assignee)) return false;
     if (state.filters.startDate && event.endDate < state.filters.startDate) return false;
     if (state.filters.endDate && event.startDate > state.filters.endDate) return false;
     if (state.filters.client !== 'all') {
@@ -1211,20 +1212,14 @@ function handleDeleteMember() {
   const id = document.getElementById('member-id').value;
   if (!id) return;
 
-  const hasEvents = state.events.some(e => e.assignee === id);
-  const hasReports = state.reports.some(r => r.assignee === id);
-  const warningMsg = (hasEvents || hasReports) ? '배정된 데이터가 있습니다. 함께 삭제하시겠습니까?' : '정말 이 팀원을 삭제하시겠습니까?';
+  const warningMsg = '정말 이 팀원을 삭제하시겠습니까? (이 팀원 목록에서만 지워지며, 기존에 배정된 일정 및 주간보고 내역은 그대로 유지됩니다)';
 
   if (confirm(warningMsg)) {
-    // 실시간 공유 연동성을 위해 배치 작업 처리
     const batch = db.batch();
     batch.delete(db.collection("members").doc(id));
 
-    state.events.forEach(e => { if (e.assignee === id) batch.delete(db.collection("events").doc(e.id)); });
-    state.reports.forEach(r => { if (r.assignee === id) batch.delete(db.collection("reports").doc(r.id)); });
-
     batch.commit().then(() => {
-      showToast('팀원 정보 및 배정 일정이 일괄 파기되었습니다.');
+      showToast('팀원 정보가 삭제되었습니다.');
       closeMemberModal();
     });
   }
@@ -1250,7 +1245,8 @@ function renderReportView() {
 
   const filteredReports = state.reports.filter(report => {
     if (report.finalCompleted) return false;
-    if (!state.filters.memberIds.includes(report.assignee)) return false;
+    const isAssigneeExist = state.members.some(m => m.id === report.assignee);
+    if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
     if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
     if (state.filters.endDate && report.startDate > state.filters.endDate) return false;
     if (state.filters.client !== 'all' && report.client !== state.filters.client) return false;
@@ -1491,7 +1487,8 @@ function renderInvoiceView() {
 
   state.reports.forEach(report => {
     if (report.status !== 'completed' && report.status !== 'ongoing') return;
-    if (!state.filters.memberIds.includes(report.assignee)) return;
+    const isAssigneeExist = state.members.some(m => m.id === report.assignee);
+    if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return;
     if (state.filters.startDate && report.endDate < state.filters.startDate) return;
     if (state.filters.endDate && report.startDate > state.filters.endDate) return;
     if (state.filters.client !== 'all' && report.client !== state.filters.client) return;
@@ -1761,7 +1758,8 @@ function renderCompletedProjectsView() {
 
   const filteredReports = state.reports.filter(report => {
     if (!report.finalCompleted) return false;
-    if (!state.filters.memberIds.includes(report.assignee)) return false;
+    const isAssigneeExist = state.members.some(m => m.id === report.assignee);
+    if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
     if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
     if (state.filters.endDate && report.startDate > state.filters.endDate) return false;
     if (state.filters.client !== 'all' && report.client !== state.filters.client) return false;
