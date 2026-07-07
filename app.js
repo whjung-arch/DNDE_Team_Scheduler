@@ -263,159 +263,167 @@ function setupLogin() {
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
 
-        if (username === 'dnde' && password === 'dnde0co0kr') {
-          sessionStorage.setItem('is_logged_in', 'true');
-          if (loginContainer) loginContainer.style.display = 'none';
-          if (appContainer) appContainer.style.display = 'flex';
-          setupEventListeners();
-          listenToFirebaseRealtime();
-          showToast('CAE파트 일정 관리 시스템에 오신 것을 환영합니다.');
-        } else {
-          errorMsg.textContent = '아이디 또는 비밀번호가 일치하지 않습니다.';
-          errorMsg.style.display = 'block';
-          passwordInput.value = '';
-          passwordInput.focus();
-        }
+        // 🟢 [보안 완벽 적용] 파이어베이스가 원격 클라우드에서 직접 이메일/비밀번호 검증
+        firebase.auth().signInWithEmailAndPassword(username, password)
+          .then((userCredential) => {
+            // 로그인 성공 시 세션스토리지에 인증 플래그 및 사용자 계정명 저장
+            sessionStorage.setItem('is_logged_in', 'true');
+            sessionStorage.setItem('logged_in_user', username); // 👈 팩트: 누락되었던 핵심 정보 복원 완료!
+
+            if (loginContainer) loginContainer.style.display = 'none';
+            if (appContainer) appContainer.style.display = 'flex';
+
+            setupEventListeners();
+            listenToFirebaseRealtime();
+            showToast('CAE파트 일정 관리 시스템에 오신 것을 환영합니다.');
+          })
+          .catch((error) => {
+            // 로그인 실패 시 에러 처리 (아이디/비번이 다르거나 파이어베이스에 미등록된 계정일 때)
+            console.error("Firebase Auth Error:", error.code, error.message);
+            errorMsg.textContent = '아이디 또는 비밀번호가 일치하지 않습니다.';
+            errorMsg.style.display = 'block';
+            passwordInput.value = '';
+            passwordInput.focus();
+          });
       });
     }
   }
-}
 
-// ==========================================
-// 2. 파이어베이스 실시간 데이터 동기화 리스너
-// ==========================================
-function listenToFirebaseRealtime() {
-  let loadedCollections = 0;
+  // ==========================================
+  // 2. 파이어베이스 실시간 데이터 동기화 리스너
+  // ==========================================
+  function listenToFirebaseRealtime() {
+    let loadedCollections = 0;
 
-  function checkAndRender() {
-    loadedCollections++;
-    if (loadedCollections >= 3) {
-      // 테마는 UI 설정이므로 로컬 유지
-      state.theme = localStorage.getItem('ts_theme') || 'light';
-      document.documentElement.setAttribute('data-theme', state.theme);
+    function checkAndRender() {
+      loadedCollections++;
+      if (loadedCollections >= 3) {
+        // 테마는 UI 설정이므로 로컬 유지
+        state.theme = localStorage.getItem('ts_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', state.theme);
 
-      // 첫 로드 때 멤버가 한 명도 없다면(최초 설치) 초기 데모 데이터를 집어넣음
-      if (state.members.length === 0) {
-        initializeDemoDataToFirebase();
-      } else {
-        // 멤버가 있다면 필터 활성화
-        if (state.filters.memberIds.length === 0) {
-          state.filters.memberIds = state.members.map(m => m.id);
+        // 첫 로드 때 멤버가 한 명도 없다면(최초 설치) 초기 데모 데이터를 집어넣음
+        if (state.members.length === 0) {
+          initializeDemoDataToFirebase();
+        } else {
+          // 멤버가 있다면 필터 활성화
+          if (state.filters.memberIds.length === 0) {
+            state.filters.memberIds = state.members.map(m => m.id);
+          }
+          renderApp();
         }
-        renderApp();
       }
     }
+
+    // A. 멤버 데이터 실시간 감지
+    db.collection("members").onSnapshot((snapshot) => {
+      const members = [];
+      snapshot.forEach((doc) => members.push(doc.data()));
+      state.members = members;
+      if (loadedCollections < 3) checkAndRender(); else renderApp();
+    });
+
+    // B. 일정 데이터 실시간 감지
+    db.collection("events").onSnapshot((snapshot) => {
+      const events = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (!data.assigneeName && data.assignee) {
+          const m = state.members.find(member => member.id === data.assignee);
+          if (m) data.assigneeName = m.name;
+        }
+        events.push(data);
+      });
+      state.events = events;
+      if (loadedCollections < 3) checkAndRender(); else renderApp();
+    });
+
+    // C. 프로젝트/주간보고 데이터 실시간 감지
+    db.collection("reports").onSnapshot((snapshot) => {
+      const reports = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (!data.assigneeName && data.assignee) {
+          const m = state.members.find(member => member.id === data.assignee);
+          if (m) data.assigneeName = m.name;
+        }
+        // 계산서 회차 마이그레이션 보정
+        if (!data.invoices || !Array.isArray(data.invoices) || data.invoices.length < 5) {
+          const invoices = [];
+          invoices.push({
+            status: data.invoiceStatus || 'unissued',
+            amount: data.invoiceStatus === 'issued' ? (Number(data.amount) || 0) : 0,
+            date: data.invoiceDate || ''
+          });
+          for (let i = 1; i < 5; i++) {
+            invoices.push({ status: 'unissued', amount: 0, date: '' });
+          }
+          data.invoices = invoices;
+        }
+        reports.push(data);
+      });
+      state.reports = reports;
+      if (loadedCollections < 3) checkAndRender(); else renderApp();
+    });
   }
 
-  // A. 멤버 데이터 실시간 감지
-  db.collection("members").onSnapshot((snapshot) => {
-    const members = [];
-    snapshot.forEach((doc) => members.push(doc.data()));
-    state.members = members;
-    if (loadedCollections < 3) checkAndRender(); else renderApp();
-  });
+  // 최초 구동 시 클라우드 서버에 데모 데이터 심어주는 함수
+  function initializeDemoDataToFirebase() {
+    showToast("서버에 데모 데이터를 생성하고 있습니다...");
 
-  // B. 일정 데이터 실시간 감지
-  db.collection("events").onSnapshot((snapshot) => {
-    const events = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      if (!data.assigneeName && data.assignee) {
-        const m = state.members.find(member => member.id === data.assignee);
-        if (m) data.assigneeName = m.name;
-      }
-      events.push(data);
+    const batch = db.batch();
+
+    DEFAULT_MEMBERS.forEach(m => {
+      const ref = db.collection("members").doc(m.id);
+      batch.set(ref, m);
     });
-    state.events = events;
-    if (loadedCollections < 3) checkAndRender(); else renderApp();
-  });
 
-  // C. 프로젝트/주간보고 데이터 실시간 감지
-  db.collection("reports").onSnapshot((snapshot) => {
-    const reports = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      if (!data.assigneeName && data.assignee) {
-        const m = state.members.find(member => member.id === data.assignee);
-        if (m) data.assigneeName = m.name;
-      }
-      // 계산서 회차 마이그레이션 보정
-      if (!data.invoices || !Array.isArray(data.invoices) || data.invoices.length < 5) {
-        const invoices = [];
-        invoices.push({
-          status: data.invoiceStatus || 'unissued',
-          amount: data.invoiceStatus === 'issued' ? (Number(data.amount) || 0) : 0,
-          date: data.invoiceDate || ''
-        });
-        for (let i = 1; i < 5; i++) {
-          invoices.push({ status: 'unissued', amount: 0, date: '' });
-        }
-        data.invoices = invoices;
-      }
-      reports.push(data);
+    getDemoEvents().forEach(e => {
+      const ref = db.collection("events").doc(e.id);
+      batch.set(ref, e);
     });
-    state.reports = reports;
-    if (loadedCollections < 3) checkAndRender(); else renderApp();
-  });
-}
 
-// 최초 구동 시 클라우드 서버에 데모 데이터 심어주는 함수
-function initializeDemoDataToFirebase() {
-  showToast("서버에 데모 데이터를 생성하고 있습니다...");
+    getDemoReports().forEach(r => {
+      // 5차 계산서 데이터 초기화 보정
+      const invoices = [{ status: r.invoiceStatus || 'unissued', amount: r.invoiceStatus === 'issued' ? Number(r.amount) : 0, date: r.invoiceDate || '' }];
+      for (let i = 1; i < 5; i++) invoices.push({ status: 'unissued', amount: 0, date: '' });
+      r.invoices = invoices;
 
-  const batch = db.batch();
+      const ref = db.collection("reports").doc(r.id);
+      batch.set(ref, r);
+    });
 
-  DEFAULT_MEMBERS.forEach(m => {
-    const ref = db.collection("members").doc(m.id);
-    batch.set(ref, m);
-  });
+    batch.commit().then(() => {
+      showToast("초기 데이터 구축이 완료되었습니다.");
+    });
+  }
 
-  getDemoEvents().forEach(e => {
-    const ref = db.collection("events").doc(e.id);
-    batch.set(ref, e);
-  });
+  // 기존 saveData는 로컬에 임시 세이브 및 에이전트 동기화만 유지
+  function saveData() {
+    localStorage.setItem('ts_members', JSON.stringify(state.members));
+    localStorage.setItem('ts_events', JSON.stringify(state.events));
+    localStorage.setItem('ts_reports', JSON.stringify(state.reports));
+  }
 
-  getDemoReports().forEach(r => {
-    // 5차 계산서 데이터 초기화 보정
-    const invoices = [{ status: r.invoiceStatus || 'unissued', amount: r.invoiceStatus === 'issued' ? Number(r.amount) : 0, date: r.invoiceDate || '' }];
-    for (let i = 1; i < 5; i++) invoices.push({ status: 'unissued', amount: 0, date: '' });
-    r.invoices = invoices;
+  // --- 테마 설정 ---
+  function initTheme() {
+    state.theme = localStorage.getItem('ts_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', state.theme);
+    renderThemeIndicator();
+  }
 
-    const ref = db.collection("reports").doc(r.id);
-    batch.set(ref, r);
-  });
-
-  batch.commit().then(() => {
-    showToast("초기 데이터 구축이 완료되었습니다.");
-  });
-}
-
-// 기존 saveData는 로컬에 임시 세이브 및 에이전트 동기화만 유지
-function saveData() {
-  localStorage.setItem('ts_members', JSON.stringify(state.members));
-  localStorage.setItem('ts_events', JSON.stringify(state.events));
-  localStorage.setItem('ts_reports', JSON.stringify(state.reports));
-}
-
-// --- 테마 설정 ---
-function initTheme() {
-  state.theme = localStorage.getItem('ts_theme') || 'light';
-  document.documentElement.setAttribute('data-theme', state.theme);
-  renderThemeIndicator();
-}
-
-function renderThemeIndicator() {
-  const indicator = document.getElementById('theme-indicator');
-  if (!indicator) return;
-  if (state.theme === 'dark') {
-    indicator.innerHTML = `
+  function renderThemeIndicator() {
+    const indicator = document.getElementById('theme-indicator');
+    if (!indicator) return;
+    if (state.theme === 'dark') {
+      indicator.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
       </svg>
       다크
     `;
-  } else {
-    indicator.innerHTML = `
+    } else {
+      indicator.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="5"></circle>
         <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -429,340 +437,346 @@ function renderThemeIndicator() {
       </svg>
       라이트
     `;
+    }
   }
-}
 
-function toggleTheme() {
-  state.theme = state.theme === 'light' ? 'dark' : 'light';
-  localStorage.setItem('ts_theme', state.theme);
-  document.documentElement.setAttribute('data-theme', state.theme);
-  renderThemeIndicator();
-  showToast(`${state.theme === 'light' ? '라이트' : '다크'} 모드로 변경되었습니다.`);
-}
+  function toggleTheme() {
+    state.theme = state.theme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('ts_theme', state.theme);
+    document.documentElement.setAttribute('data-theme', state.theme);
+    renderThemeIndicator();
+    showToast(`${state.theme === 'light' ? '라이트' : '다크'} 모드로 변경되었습니다.`);
+  }
 
-// --- 이벤트 리스너 설정 ---
-function setupEventListeners() {
-  document.getElementById('theme-toggle-btn').addEventListener('click', toggleTheme);
+  // --- 이벤트 리스너 설정 ---
+  function setupEventListeners() {
+    document.getElementById('theme-toggle-btn').addEventListener('click', toggleTheme);
 
-  document.getElementById('view-btn-timeline').addEventListener('click', () => switchView('timeline'));
-  document.getElementById('view-btn-report').addEventListener('click', () => switchView('report'));
-  document.getElementById('view-btn-invoice').addEventListener('click', () => switchView('invoice'));
-  document.getElementById('view-btn-completed').addEventListener('click', () => switchView('completed'));
+    document.getElementById('view-btn-timeline').addEventListener('click', () => switchView('timeline'));
+    document.getElementById('view-btn-report').addEventListener('click', () => switchView('report'));
+    document.getElementById('view-btn-invoice').addEventListener('click', () => switchView('invoice'));
+    document.getElementById('view-btn-completed').addEventListener('click', () => switchView('completed'));
 
-  document.getElementById('filter-start-date').addEventListener('change', (e) => {
-    state.filters.startDate = e.target.value;
-    resetPaginationPages();
-    renderApp();
-  });
-
-  document.getElementById('filter-end-date').addEventListener('change', (e) => {
-    state.filters.endDate = e.target.value;
-    resetPaginationPages();
-    renderApp();
-  });
-
-  document.getElementById('btn-clear-date-filter').addEventListener('click', () => {
-    state.filters.startDate = '';
-    state.filters.endDate = '';
-    document.getElementById('filter-start-date').value = '';
-    document.getElementById('filter-end-date').value = '';
-    resetPaginationPages();
-    renderApp();
-  });
-
-  document.getElementById('filter-client').addEventListener('change', (e) => {
-    state.filters.client = e.target.value;
-    resetPaginationPages();
-    renderApp();
-  });
-
-  document.getElementById('filter-invoice-year').addEventListener('change', (e) => {
-    state.filters.invoiceYear = e.target.value;
-    resetPaginationPages();
-    renderApp();
-  });
-
-  // 팀원 전체 선택 / 전체 해제 리스너
-  const btnSelectAll = document.getElementById('btn-select-all-members');
-  if (btnSelectAll) {
-    btnSelectAll.addEventListener('click', () => {
-      state.filters.memberIds = state.members.map(m => m.id);
+    document.getElementById('filter-start-date').addEventListener('change', (e) => {
+      state.filters.startDate = e.target.value;
       resetPaginationPages();
       renderApp();
     });
-  }
 
-  const btnDeselectAll = document.getElementById('btn-deselect-all-members');
-  if (btnDeselectAll) {
-    btnDeselectAll.addEventListener('click', () => {
-      state.filters.memberIds = [];
+    document.getElementById('filter-end-date').addEventListener('change', (e) => {
+      state.filters.endDate = e.target.value;
       resetPaginationPages();
       renderApp();
     });
-  }
 
-  // 세금계산서 구분 탭 리스너 등록
-  const invoiceTabContainer = document.querySelector('.invoice-tab-container');
-  if (invoiceTabContainer) {
-    invoiceTabContainer.addEventListener('click', (e) => {
-      const btn = e.target.closest('.invoice-tab-btn');
-      if (!btn) return;
-
-      // 탭 active 클래스 토글
-      invoiceTabContainer.querySelectorAll('.invoice-tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      // 필터 상태 업데이트 및 렌더링
-      state.filters.invoiceStatus = btn.dataset.status;
-      state.pagination.invoice.currentPage = 1;
+    document.getElementById('btn-clear-date-filter').addEventListener('click', () => {
+      state.filters.startDate = '';
+      state.filters.endDate = '';
+      document.getElementById('filter-start-date').value = '';
+      document.getElementById('filter-end-date').value = '';
+      resetPaginationPages();
       renderApp();
     });
-  }
 
-  const btnAddInvoiceProj = document.getElementById('btn-add-invoice-project');
-  if (btnAddInvoiceProj) {
-    btnAddInvoiceProj.addEventListener('click', () => {
-      openReportModal();
-    });
-  }
-
-  document.getElementById('filter-completed-year').addEventListener('change', (e) => {
-    state.filters.completedYear = e.target.value;
-    resetPaginationPages();
-    renderApp();
-  });
-
-  const selectReportAssignee = document.getElementById('filter-report-assignee');
-  if (selectReportAssignee) {
-    selectReportAssignee.addEventListener('change', (e) => {
-      state.filters.reportAssignee = e.target.value;
-      state.pagination.report.currentPage = 1;
+    document.getElementById('filter-client').addEventListener('change', (e) => {
+      state.filters.client = e.target.value;
+      resetPaginationPages();
       renderApp();
     });
-  }
 
-  document.getElementById('btn-cal-prev').addEventListener('click', () => navigateCalendar(-1));
-  document.getElementById('btn-cal-next').addEventListener('click', () => navigateCalendar(1));
-  document.getElementById('btn-cal-today').addEventListener('click', () => {
-    state.currentDate = new Date();
-    renderApp();
-  });
+    document.getElementById('filter-invoice-year').addEventListener('change', (e) => {
+      state.filters.invoiceYear = e.target.value;
+      resetPaginationPages();
+      renderApp();
+    });
 
-  const scaleContainer = document.getElementById('timeline-scale-container');
-  if (scaleContainer) {
-    const scaleBtns = scaleContainer.querySelectorAll('.scale-btn');
-    scaleBtns.forEach(btn => {
+    // 팀원 전체 선택 / 전체 해제 리스너
+    const btnSelectAll = document.getElementById('btn-select-all-members');
+    if (btnSelectAll) {
+      btnSelectAll.addEventListener('click', () => {
+        state.filters.memberIds = state.members.map(m => m.id);
+        resetPaginationPages();
+        renderApp();
+      });
+    }
+
+    const btnDeselectAll = document.getElementById('btn-deselect-all-members');
+    if (btnDeselectAll) {
+      btnDeselectAll.addEventListener('click', () => {
+        state.filters.memberIds = [];
+        resetPaginationPages();
+        renderApp();
+      });
+    }
+
+    // 세금계산서 구분 탭 리스너 등록
+    const invoiceTabContainer = document.querySelector('.invoice-tab-container');
+    if (invoiceTabContainer) {
+      invoiceTabContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.invoice-tab-btn');
+        if (!btn) return;
+
+        // 탭 active 클래스 토글
+        invoiceTabContainer.querySelectorAll('.invoice-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // 필터 상태 업데이트 및 렌더링
+        state.filters.invoiceStatus = btn.dataset.status;
+        state.pagination.invoice.currentPage = 1;
+        renderApp();
+      });
+    }
+
+    const btnAddInvoiceProj = document.getElementById('btn-add-invoice-project');
+    if (btnAddInvoiceProj) {
+      btnAddInvoiceProj.addEventListener('click', () => {
+        openReportModal();
+      });
+    }
+
+    document.getElementById('filter-completed-year').addEventListener('change', (e) => {
+      state.filters.completedYear = e.target.value;
+      resetPaginationPages();
+      renderApp();
+    });
+
+    const selectReportAssignee = document.getElementById('filter-report-assignee');
+    if (selectReportAssignee) {
+      selectReportAssignee.addEventListener('change', (e) => {
+        state.filters.reportAssignee = e.target.value;
+        state.pagination.report.currentPage = 1;
+        renderApp();
+      });
+    }
+
+    document.getElementById('btn-cal-prev').addEventListener('click', () => navigateCalendar(-1));
+    document.getElementById('btn-cal-next').addEventListener('click', () => navigateCalendar(1));
+    document.getElementById('btn-cal-today').addEventListener('click', () => {
+      state.currentDate = new Date();
+      renderApp();
+    });
+
+    const scaleContainer = document.getElementById('timeline-scale-container');
+    if (scaleContainer) {
+      const scaleBtns = scaleContainer.querySelectorAll('.scale-btn');
+      scaleBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          scaleBtns.forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          state.timelineScale = e.target.dataset.scale;
+          renderApp();
+        });
+      });
+    }
+
+    const priorityFilters = document.getElementById('priority-filter-container').querySelectorAll('.filter-tag');
+    priorityFilters.forEach(btn => {
       btn.addEventListener('click', (e) => {
-        scaleBtns.forEach(b => b.classList.remove('active'));
+        priorityFilters.forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
-        state.timelineScale = e.target.dataset.scale;
+        state.filters.priority = e.target.dataset.priority;
+        resetPaginationPages();
         renderApp();
       });
     });
-  }
 
-  const priorityFilters = document.getElementById('priority-filter-container').querySelectorAll('.filter-tag');
-  priorityFilters.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      priorityFilters.forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      state.filters.priority = e.target.dataset.priority;
-      resetPaginationPages();
-      renderApp();
+    document.getElementById('btn-add-event').addEventListener('click', () => openEventModal());
+    document.getElementById('btn-close-event-modal').addEventListener('click', closeEventModal);
+    document.getElementById('btn-cancel-event-modal').addEventListener('click', closeEventModal);
+    document.getElementById('form-event').addEventListener('submit', handleEventSubmit);
+    document.getElementById('btn-delete-event').addEventListener('click', handleDeleteEvent);
+
+    document.getElementById('btn-add-member').addEventListener('click', () => openMemberModal());
+    document.getElementById('btn-close-member-modal').addEventListener('click', closeMemberModal);
+    document.getElementById('btn-cancel-member-modal').addEventListener('click', closeMemberModal);
+    document.getElementById('form-member').addEventListener('submit', handleMemberSubmit);
+    document.getElementById('btn-delete-member').addEventListener('click', handleDeleteMember);
+
+    document.getElementById('btn-add-report').addEventListener('click', () => openReportModal());
+    document.getElementById('btn-close-report-modal').addEventListener('click', closeReportModal);
+    document.getElementById('btn-cancel-report-modal').addEventListener('click', closeReportModal);
+    document.getElementById('form-report').addEventListener('submit', handleReportSubmit);
+    document.getElementById('btn-delete-report').addEventListener('click', handleDeleteReport);
+    document.getElementById('btn-complete-report').addEventListener('click', handleProjectComplete);
+
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle-btn');
+    const overlay = document.getElementById('sidebar-overlay');
+
+    sidebarToggle.addEventListener('click', () => {
+      sidebar.classList.add('active');
     });
-  });
 
-  document.getElementById('btn-add-event').addEventListener('click', () => openEventModal());
-  document.getElementById('btn-close-event-modal').addEventListener('click', closeEventModal);
-  document.getElementById('btn-cancel-event-modal').addEventListener('click', closeEventModal);
-  document.getElementById('form-event').addEventListener('submit', handleEventSubmit);
-  document.getElementById('btn-delete-event').addEventListener('click', handleDeleteEvent);
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('active');
+    });
 
-  document.getElementById('btn-add-member').addEventListener('click', () => openMemberModal());
-  document.getElementById('btn-close-member-modal').addEventListener('click', closeMemberModal);
-  document.getElementById('btn-cancel-member-modal').addEventListener('click', closeMemberModal);
-  document.getElementById('form-member').addEventListener('submit', handleMemberSubmit);
-  document.getElementById('btn-delete-member').addEventListener('click', handleDeleteMember);
+    document.getElementById('btn-export').addEventListener('click', exportData);
 
-  document.getElementById('btn-add-report').addEventListener('click', () => openReportModal());
-  document.getElementById('btn-close-report-modal').addEventListener('click', closeReportModal);
-  document.getElementById('btn-cancel-report-modal').addEventListener('click', closeReportModal);
-  document.getElementById('form-report').addEventListener('submit', handleReportSubmit);
-  document.getElementById('btn-delete-report').addEventListener('click', handleDeleteReport);
-  document.getElementById('btn-complete-report').addEventListener('click', handleProjectComplete);
+    const importTrigger = document.getElementById('btn-import-trigger');
+    const fileImport = document.getElementById('file-import');
+    importTrigger.addEventListener('click', () => fileImport.click());
+    fileImport.addEventListener('change', importData);
 
-  const sidebar = document.getElementById('sidebar');
-  const sidebarToggle = document.getElementById('sidebar-toggle-btn');
-  const overlay = document.getElementById('sidebar-overlay');
+    document.getElementById('btn-reset').addEventListener('click', resetData);
 
-  sidebarToggle.addEventListener('click', () => {
-    sidebar.classList.add('active');
-  });
-
-  overlay.addEventListener('click', () => {
-    sidebar.classList.remove('active');
-  });
-
-  document.getElementById('btn-export').addEventListener('click', exportData);
-
-  const importTrigger = document.getElementById('btn-import-trigger');
-  const fileImport = document.getElementById('file-import');
-  importTrigger.addEventListener('click', () => fileImport.click());
-  fileImport.addEventListener('change', importData);
-
-  document.getElementById('btn-reset').addEventListener('click', resetData);
-
-  // 2차 패스워드 확인 모달 리스너
-  const formSecondary = document.getElementById('form-secondary-auth');
-  if (formSecondary) {
-    formSecondary.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const password = document.getElementById('secondary-password').value;
-      if (password === 'Qkqfkaus21!') {
-        sessionStorage.setItem('secondary_auth', 'true');
-        closeSecondaryAuthModal();
-        if (pendingView) {
-          switchView(pendingView);
+    // 2차 패스워드 확인 모달 리스너
+    const formSecondary = document.getElementById('form-secondary-auth');
+    if (formSecondary) {
+      formSecondary.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const loggedInUser = sessionStorage.getItem('logged_in_user');
+        if (loggedInUser !== 'whjung@dnde.co.kr') {
+          alert('whjung@dnde.co.kr 계정만 접근 권한이 있습니다.');
+          closeSecondaryAuthModal();
+          return;
         }
-      } else {
-        const errorMsg = document.getElementById('secondary-error-msg');
-        errorMsg.textContent = '2차 보안 비밀번호가 일치하지 않습니다.';
-        errorMsg.style.display = 'block';
-        document.getElementById('secondary-password').value = '';
-        document.getElementById('secondary-password').focus();
+        const password = document.getElementById('secondary-password').value;
+        if (password === 'Qkqfkaus21!') {
+          sessionStorage.setItem('secondary_auth', 'true');
+          closeSecondaryAuthModal();
+          if (pendingView) {
+            switchView(pendingView);
+          }
+        } else {
+          const errorMsg = document.getElementById('secondary-error-msg');
+          errorMsg.textContent = '2차 보안 비밀번호가 일치하지 않습니다.';
+          errorMsg.style.display = 'block';
+          document.getElementById('secondary-password').value = '';
+          document.getElementById('secondary-password').focus();
+        }
+      });
+    }
+    const btnCloseSecModal = document.getElementById('btn-close-secondary-modal');
+    if (btnCloseSecModal) {
+      btnCloseSecModal.addEventListener('click', closeSecondaryAuthModal);
+    }
+    const btnCancelSecModal = document.getElementById('btn-cancel-secondary-modal');
+    if (btnCancelSecModal) {
+      btnCancelSecModal.addEventListener('click', closeSecondaryAuthModal);
+    }
+  }
+
+  // --- 일정/팀원 필터링 연산 ---
+  function getFilteredEvents() {
+    return state.events.filter(event => {
+      if (state.filters.category !== 'all' && event.category !== state.filters.category) return false;
+      if (state.filters.priority !== 'all' && event.priority !== state.filters.priority) return false;
+      const isAssigneeExist = state.members.some(m => m.id === event.assignee);
+      if (isAssigneeExist && !state.filters.memberIds.includes(event.assignee)) return false;
+      if (state.filters.startDate && event.endDate < state.filters.startDate) return false;
+      if (state.filters.endDate && event.startDate > state.filters.endDate) return false;
+      if (state.filters.client !== 'all') {
+        if (event.category === 'project') {
+          if (event.client !== state.filters.client) return false;
+        } else {
+          return false;
+        }
       }
+      return true;
     });
   }
-  const btnCloseSecModal = document.getElementById('btn-close-secondary-modal');
-  if (btnCloseSecModal) {
-    btnCloseSecModal.addEventListener('click', closeSecondaryAuthModal);
-  }
-  const btnCancelSecModal = document.getElementById('btn-cancel-secondary-modal');
-  if (btnCancelSecModal) {
-    btnCancelSecModal.addEventListener('click', closeSecondaryAuthModal);
-  }
-}
 
-// --- 일정/팀원 필터링 연산 ---
-function getFilteredEvents() {
-  return state.events.filter(event => {
-    if (state.filters.category !== 'all' && event.category !== state.filters.category) return false;
-    if (state.filters.priority !== 'all' && event.priority !== state.filters.priority) return false;
-    const isAssigneeExist = state.members.some(m => m.id === event.assignee);
-    if (isAssigneeExist && !state.filters.memberIds.includes(event.assignee)) return false;
-    if (state.filters.startDate && event.endDate < state.filters.startDate) return false;
-    if (state.filters.endDate && event.startDate > state.filters.endDate) return false;
-    if (state.filters.client !== 'all') {
-      if (event.category === 'project') {
-        if (event.client !== state.filters.client) return false;
-      } else {
-        return false;
-      }
+  // --- 전체 화면 렌더링 컨트롤러 ---
+  function renderApp() {
+    updateClientFilterDropdown();
+    updateYearFilterDropdown();
+    updateHeaderAndMeta();
+    renderSidebarMembers();
+    renderStatsBar();
+
+    const calNav = document.querySelector('.cal-nav');
+
+    if (state.currentView === 'timeline') {
+      calNav.style.display = 'flex';
+      document.getElementById('timeline-view-wrapper').style.display = 'flex';
+      document.getElementById('report-view-wrapper').style.display = 'none';
+      document.getElementById('invoice-view-wrapper').style.display = 'none';
+      document.getElementById('completed-projects-view-wrapper').style.display = 'none';
+      renderTimelineView();
+    } else if (state.currentView === 'report') {
+      calNav.style.display = 'none';
+      document.getElementById('timeline-view-wrapper').style.display = 'none';
+      document.getElementById('report-view-wrapper').style.display = 'flex';
+      document.getElementById('invoice-view-wrapper').style.display = 'none';
+      document.getElementById('completed-projects-view-wrapper').style.display = 'none';
+      renderReportView();
+    } else if (state.currentView === 'invoice') {
+      calNav.style.display = 'none';
+      document.getElementById('timeline-view-wrapper').style.display = 'none';
+      document.getElementById('report-view-wrapper').style.display = 'none';
+      document.getElementById('invoice-view-wrapper').style.display = 'flex';
+      document.getElementById('completed-projects-view-wrapper').style.display = 'none';
+      renderInvoiceView();
+    } else if (state.currentView === 'completed') {
+      calNav.style.display = 'none';
+      document.getElementById('timeline-view-wrapper').style.display = 'none';
+      document.getElementById('report-view-wrapper').style.display = 'none';
+      document.getElementById('invoice-view-wrapper').style.display = 'none';
+      document.getElementById('completed-projects-view-wrapper').style.display = 'flex';
+      renderCompletedProjectsView();
     }
-    return true;
-  });
-}
-
-// --- 전체 화면 렌더링 컨트롤러 ---
-function renderApp() {
-  updateClientFilterDropdown();
-  updateYearFilterDropdown();
-  updateHeaderAndMeta();
-  renderSidebarMembers();
-  renderStatsBar();
-
-  const calNav = document.querySelector('.cal-nav');
-
-  if (state.currentView === 'timeline') {
-    calNav.style.display = 'flex';
-    document.getElementById('timeline-view-wrapper').style.display = 'flex';
-    document.getElementById('report-view-wrapper').style.display = 'none';
-    document.getElementById('invoice-view-wrapper').style.display = 'none';
-    document.getElementById('completed-projects-view-wrapper').style.display = 'none';
-    renderTimelineView();
-  } else if (state.currentView === 'report') {
-    calNav.style.display = 'none';
-    document.getElementById('timeline-view-wrapper').style.display = 'none';
-    document.getElementById('report-view-wrapper').style.display = 'flex';
-    document.getElementById('invoice-view-wrapper').style.display = 'none';
-    document.getElementById('completed-projects-view-wrapper').style.display = 'none';
-    renderReportView();
-  } else if (state.currentView === 'invoice') {
-    calNav.style.display = 'none';
-    document.getElementById('timeline-view-wrapper').style.display = 'none';
-    document.getElementById('report-view-wrapper').style.display = 'none';
-    document.getElementById('invoice-view-wrapper').style.display = 'flex';
-    document.getElementById('completed-projects-view-wrapper').style.display = 'none';
-    renderInvoiceView();
-  } else if (state.currentView === 'completed') {
-    calNav.style.display = 'none';
-    document.getElementById('timeline-view-wrapper').style.display = 'none';
-    document.getElementById('report-view-wrapper').style.display = 'none';
-    document.getElementById('invoice-view-wrapper').style.display = 'none';
-    document.getElementById('completed-projects-view-wrapper').style.display = 'flex';
-    renderCompletedProjectsView();
-  }
-}
-
-// --- 헤더 정보 갱신 ---
-function updateHeaderAndMeta() {
-  const year = state.currentDate.getFullYear();
-  const month = state.currentDate.getMonth() + 1;
-  const date = state.currentDate.getDate();
-  const scale = state.timelineScale || 'month';
-
-  const displayRange = document.getElementById('cal-nav-display-range');
-  if (displayRange) {
-    if (scale === 'today') displayRange.textContent = `${year}년 ${month}월 ${date}일`;
-    else if (scale === 'year') displayRange.textContent = `${year}년`;
-    else displayRange.textContent = `${year}년 ${month}월`;
   }
 
-  const today = new Date();
-  const daysKR = ['일', '월', '화', '수', '목', '금', '토'];
-  const headerToday = document.getElementById('header-today-string');
-  if (headerToday) {
-    headerToday.textContent = `오늘: ${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일 (${daysKR[today.getDay()]})`;
+  // --- 헤더 정보 갱신 ---
+  function updateHeaderAndMeta() {
+    const year = state.currentDate.getFullYear();
+    const month = state.currentDate.getMonth() + 1;
+    const date = state.currentDate.getDate();
+    const scale = state.timelineScale || 'month';
+
+    const displayRange = document.getElementById('cal-nav-display-range');
+    if (displayRange) {
+      if (scale === 'today') displayRange.textContent = `${year}년 ${month}월 ${date}일`;
+      else if (scale === 'year') displayRange.textContent = `${year}년`;
+      else displayRange.textContent = `${year}년 ${month}월`;
+    }
+
+    const today = new Date();
+    const daysKR = ['일', '월', '화', '수', '목', '금', '토'];
+    const headerToday = document.getElementById('header-today-string');
+    if (headerToday) {
+      headerToday.textContent = `오늘: ${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일 (${daysKR[today.getDay()]})`;
+    }
   }
-}
 
-// --- 통계 요약 바 갱신 ---
-function renderStatsBar() {
-  const filteredEvents = getFilteredEvents();
-  const year = state.currentDate.getFullYear();
-  const month = state.currentDate.getMonth();
+  // --- 통계 요약 바 갱신 ---
+  function renderStatsBar() {
+    const filteredEvents = getFilteredEvents();
+    const year = state.currentDate.getFullYear();
+    const month = state.currentDate.getMonth();
 
-  const thisMonthEvents = filteredEvents.filter(event => {
-    const start = new Date(event.startDate);
-    const end = new Date(event.endDate);
-    return (start.getFullYear() === year && start.getMonth() === month) ||
-      (end.getFullYear() === year && end.getMonth() === month) ||
-      (start <= new Date(year, month, 1) && end >= new Date(year, month + 1, 0));
-  });
-  document.getElementById('stat-total-events').textContent = thisMonthEvents.length;
-  document.getElementById('stat-total-members').textContent = state.members.length;
+    const thisMonthEvents = filteredEvents.filter(event => {
+      const start = new Date(event.startDate);
+      const end = new Date(event.endDate);
+      return (start.getFullYear() === year && start.getMonth() === month) ||
+        (end.getFullYear() === year && end.getMonth() === month) ||
+        (start <= new Date(year, month, 1) && end >= new Date(year, month + 1, 0));
+    });
+    document.getElementById('stat-total-events').textContent = thisMonthEvents.length;
+    document.getElementById('stat-total-members').textContent = state.members.length;
 
-  const todayStr = getNormalizedDateString(new Date());
-  const upcomingMeetings = filteredEvents.filter(event => event.category === 'meeting' && event.endDate >= todayStr);
-  document.getElementById('stat-upcoming-meetings').textContent = upcomingMeetings.length;
+    const todayStr = getNormalizedDateString(new Date());
+    const upcomingMeetings = filteredEvents.filter(event => event.category === 'meeting' && event.endDate >= todayStr);
+    document.getElementById('stat-upcoming-meetings').textContent = upcomingMeetings.length;
 
-  const highPriorityEvents = filteredEvents.filter(event => event.priority === 'high');
-  document.getElementById('stat-high-priority').textContent = highPriorityEvents.length;
-}
+    const highPriorityEvents = filteredEvents.filter(event => event.priority === 'high');
+    document.getElementById('stat-high-priority').textContent = highPriorityEvents.length;
+  }
 
-// --- 사이드바 팀원 리스트 렌더링 ---
-function renderSidebarMembers() {
-  const container = document.getElementById('member-list-container');
-  if (!container) return;
-  container.innerHTML = '';
+  // --- 사이드바 팀원 리스트 렌더링 ---
+  function renderSidebarMembers() {
+    const container = document.getElementById('member-list-container');
+    if (!container) return;
+    container.innerHTML = '';
 
-  state.members.forEach(member => {
-    const isChecked = state.filters.memberIds.includes(member.id);
-    const item = document.createElement('div');
-    item.className = 'member-item';
-    item.style.setProperty('--dot-color', member.color);
+    state.members.forEach(member => {
+      const isChecked = state.filters.memberIds.includes(member.id);
+      const item = document.createElement('div');
+      item.className = 'member-item';
+      item.style.setProperty('--dot-color', member.color);
 
-    item.innerHTML = `
+      item.innerHTML = `
       <div class="member-info" onclick="toggleMemberFilter('${member.id}')">
         <span class="member-color-dot" style="background-color: ${member.color};"></span>
         <div class="member-name-container">
@@ -780,588 +794,594 @@ function renderSidebarMembers() {
         <input type="checkbox" class="member-checkbox" style="--dot-color: ${member.color};" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleMemberFilter('${member.id}')">
       </div>
     `;
-    container.appendChild(item);
-  });
-}
+      container.appendChild(item);
+    });
+  }
 
-function toggleMemberFilter(memberId) {
-  const index = state.filters.memberIds.indexOf(memberId);
-  if (index > -1) state.filters.memberIds.splice(index, 1);
-  else state.filters.memberIds.push(memberId);
-  resetPaginationPages();
-  renderApp();
-}
+  function toggleMemberFilter(memberId) {
+    const index = state.filters.memberIds.indexOf(memberId);
+    if (index > -1) state.filters.memberIds.splice(index, 1);
+    else state.filters.memberIds.push(memberId);
+    resetPaginationPages();
+    renderApp();
+  }
 
-// --- 팀원별 타임라인(Gantt) 뷰 렌더링 ---
-function renderTimelineView() {
-  const year = state.currentDate.getFullYear();
-  const month = state.currentDate.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const scale = state.timelineScale || 'month';
-  let colCount = 10;
+  // --- 팀원별 타임라인(Gantt) 뷰 렌더링 ---
+  function renderTimelineView() {
+    const year = state.currentDate.getFullYear();
+    const month = state.currentDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const scale = state.timelineScale || 'month';
+    let colCount = 10;
 
-  const scaleBtns = document.querySelectorAll('#timeline-scale-container .scale-btn');
-  scaleBtns.forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.scale === scale);
-  });
+    const scaleBtns = document.querySelectorAll('#timeline-scale-container .scale-btn');
+    scaleBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.scale === scale);
+    });
 
-  const headerContainer = document.getElementById('timeline-header-days-container');
-  headerContainer.innerHTML = '';
-  headerContainer.style.display = 'grid';
+    const headerContainer = document.getElementById('timeline-header-days-container');
+    headerContainer.innerHTML = '';
+    headerContainer.style.display = 'grid';
 
-  if (scale === 'today') {
-    colCount = 10;
-    headerContainer.style.gridTemplateColumns = `repeat(10, 1fr)`;
-    for (let h = 9; h <= 18; h++) {
-      const hourEl = document.createElement('div');
-      hourEl.className = 'timeline-header-day';
-      hourEl.innerHTML = `<span class="timeline-header-day-num">${h}시</span>`;
-      headerContainer.appendChild(hourEl);
-    }
-  } else if (scale === 'year') {
-    colCount = 12;
-    headerContainer.style.gridTemplateColumns = `repeat(12, 1fr)`;
-    for (let m = 1; m <= 12; m++) {
-      const monthEl = document.createElement('div');
-      monthEl.className = 'timeline-header-day';
-      monthEl.innerHTML = `<span class="timeline-header-day-num">${m}월</span>`;
-      headerContainer.appendChild(monthEl);
-    }
-  } else {
-    colCount = daysInMonth;
-    headerContainer.style.gridTemplateColumns = `repeat(${daysInMonth}, 1fr)`;
-    const daysKR = ['일', '월', '화', '수', '목', '금', '토'];
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month, d);
-      const dayName = daysKR[date.getDay()];
-      const isToday = checkIfToday(year, month, d);
+    if (scale === 'today') {
+      colCount = 10;
+      headerContainer.style.gridTemplateColumns = `repeat(10, 1fr)`;
+      for (let h = 9; h <= 18; h++) {
+        const hourEl = document.createElement('div');
+        hourEl.className = 'timeline-header-day';
+        hourEl.innerHTML = `<span class="timeline-header-day-num">${h}시</span>`;
+        headerContainer.appendChild(hourEl);
+      }
+    } else if (scale === 'year') {
+      colCount = 12;
+      headerContainer.style.gridTemplateColumns = `repeat(12, 1fr)`;
+      for (let m = 1; m <= 12; m++) {
+        const monthEl = document.createElement('div');
+        monthEl.className = 'timeline-header-day';
+        monthEl.innerHTML = `<span class="timeline-header-day-num">${m}월</span>`;
+        headerContainer.appendChild(monthEl);
+      }
+    } else {
+      colCount = daysInMonth;
+      headerContainer.style.gridTemplateColumns = `repeat(${daysInMonth}, 1fr)`;
+      const daysKR = ['일', '월', '화', '수', '목', '금', '토'];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(year, month, d);
+        const dayName = daysKR[date.getDay()];
+        const isToday = checkIfToday(year, month, d);
 
-      const dayEl = document.createElement('div');
-      dayEl.className = `timeline-header-day${isToday ? ' today' : ''}`;
+        const dayEl = document.createElement('div');
+        dayEl.className = `timeline-header-day${isToday ? ' today' : ''}`;
 
-      if (date.getDay() === 0) dayEl.style.color = 'var(--danger)';
-      else if (date.getDay() === 6) dayEl.style.color = 'var(--secondary)';
+        if (date.getDay() === 0) dayEl.style.color = 'var(--danger)';
+        else if (date.getDay() === 6) dayEl.style.color = 'var(--secondary)';
 
-      dayEl.innerHTML = `
+        dayEl.innerHTML = `
         <span class="timeline-header-day-num">${d}</span>
         <span class="timeline-header-day-name">${dayName}</span>
       `;
-      headerContainer.appendChild(dayEl);
+        headerContainer.appendChild(dayEl);
+      }
     }
-  }
 
-  const rowsContainer = document.getElementById('timeline-rows-container');
-  rowsContainer.innerHTML = '';
+    const rowsContainer = document.getElementById('timeline-rows-container');
+    rowsContainer.innerHTML = '';
 
-  const filteredEvents = getFilteredEvents().filter(event => event.category === 'project');
+    const filteredEvents = getFilteredEvents().filter(event => event.category === 'project');
 
-  const activeMembers = [...state.members];
-  const activeMemberIds = state.members.map(m => m.id);
-  const deletedMemberIds = [...new Set(
-    state.reports.map(r => r.assignee)
-      .concat(state.events.map(e => e.assignee))
-  )].filter(id => id && !activeMemberIds.includes(id));
+    const activeMembers = [...state.members];
+    const activeMemberIds = state.members.map(m => m.id);
+    const deletedMemberIds = [...new Set(
+      state.reports.map(r => r.assignee)
+        .concat(state.events.map(e => e.assignee))
+    )].filter(id => id && !activeMemberIds.includes(id));
 
-  deletedMemberIds.forEach(id => {
-    const assigneeInfo = getAssigneeInfo(id);
-    activeMembers.push({
-      id: id,
-      name: assigneeInfo.name,
-      color: assigneeInfo.color,
-      role: '삭제된 팀원',
-      isDeleted: true
+    deletedMemberIds.forEach(id => {
+      const assigneeInfo = getAssigneeInfo(id);
+      activeMembers.push({
+        id: id,
+        name: assigneeInfo.name,
+        color: assigneeInfo.color,
+        role: '삭제된 팀원',
+        isDeleted: true
+      });
     });
-  });
 
-  activeMembers.forEach(member => {
-    const memberEvents = [];
+    activeMembers.forEach(member => {
+      const memberEvents = [];
 
-    if (scale === 'today') {
-      const todayStr = getNormalizedDateString(state.currentDate);
-      filteredEvents.forEach(event => {
-        if (event.assignee !== member.id) return;
-        if (event.startDate <= todayStr && event.endDate >= todayStr) {
-          let startCol = 1;
-          let endCol = 10;
-          if (event.startDate === todayStr) {
-            const startHour = event.startTime ? parseInt(event.startTime.split(':')[0], 10) : 9;
-            startCol = Math.max(1, Math.min(10, startHour - 9 + 1));
+      if (scale === 'today') {
+        const todayStr = getNormalizedDateString(state.currentDate);
+        filteredEvents.forEach(event => {
+          if (event.assignee !== member.id) return;
+          if (event.startDate <= todayStr && event.endDate >= todayStr) {
+            let startCol = 1;
+            let endCol = 10;
+            if (event.startDate === todayStr) {
+              const startHour = event.startTime ? parseInt(event.startTime.split(':')[0], 10) : 9;
+              startCol = Math.max(1, Math.min(10, startHour - 9 + 1));
+            }
+            if (event.endDate === todayStr) {
+              const endHour = event.endTime ? parseInt(event.endTime.split(':')[0], 10) : 18;
+              endCol = Math.max(1, Math.min(10, endHour - 9 + 1));
+            }
+            memberEvents.push({ ...event, clampedStartCol: startCol, clampedEndCol: endCol });
           }
-          if (event.endDate === todayStr) {
-            const endHour = event.endTime ? parseInt(event.endTime.split(':')[0], 10) : 18;
-            endCol = Math.max(1, Math.min(10, endHour - 9 + 1));
-          }
-          memberEvents.push({ ...event, clampedStartCol: startCol, clampedEndCol: endCol });
-        }
-      });
-    } else if (scale === 'year') {
-      const yearStartStr = `${year}-01-01`;
-      const yearEndStr = `${year}-12-31`;
-      filteredEvents.forEach(event => {
-        if (event.assignee !== member.id) return;
-        if (event.endDate < yearStartStr || event.startDate > yearEndStr) return;
-        const startM = event.startDate < yearStartStr ? 1 : parseInt(event.startDate.split('-')[1], 10);
-        const endM = event.endDate > yearEndStr ? 12 : parseInt(event.endDate.split('-')[1], 10);
-        memberEvents.push({ ...event, clampedStartCol: startM, clampedEndCol: endM });
-      });
-    } else {
-      const monthStartStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-      const monthEndStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
-      filteredEvents.forEach(event => {
-        if (event.assignee !== member.id) return;
-        if (event.endDate < monthStartStr || event.startDate > monthEndStr) return;
-        const startD = event.startDate < monthStartStr ? 1 : parseInt(event.startDate.split('-')[2], 10);
-        const endD = event.endDate > monthEndStr ? daysInMonth : parseInt(event.endDate.split('-')[2], 10);
-        memberEvents.push({ ...event, clampedStartCol: startD, clampedEndCol: endD });
-      });
-    }
+        });
+      } else if (scale === 'year') {
+        const yearStartStr = `${year}-01-01`;
+        const yearEndStr = `${year}-12-31`;
+        filteredEvents.forEach(event => {
+          if (event.assignee !== member.id) return;
+          if (event.endDate < yearStartStr || event.startDate > yearEndStr) return;
+          const startM = event.startDate < yearStartStr ? 1 : parseInt(event.startDate.split('-')[1], 10);
+          const endM = event.endDate > yearEndStr ? 12 : parseInt(event.endDate.split('-')[1], 10);
+          memberEvents.push({ ...event, clampedStartCol: startM, clampedEndCol: endM });
+        });
+      } else {
+        const monthStartStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const monthEndStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+        filteredEvents.forEach(event => {
+          if (event.assignee !== member.id) return;
+          if (event.endDate < monthStartStr || event.startDate > monthEndStr) return;
+          const startD = event.startDate < monthStartStr ? 1 : parseInt(event.startDate.split('-')[2], 10);
+          const endD = event.endDate > monthEndStr ? daysInMonth : parseInt(event.endDate.split('-')[2], 10);
+          memberEvents.push({ ...event, clampedStartCol: startD, clampedEndCol: endD });
+        });
+      }
 
-    const maxRows = assignRowsToEvents(memberEvents);
-    const gridRowsCount = Math.max(1, maxRows);
+      const maxRows = assignRowsToEvents(memberEvents);
+      const gridRowsCount = Math.max(1, maxRows);
 
-    const row = document.createElement('div');
-    row.className = 'timeline-row';
+      const row = document.createElement('div');
+      row.className = 'timeline-row';
 
-    const profile = document.createElement('div');
-    profile.className = 'timeline-row-member';
+      const profile = document.createElement('div');
+      profile.className = 'timeline-row-member';
 
-    const activeProjects = state.reports.filter(r => r.assignee === member.id && !r.finalCompleted).map(r => r.project);
-    const uniqueProjects = [...new Set(activeProjects)];
-    const projectsStr = uniqueProjects.length > 0 ? `참여 프로젝트: ${uniqueProjects.join(', ')}` : '참여 프로젝트 없음';
+      const activeProjects = state.reports.filter(r => r.assignee === member.id && !r.finalCompleted).map(r => r.project);
+      const uniqueProjects = [...new Set(activeProjects)];
+      const projectsStr = uniqueProjects.length > 0 ? `참여 프로젝트: ${uniqueProjects.join(', ')}` : '참여 프로젝트 없음';
 
-    profile.innerHTML = `
+      profile.innerHTML = `
       <span class="name" style="color: ${member.color};">${escapeHTML(member.name)}</span>
       <span class="role">${escapeHTML(member.role || '역할 미정')}</span>
       <span class="member-projects" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(projectsStr)}">${escapeHTML(projectsStr)}</span>
     `;
-    if (!member.isDeleted) {
-      profile.addEventListener('click', () => openMemberModal(member.id));
-    } else {
-      profile.style.cursor = 'default';
-    }
-    row.appendChild(profile);
+      if (!member.isDeleted) {
+        profile.addEventListener('click', () => openMemberModal(member.id));
+      } else {
+        profile.style.cursor = 'default';
+      }
+      row.appendChild(profile);
 
-    const grid = document.createElement('div');
-    grid.className = 'timeline-row-grid';
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = `repeat(${colCount}, 1fr)`;
-    grid.style.gridTemplateRows = `repeat(${gridRowsCount}, 34px)`;
-    grid.style.paddingTop = '6px';
-    grid.style.paddingBottom = '6px';
+      const grid = document.createElement('div');
+      grid.className = 'timeline-row-grid';
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = `repeat(${colCount}, 1fr)`;
+      grid.style.gridTemplateRows = `repeat(${gridRowsCount}, 34px)`;
+      grid.style.paddingTop = '6px';
+      grid.style.paddingBottom = '6px';
 
-    for (let c = 1; c <= colCount; c++) {
-      let isTodayCell = false;
-      if (scale === 'today') {
-        const currentHour = new Date().getHours();
-        if (checkIfToday(year, month, state.currentDate.getDate()) && currentHour === (c + 8)) isTodayCell = true;
-      } else if (scale === 'month') {
-        isTodayCell = checkIfToday(year, month, c);
-      } else if (scale === 'year') {
-        const today = new Date();
-        isTodayCell = (today.getFullYear() === year && today.getMonth() + 1 === c);
+      for (let c = 1; c <= colCount; c++) {
+        let isTodayCell = false;
+        if (scale === 'today') {
+          const currentHour = new Date().getHours();
+          if (checkIfToday(year, month, state.currentDate.getDate()) && currentHour === (c + 8)) isTodayCell = true;
+        } else if (scale === 'month') {
+          isTodayCell = checkIfToday(year, month, c);
+        } else if (scale === 'year') {
+          const today = new Date();
+          isTodayCell = (today.getFullYear() === year && today.getMonth() + 1 === c);
+        }
+
+        const cell = document.createElement('div');
+        cell.className = `timeline-grid-cell${isTodayCell ? ' today' : ''}`;
+        cell.style.gridColumn = c;
+        cell.style.gridRow = `1 / span ${gridRowsCount}`;
+        grid.appendChild(cell);
       }
 
-      const cell = document.createElement('div');
-      cell.className = `timeline-grid-cell${isTodayCell ? ' today' : ''}`;
-      cell.style.gridColumn = c;
-      cell.style.gridRow = `1 / span ${gridRowsCount}`;
-      grid.appendChild(cell);
-    }
+      memberEvents.forEach(event => {
+        const bar = document.createElement('div');
+        bar.className = `timeline-event-bar priority-${event.priority}`;
+        bar.style.backgroundColor = hexToRgba(member.color, 0.9);
+        bar.style.gridColumn = `${event.clampedStartCol} / ${event.clampedEndCol + 1}`;
+        bar.style.gridRow = event.timelineRow;
 
-    memberEvents.forEach(event => {
-      const bar = document.createElement('div');
-      bar.className = `timeline-event-bar priority-${event.priority}`;
-      bar.style.backgroundColor = hexToRgba(member.color, 0.9);
-      bar.style.gridColumn = `${event.clampedStartCol} / ${event.clampedEndCol + 1}`;
-      bar.style.gridRow = event.timelineRow;
+        bar.innerHTML = `<span style="margin-right: 4px;">💼</span> ${escapeHTML(event.title)}`;
+        bar.title = `${event.title}\n기간: ${event.startDate} ~ ${event.endDate}\n${event.description || ''}`;
 
-      bar.innerHTML = `<span style="margin-right: 4px;">💼</span> ${escapeHTML(event.title)}`;
-      bar.title = `${event.title}\n기간: ${event.startDate} ~ ${event.endDate}\n${event.description || ''}`;
-
-      bar.addEventListener('click', () => {
-        if (event.id.startsWith('e_r_')) {
-          openReportModal(event.id.replace('e_r_', ''));
-        } else {
-          openEventModal(event.id);
-        }
+        bar.addEventListener('click', () => {
+          if (event.id.startsWith('e_r_')) {
+            openReportModal(event.id.replace('e_r_', ''));
+          } else {
+            openEventModal(event.id);
+          }
+        });
+        grid.appendChild(bar);
       });
-      grid.appendChild(bar);
+
+      row.appendChild(grid);
+      rowsContainer.appendChild(row);
     });
 
-    row.appendChild(grid);
-    rowsContainer.appendChild(row);
-  });
-
-  if (state.members.length === 0) {
-    rowsContainer.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-muted);">등록된 팀원이 없습니다.</div>`;
+    if (state.members.length === 0) {
+      rowsContainer.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-muted);">등록된 팀원이 없습니다.</div>`;
+    }
   }
-}
 
-function assignRowsToEvents(memberEvents) {
-  memberEvents.sort((a, b) => b.startDate.localeCompare(a.startDate));
-  const endTimes = [];
-  memberEvents.forEach(event => {
-    let assignedRowIndex = -1;
-    for (let r = 0; r < endTimes.length; r++) {
-      if (event.clampedStartCol > endTimes[r]) {
-        assignedRowIndex = r;
-        break;
+  function assignRowsToEvents(memberEvents) {
+    memberEvents.sort((a, b) => b.startDate.localeCompare(a.startDate));
+    const endTimes = [];
+    memberEvents.forEach(event => {
+      let assignedRowIndex = -1;
+      for (let r = 0; r < endTimes.length; r++) {
+        if (event.clampedStartCol > endTimes[r]) {
+          assignedRowIndex = r;
+          break;
+        }
       }
-    }
-    if (assignedRowIndex === -1) {
-      endTimes.push(event.clampedEndCol);
-      event.timelineRow = endTimes.length;
-    } else {
-      endTimes[assignedRowIndex] = event.clampedEndCol;
-      event.timelineRow = assignedRowIndex + 1;
-    }
-  });
-  return endTimes.length;
-}
+      if (assignedRowIndex === -1) {
+        endTimes.push(event.clampedEndCol);
+        event.timelineRow = endTimes.length;
+      } else {
+        endTimes[assignedRowIndex] = event.clampedEndCol;
+        event.timelineRow = assignedRowIndex + 1;
+      }
+    });
+    return endTimes.length;
+  }
 
-function navigateCalendar(direction) {
-  const scale = state.timelineScale || 'month';
-  if (scale === 'today') state.currentDate.setDate(state.currentDate.getDate() + direction);
-  else if (scale === 'year') state.currentDate.setFullYear(state.currentDate.getFullYear() + direction);
-  else state.currentDate.setMonth(state.currentDate.getMonth() + direction);
-  renderApp();
-}
+  function navigateCalendar(direction) {
+    const scale = state.timelineScale || 'month';
+    if (scale === 'today') state.currentDate.setDate(state.currentDate.getDate() + direction);
+    else if (scale === 'year') state.currentDate.setFullYear(state.currentDate.getFullYear() + direction);
+    else state.currentDate.setMonth(state.currentDate.getMonth() + direction);
+    renderApp();
+  }
 
-function getAssigneeInfo(assigneeId, reports = state.reports, events = state.events) {
-  if (!assigneeId) {
+  function getAssigneeInfo(assigneeId, reports = state.reports, events = state.events) {
+    if (!assigneeId) {
+      return { name: '미배정', color: '#94a3b8', isDeleted: true };
+    }
+    const member = state.members.find(m => m.id === assigneeId);
+    if (member) {
+      return { name: member.name, color: member.color, isDeleted: false };
+    }
+
+    const rep = reports.find(r => r.assignee === assigneeId);
+    if (rep && rep.assigneeName) {
+      return { name: rep.assigneeName, color: '#94a3b8', isDeleted: true };
+    }
+
+    const ev = events.find(e => e.assignee === assigneeId);
+    if (ev && ev.assigneeName) {
+      return { name: ev.assigneeName, color: '#94a3b8', isDeleted: true };
+    }
+
     return { name: '미배정', color: '#94a3b8', isDeleted: true };
   }
-  const member = state.members.find(m => m.id === assigneeId);
-  if (member) {
-    return { name: member.name, color: member.color, isDeleted: false };
+
+  let pendingView = null;
+
+  function switchView(view) {
+    if (view === 'invoice' || view === 'completed') {
+      const loggedInUser = sessionStorage.getItem('logged_in_user');
+      if (loggedInUser !== 'whjung@dnde.co.kr') {
+        showToast('whjung@dnde.co.kr 계정만 접근 가능합니다.');
+        return;
+      }
+
+      const isAuthorized = sessionStorage.getItem('secondary_auth') === 'true';
+      if (!isAuthorized) {
+        pendingView = view;
+        openSecondaryAuthModal();
+        return;
+      }
+    }
+
+    state.currentView = view;
+    document.getElementById('view-btn-timeline').classList.toggle('active', view === 'timeline');
+    document.getElementById('view-btn-report').classList.toggle('active', view === 'report');
+    document.getElementById('view-btn-invoice').classList.toggle('active', view === 'invoice');
+    document.getElementById('view-btn-completed').classList.toggle('active', view === 'completed');
+
+    if (view === 'timeline') document.getElementById('main-view-title').textContent = '팀원 스케줄 타임라인';
+    else if (view === 'report') document.getElementById('main-view-title').textContent = '팀원 주간업무보고';
+    else if (view === 'invoice') document.getElementById('main-view-title').textContent = '세금계산서 발행현황';
+    else if (view === 'completed') document.getElementById('main-view-title').textContent = '프로젝트 완료 현황';
+    renderApp();
   }
 
-  const rep = reports.find(r => r.assignee === assigneeId);
-  if (rep && rep.assigneeName) {
-    return { name: rep.assigneeName, color: '#94a3b8', isDeleted: true };
+  function openSecondaryAuthModal() {
+    const modal = document.getElementById('modal-secondary-auth');
+    if (modal) {
+      document.getElementById('secondary-password').value = '';
+      document.getElementById('secondary-error-msg').style.display = 'none';
+      modal.classList.add('active');
+      setTimeout(() => {
+        document.getElementById('secondary-password').focus();
+      }, 100);
+    }
   }
 
-  const ev = events.find(e => e.assignee === assigneeId);
-  if (ev && ev.assigneeName) {
-    return { name: ev.assigneeName, color: '#94a3b8', isDeleted: true };
+  function closeSecondaryAuthModal() {
+    const modal = document.getElementById('modal-secondary-auth');
+    if (modal) modal.classList.remove('active');
+    pendingView = null;
   }
 
-  return { name: '미배정', color: '#94a3b8', isDeleted: true };
-}
+  // --- 일정 추가/수정 모달 로직 ---
+  function openEventModal(eventId = null, defaultDate = null) {
+    const modal = document.getElementById('modal-event');
+    const form = document.getElementById('form-event');
+    const titleInput = document.getElementById('event-title');
+    const startDateInput = document.getElementById('event-start-date');
+    const startTimeInput = document.getElementById('event-start-time');
+    const endDateInput = document.getElementById('event-end-date');
+    const endTimeInput = document.getElementById('event-end-time');
+    const assigneeSelect = document.getElementById('event-assignee');
+    const categorySelect = document.getElementById('event-category');
+    const prioritySelect = document.getElementById('event-priority');
+    const descInput = document.getElementById('event-desc');
+    const deleteBtn = document.getElementById('btn-delete-event');
 
-let pendingView = null;
+    form.reset();
 
-function switchView(view) {
-  if (view === 'invoice' || view === 'completed') {
-    const isAuthorized = sessionStorage.getItem('secondary_auth') === 'true';
-    if (!isAuthorized) {
-      pendingView = view;
-      openSecondaryAuthModal();
+    assigneeSelect.innerHTML = '';
+    if (state.members.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = ''; opt.textContent = '(등록된 팀원 없음)';
+      assigneeSelect.appendChild(opt);
+    } else {
+      state.members.forEach(member => {
+        const opt = document.createElement('option');
+        opt.value = member.id; opt.textContent = member.name;
+        assigneeSelect.appendChild(opt);
+      });
+    }
+
+    if (eventId) {
+      document.getElementById('event-modal-title').textContent = '일정 수정 및 정보';
+      deleteBtn.style.display = 'block';
+      const event = state.events.find(e => e.id === eventId);
+      if (event) {
+        document.getElementById('event-id').value = event.id;
+        titleInput.value = event.title;
+        startDateInput.value = event.startDate;
+        startTimeInput.value = event.startTime || '09:00';
+        endDateInput.value = event.endDate;
+        endTimeInput.value = event.endTime || '18:00';
+        assigneeSelect.value = event.assignee;
+        categorySelect.value = event.category;
+        prioritySelect.value = event.priority;
+        descInput.value = event.description || '';
+      }
+    } else {
+      document.getElementById('event-modal-title').textContent = '새 일정 등록';
+      deleteBtn.style.display = 'none';
+      document.getElementById('event-id').value = '';
+      const initDateStr = defaultDate || getNormalizedDateString(new Date());
+      startDateInput.value = initDateStr;
+      endDateInput.value = initDateStr;
+      startTimeInput.value = '09:00';
+      endTimeInput.value = '18:00';
+    }
+    modal.classList.add('active');
+  }
+
+  function closeEventModal() {
+    document.getElementById('modal-event').classList.remove('active');
+  }
+
+  // [서버 업로드] 일정 등록/수정
+  function handleEventSubmit(e) {
+    e.preventDefault();
+    if (state.members.length === 0) {
+      alert('일정을 등록하려면 먼저 최소 1명의 팀원을 등록해야 합니다.');
       return;
     }
-  }
 
-  state.currentView = view;
-  document.getElementById('view-btn-timeline').classList.toggle('active', view === 'timeline');
-  document.getElementById('view-btn-report').classList.toggle('active', view === 'report');
-  document.getElementById('view-btn-invoice').classList.toggle('active', view === 'invoice');
-  document.getElementById('view-btn-completed').classList.toggle('active', view === 'completed');
+    const id = document.getElementById('event-id').value || 'e_' + Date.now();
+    const title = document.getElementById('event-title').value.trim();
+    const startDate = document.getElementById('event-start-date').value;
+    const startTime = document.getElementById('event-start-time').value;
+    const endDate = document.getElementById('event-end-date').value;
+    const endTime = document.getElementById('event-end-time').value;
+    const assignee = document.getElementById('event-assignee').value;
+    const category = document.getElementById('event-category').value;
+    const priority = document.getElementById('event-priority').value;
+    const description = document.getElementById('event-desc').value.trim();
 
-  if (view === 'timeline') document.getElementById('main-view-title').textContent = '팀원 스케줄 타임라인';
-  else if (view === 'report') document.getElementById('main-view-title').textContent = '팀원 주간업무보고';
-  else if (view === 'invoice') document.getElementById('main-view-title').textContent = '세금계산서 발행현황';
-  else if (view === 'completed') document.getElementById('main-view-title').textContent = '프로젝트 완료 현황';
-  renderApp();
-}
-
-function openSecondaryAuthModal() {
-  const modal = document.getElementById('modal-secondary-auth');
-  if (modal) {
-    document.getElementById('secondary-password').value = '';
-    document.getElementById('secondary-error-msg').style.display = 'none';
-    modal.classList.add('active');
-    setTimeout(() => {
-      document.getElementById('secondary-password').focus();
-    }, 100);
-  }
-}
-
-function closeSecondaryAuthModal() {
-  const modal = document.getElementById('modal-secondary-auth');
-  if (modal) modal.classList.remove('active');
-  pendingView = null;
-}
-
-// --- 일정 추가/수정 모달 로직 ---
-function openEventModal(eventId = null, defaultDate = null) {
-  const modal = document.getElementById('modal-event');
-  const form = document.getElementById('form-event');
-  const titleInput = document.getElementById('event-title');
-  const startDateInput = document.getElementById('event-start-date');
-  const startTimeInput = document.getElementById('event-start-time');
-  const endDateInput = document.getElementById('event-end-date');
-  const endTimeInput = document.getElementById('event-end-time');
-  const assigneeSelect = document.getElementById('event-assignee');
-  const categorySelect = document.getElementById('event-category');
-  const prioritySelect = document.getElementById('event-priority');
-  const descInput = document.getElementById('event-desc');
-  const deleteBtn = document.getElementById('btn-delete-event');
-
-  form.reset();
-
-  assigneeSelect.innerHTML = '';
-  if (state.members.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = ''; opt.textContent = '(등록된 팀원 없음)';
-    assigneeSelect.appendChild(opt);
-  } else {
-    state.members.forEach(member => {
-      const opt = document.createElement('option');
-      opt.value = member.id; opt.textContent = member.name;
-      assigneeSelect.appendChild(opt);
-    });
-  }
-
-  if (eventId) {
-    document.getElementById('event-modal-title').textContent = '일정 수정 및 정보';
-    deleteBtn.style.display = 'block';
-    const event = state.events.find(e => e.id === eventId);
-    if (event) {
-      document.getElementById('event-id').value = event.id;
-      titleInput.value = event.title;
-      startDateInput.value = event.startDate;
-      startTimeInput.value = event.startTime || '09:00';
-      endDateInput.value = event.endDate;
-      endTimeInput.value = event.endTime || '18:00';
-      assigneeSelect.value = event.assignee;
-      categorySelect.value = event.category;
-      prioritySelect.value = event.priority;
-      descInput.value = event.description || '';
+    if (startDate > endDate || (startDate === endDate && startTime > endTime)) {
+      alert('종료 시간은 시작 시간보다 빠를 수 없습니다.');
+      return;
     }
-  } else {
-    document.getElementById('event-modal-title').textContent = '새 일정 등록';
-    deleteBtn.style.display = 'none';
-    document.getElementById('event-id').value = '';
-    const initDateStr = defaultDate || getNormalizedDateString(new Date());
-    startDateInput.value = initDateStr;
-    endDateInput.value = initDateStr;
-    startTimeInput.value = '09:00';
-    endTimeInput.value = '18:00';
-  }
-  modal.classList.add('active');
-}
 
-function closeEventModal() {
-  document.getElementById('modal-event').classList.remove('active');
-}
+    const data = { id, title, startDate, startTime, endDate, endTime, assignee, category, priority, description };
 
-// [서버 업로드] 일정 등록/수정
-function handleEventSubmit(e) {
-  e.preventDefault();
-  if (state.members.length === 0) {
-    alert('일정을 등록하려면 먼저 최소 1명의 팀원을 등록해야 합니다.');
-    return;
-  }
-
-  const id = document.getElementById('event-id').value || 'e_' + Date.now();
-  const title = document.getElementById('event-title').value.trim();
-  const startDate = document.getElementById('event-start-date').value;
-  const startTime = document.getElementById('event-start-time').value;
-  const endDate = document.getElementById('event-end-date').value;
-  const endTime = document.getElementById('event-end-time').value;
-  const assignee = document.getElementById('event-assignee').value;
-  const category = document.getElementById('event-category').value;
-  const priority = document.getElementById('event-priority').value;
-  const description = document.getElementById('event-desc').value.trim();
-
-  if (startDate > endDate || (startDate === endDate && startTime > endTime)) {
-    alert('종료 시간은 시작 시간보다 빠를 수 없습니다.');
-    return;
-  }
-
-  const data = { id, title, startDate, startTime, endDate, endTime, assignee, category, priority, description };
-
-  // 클라우드 서버 데이터베이스에 저장
-  db.collection("events").doc(id).set(data)
-    .then(() => {
-      showToast('일정이 동기화 서버에 보관되었습니다.');
-      closeEventModal();
-    });
-}
-
-// [서버 삭제] 일정 삭제
-function handleDeleteEvent() {
-  const id = document.getElementById('event-id').value;
-  if (!id) return;
-
-  if (confirm('이 일정을 삭제하시겠습니까?')) {
-    db.collection("events").doc(id).delete()
+    // 클라우드 서버 데이터베이스에 저장
+    db.collection("events").doc(id).set(data)
       .then(() => {
-        showToast('일정이 서버에서 제거되었습니다.');
+        showToast('일정이 동기화 서버에 보관되었습니다.');
         closeEventModal();
       });
   }
-}
 
-// --- 팀원 추가/수정 모달 로직 ---
-function openMemberModal(memberId = null) {
-  const modal = document.getElementById('modal-member');
-  const form = document.getElementById('form-member');
-  const nameInput = document.getElementById('member-name');
-  const roleInput = document.getElementById('member-role');
-  const colorInput = document.getElementById('member-color');
-  const deleteBtn = document.getElementById('btn-delete-member');
-  const paletteContainer = document.getElementById('member-color-palette');
+  // [서버 삭제] 일정 삭제
+  function handleDeleteEvent() {
+    const id = document.getElementById('event-id').value;
+    if (!id) return;
 
-  form.reset();
+    if (confirm('이 일정을 삭제하시겠습니까?')) {
+      db.collection("events").doc(id).delete()
+        .then(() => {
+          showToast('일정이 서버에서 제거되었습니다.');
+          closeEventModal();
+        });
+    }
+  }
 
-  paletteContainer.innerHTML = '';
-  COLOR_PALETTE.forEach(color => {
-    const colDiv = document.createElement('div');
-    colDiv.className = 'color-option';
-    colDiv.style.backgroundColor = color;
-    colDiv.dataset.color = color;
-    colDiv.addEventListener('click', () => {
-      document.querySelectorAll('.color-option').forEach(d => d.classList.remove('selected'));
-      colDiv.classList.add('selected');
-      colorInput.value = color;
+  // --- 팀원 추가/수정 모달 로직 ---
+  function openMemberModal(memberId = null) {
+    const modal = document.getElementById('modal-member');
+    const form = document.getElementById('form-member');
+    const nameInput = document.getElementById('member-name');
+    const roleInput = document.getElementById('member-role');
+    const colorInput = document.getElementById('member-color');
+    const deleteBtn = document.getElementById('btn-delete-member');
+    const paletteContainer = document.getElementById('member-color-palette');
+
+    form.reset();
+
+    paletteContainer.innerHTML = '';
+    COLOR_PALETTE.forEach(color => {
+      const colDiv = document.createElement('div');
+      colDiv.className = 'color-option';
+      colDiv.style.backgroundColor = color;
+      colDiv.dataset.color = color;
+      colDiv.addEventListener('click', () => {
+        document.querySelectorAll('.color-option').forEach(d => d.classList.remove('selected'));
+        colDiv.classList.add('selected');
+        colorInput.value = color;
+      });
+      paletteContainer.appendChild(colDiv);
     });
-    paletteContainer.appendChild(colDiv);
-  });
 
-  if (memberId) {
-    document.getElementById('member-modal-title').textContent = '팀원 정보 수정';
-    deleteBtn.style.display = 'block';
-    const member = state.members.find(m => m.id === memberId);
-    if (member) {
-      document.getElementById('member-id').value = member.id;
-      nameInput.value = member.name;
-      roleInput.value = member.role || '';
-      colorInput.value = member.color;
-      const targetOption = Array.from(paletteContainer.children).find(child => child.dataset.color === member.color);
+    if (memberId) {
+      document.getElementById('member-modal-title').textContent = '팀원 정보 수정';
+      deleteBtn.style.display = 'block';
+      const member = state.members.find(m => m.id === memberId);
+      if (member) {
+        document.getElementById('member-id').value = member.id;
+        nameInput.value = member.name;
+        roleInput.value = member.role || '';
+        colorInput.value = member.color;
+        const targetOption = Array.from(paletteContainer.children).find(child => child.dataset.color === member.color);
+        if (targetOption) targetOption.classList.add('selected');
+      }
+    } else {
+      document.getElementById('member-modal-title').textContent = '새 팀원 추가';
+      deleteBtn.style.display = 'none';
+      document.getElementById('member-id').value = '';
+      const randomColor = COLOR_PALETTE[state.members.length % COLOR_PALETTE.length];
+      colorInput.value = randomColor;
+      const targetOption = Array.from(paletteContainer.children).find(child => child.dataset.color === randomColor);
       if (targetOption) targetOption.classList.add('selected');
     }
-  } else {
-    document.getElementById('member-modal-title').textContent = '새 팀원 추가';
-    deleteBtn.style.display = 'none';
-    document.getElementById('member-id').value = '';
-    const randomColor = COLOR_PALETTE[state.members.length % COLOR_PALETTE.length];
-    colorInput.value = randomColor;
-    const targetOption = Array.from(paletteContainer.children).find(child => child.dataset.color === randomColor);
-    if (targetOption) targetOption.classList.add('selected');
+    modal.classList.add('active');
   }
-  modal.classList.add('active');
-}
 
-function closeMemberModal() {
-  document.getElementById('modal-member').classList.remove('active');
-}
+  function closeMemberModal() {
+    document.getElementById('modal-member').classList.remove('active');
+  }
 
-// [서버 업로드] 팀원 정보 동기화
-function handleMemberSubmit(e) {
-  e.preventDefault();
-  const id = document.getElementById('member-id').value || 'm_' + Date.now();
-  const name = document.getElementById('member-name').value.trim();
-  const role = document.getElementById('member-role').value.trim();
-  const color = document.getElementById('member-color').value;
+  // [서버 업로드] 팀원 정보 동기화
+  function handleMemberSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('member-id').value || 'm_' + Date.now();
+    const name = document.getElementById('member-name').value.trim();
+    const role = document.getElementById('member-role').value.trim();
+    const color = document.getElementById('member-color').value;
 
-  db.collection("members").doc(id).set({ id, name, role, color })
-    .then(() => {
-      showToast('팀원 정보가 클라우드에 업데이트되었습니다.');
-      closeMemberModal();
+    db.collection("members").doc(id).set({ id, name, role, color })
+      .then(() => {
+        showToast('팀원 정보가 클라우드에 업데이트되었습니다.');
+        closeMemberModal();
+      });
+  }
+
+  // [서버 삭제] 팀원 삭제
+  function handleDeleteMember() {
+    const id = document.getElementById('member-id').value;
+    if (!id) return;
+
+    const warningMsg = '정말 이 팀원을 삭제하시겠습니까? (이 팀원 목록에서만 지워지며, 기존에 배정된 일정 및 주간보고 내역은 그대로 유지됩니다)';
+
+    if (confirm(warningMsg)) {
+      const batch = db.batch();
+      batch.delete(db.collection("members").doc(id));
+
+      batch.commit().then(() => {
+        showToast('팀원 정보가 삭제되었습니다.');
+        closeMemberModal();
+      });
+    }
+  }
+
+  // --- 주간 업무보고서 (Weekly Report) 뷰 렌더링 ---
+  function renderReportView() {
+    const tableBody = document.getElementById('report-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+
+    const selectAssignee = document.getElementById('filter-report-assignee');
+    if (selectAssignee) {
+      const currentSelected = state.filters.reportAssignee || 'all';
+      selectAssignee.innerHTML = '<option value="all">전체 작성자</option>';
+      state.members.forEach(member => {
+        const opt = document.createElement('option');
+        opt.value = member.id; opt.textContent = member.name;
+        if (member.id === currentSelected) opt.selected = true;
+        selectAssignee.appendChild(opt);
+      });
+    }
+
+    const filteredReports = state.reports.filter(report => {
+      if (report.finalCompleted) return false;
+      const isAssigneeExist = state.members.some(m => m.id === report.assignee);
+      if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
+      if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
+      if (state.filters.endDate && report.startDate > state.filters.endDate) return false;
+      if (state.filters.client !== 'all' && report.client !== state.filters.client) return false;
+      if (state.filters.reportAssignee && state.filters.reportAssignee !== 'all' && report.assignee !== state.filters.reportAssignee) return false;
+      return true;
     });
-}
 
-// [서버 삭제] 팀원 삭제
-function handleDeleteMember() {
-  const id = document.getElementById('member-id').value;
-  if (!id) return;
-
-  const warningMsg = '정말 이 팀원을 삭제하시겠습니까? (이 팀원 목록에서만 지워지며, 기존에 배정된 일정 및 주간보고 내역은 그대로 유지됩니다)';
-
-  if (confirm(warningMsg)) {
-    const batch = db.batch();
-    batch.delete(db.collection("members").doc(id));
-
-    batch.commit().then(() => {
-      showToast('팀원 정보가 삭제되었습니다.');
-      closeMemberModal();
+    filteredReports.sort((a, b) => {
+      const indexA = state.members.findIndex(m => m.id === a.assignee);
+      const indexB = state.members.findIndex(m => m.id === b.assignee);
+      const valA = indexA === -1 ? Infinity : indexA;
+      const valB = indexB === -1 ? Infinity : indexB;
+      if (valA !== valB) return valA - valB;
+      return b.startDate.localeCompare(a.startDate);
     });
-  }
-}
 
-// --- 주간 업무보고서 (Weekly Report) 뷰 렌더링 ---
-function renderReportView() {
-  const tableBody = document.getElementById('report-table-body');
-  if (!tableBody) return;
-  tableBody.innerHTML = '';
+    const totalItems = filteredReports.length;
+    const pageSize = state.pagination.report.pageSize;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    if (state.pagination.report.currentPage > totalPages) state.pagination.report.currentPage = Math.max(1, totalPages);
 
-  const selectAssignee = document.getElementById('filter-report-assignee');
-  if (selectAssignee) {
-    const currentSelected = state.filters.reportAssignee || 'all';
-    selectAssignee.innerHTML = '<option value="all">전체 작성자</option>';
-    state.members.forEach(member => {
-      const opt = document.createElement('option');
-      opt.value = member.id; opt.textContent = member.name;
-      if (member.id === currentSelected) opt.selected = true;
-      selectAssignee.appendChild(opt);
-    });
-  }
+    const start = (state.pagination.report.currentPage - 1) * pageSize;
+    const pageReports = filteredReports.slice(start, start + pageSize);
 
-  const filteredReports = state.reports.filter(report => {
-    if (report.finalCompleted) return false;
-    const isAssigneeExist = state.members.some(m => m.id === report.assignee);
-    if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
-    if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
-    if (state.filters.endDate && report.startDate > state.filters.endDate) return false;
-    if (state.filters.client !== 'all' && report.client !== state.filters.client) return false;
-    if (state.filters.reportAssignee && state.filters.reportAssignee !== 'all' && report.assignee !== state.filters.reportAssignee) return false;
-    return true;
-  });
+    if (pageReports.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 3rem; color: var(--text-muted);">프로젝트가 없습니다.</td></tr>`;
+      document.getElementById('report-pagination').innerHTML = '';
+      return;
+    }
 
-  filteredReports.sort((a, b) => {
-    const indexA = state.members.findIndex(m => m.id === a.assignee);
-    const indexB = state.members.findIndex(m => m.id === b.assignee);
-    const valA = indexA === -1 ? Infinity : indexA;
-    const valB = indexB === -1 ? Infinity : indexB;
-    if (valA !== valB) return valA - valB;
-    return b.startDate.localeCompare(a.startDate);
-  });
+    pageReports.forEach(report => {
+      const assigneeInfo = getAssigneeInfo(report.assignee);
+      const memberName = assigneeInfo.name;
+      const memberColor = assigneeInfo.color;
 
-  const totalItems = filteredReports.length;
-  const pageSize = state.pagination.report.pageSize;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  if (state.pagination.report.currentPage > totalPages) state.pagination.report.currentPage = Math.max(1, totalPages);
+      let statusLabel = '대기', statusClass = 'status-pending';
+      if (report.status === 'ongoing') { statusLabel = '진행중'; statusClass = 'status-ongoing'; }
+      else if (report.status === 'completed') { statusLabel = '완료'; statusClass = 'status-completed'; }
+      else if (report.status === 'suspended') { statusLabel = '보류'; statusClass = 'status-suspended'; }
 
-  const start = (state.pagination.report.currentPage - 1) * pageSize;
-  const pageReports = filteredReports.slice(start, start + pageSize);
-
-  if (pageReports.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 3rem; color: var(--text-muted);">프로젝트가 없습니다.</td></tr>`;
-    document.getElementById('report-pagination').innerHTML = '';
-    return;
-  }
-
-  pageReports.forEach(report => {
-    const assigneeInfo = getAssigneeInfo(report.assignee);
-    const memberName = assigneeInfo.name;
-    const memberColor = assigneeInfo.color;
-
-    let statusLabel = '대기', statusClass = 'status-pending';
-    if (report.status === 'ongoing') { statusLabel = '진행중'; statusClass = 'status-ongoing'; }
-    else if (report.status === 'completed') { statusLabel = '완료'; statusClass = 'status-completed'; }
-    else if (report.status === 'suspended') { statusLabel = '보류'; statusClass = 'status-suspended'; }
-
-    let confirmBtn = '';
-    if (report.progressModified || report.remarksModified) {
-      confirmBtn = `
+      let confirmBtn = '';
+      if (report.progressModified || report.remarksModified) {
+        confirmBtn = `
         <button class="member-action-btn confirm-report-btn" title="보고 확인" onclick="confirmReport('${report.id}')" style="color: var(--success); margin-left: 0.25rem;">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </button>`;
-    }
+      }
 
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
       <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
       <td class="${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600;">${escapeHTML(report.project)}</td>
       <td>${escapeHTML(report.client)}</td>
@@ -1375,283 +1395,283 @@ function renderReportView() {
       <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(report.remarks || '')}">${escapeHTML(report.remarks || '-')}</td>
       <td><div style="display: flex;"><button class="member-action-btn" onclick="openReportModal('${report.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path></svg></button>${confirmBtn}</div></td>
     `;
-    tableBody.appendChild(tr);
-  });
+      tableBody.appendChild(tr);
+    });
 
-  renderPagination('report-pagination', state.pagination.report.currentPage, totalPages, 'window.changeReportPage');
-}
+    renderPagination('report-pagination', state.pagination.report.currentPage, totalPages, 'window.changeReportPage');
+  }
 
-// --- 주간 업무보고 모달 ---
-function openReportModal(reportId = null) {
-  const modal = document.getElementById('modal-report');
-  const form = document.getElementById('form-report');
-  const assigneeSelect = document.getElementById('report-assignee');
-  const projectInput = document.getElementById('report-project');
-  const clientInput = document.getElementById('report-client');
-  const amountInput = document.getElementById('report-amount');
-  const startDateInput = document.getElementById('report-start-date');
-  const endDateInput = document.getElementById('report-end-date');
-  const progressInput = document.getElementById('report-progress');
-  const statusSelect = document.getElementById('report-status');
-  const remarksInput = document.getElementById('report-remarks');
-  const deleteBtn = document.getElementById('btn-delete-report');
-  const completeBtn = document.getElementById('btn-complete-report');
+  // --- 주간 업무보고 모달 ---
+  function openReportModal(reportId = null) {
+    const modal = document.getElementById('modal-report');
+    const form = document.getElementById('form-report');
+    const assigneeSelect = document.getElementById('report-assignee');
+    const projectInput = document.getElementById('report-project');
+    const clientInput = document.getElementById('report-client');
+    const amountInput = document.getElementById('report-amount');
+    const startDateInput = document.getElementById('report-start-date');
+    const endDateInput = document.getElementById('report-end-date');
+    const progressInput = document.getElementById('report-progress');
+    const statusSelect = document.getElementById('report-status');
+    const remarksInput = document.getElementById('report-remarks');
+    const deleteBtn = document.getElementById('btn-delete-report');
+    const completeBtn = document.getElementById('btn-complete-report');
 
-  form.reset();
+    form.reset();
 
-  assigneeSelect.innerHTML = '';
-  if (state.members.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = ''; opt.textContent = '(등록된 팀원 없음)';
-    assigneeSelect.appendChild(opt);
-  } else {
-    state.members.forEach(member => {
+    assigneeSelect.innerHTML = '';
+    if (state.members.length === 0) {
       const opt = document.createElement('option');
-      opt.value = member.id; opt.textContent = member.name;
+      opt.value = ''; opt.textContent = '(등록된 팀원 없음)';
       assigneeSelect.appendChild(opt);
-    });
-  }
-
-  if (reportId) {
-    document.getElementById('report-modal-title').textContent = '프로젝트 정보 수정 및 상세';
-    deleteBtn.style.display = 'block';
-    completeBtn.style.display = 'block';
-
-    const report = state.reports.find(r => r.id === reportId);
-    if (report) {
-      document.getElementById('report-id').value = report.id;
-      assigneeSelect.value = report.assignee;
-      projectInput.value = report.project;
-      clientInput.value = report.client;
-      amountInput.value = report.amount;
-      startDateInput.value = report.startDate;
-      endDateInput.value = report.endDate;
-      progressInput.value = report.progress;
-      statusSelect.value = report.status;
-      remarksInput.value = report.remarks || '';
-    }
-  } else {
-    document.getElementById('report-modal-title').textContent = '새 프로젝트 등록';
-    deleteBtn.style.display = 'none';
-    completeBtn.style.display = 'none';
-    document.getElementById('report-id').value = '';
-    const todayStr = getNormalizedDateString(new Date());
-    startDateInput.value = todayStr;
-    endDateInput.value = todayStr;
-    progressInput.value = '0';
-    statusSelect.value = 'ongoing';
-  }
-  modal.classList.add('active');
-}
-
-function closeReportModal() {
-  document.getElementById('modal-report').classList.remove('active');
-}
-
-// [서버 업로드] 프로젝트 추가 및 연동 스케줄 업로드
-function handleReportSubmit(e) {
-  e.preventDefault();
-  if (state.members.length === 0) {
-    alert('팀원이 존재하지 않아 프로젝트를 등록할 수 없습니다.');
-    return;
-  }
-
-  const id = document.getElementById('report-id').value || 'r_' + Date.now();
-  const assignee = document.getElementById('report-assignee').value;
-  const project = document.getElementById('report-project').value.trim();
-  const client = document.getElementById('report-client').value.trim();
-  const amount = Number(document.getElementById('report-amount').value);
-  const startDate = document.getElementById('report-start-date').value;
-  const endDate = document.getElementById('report-end-date').value;
-  const progress = Number(document.getElementById('report-progress').value);
-  const status = document.getElementById('report-status').value;
-  const remarks = document.getElementById('report-remarks').value.trim();
-
-  if (startDate > endDate) {
-    alert('종료일은 시작일보다 빠를 수 없습니다.');
-    return;
-  }
-
-  const prevReport = state.reports.find(r => r.id === id);
-  const isProgressChanged = prevReport ? Number(prevReport.progress) !== Number(progress) : false;
-  const isRemarksChanged = prevReport ? prevReport.remarks !== remarks : false;
-
-  const memberObj = state.members.find(m => m.id === assignee);
-  const assigneeName = memberObj ? memberObj.name : '';
-
-  const targetReport = {
-    id, assignee, assigneeName, project, client, amount, startDate, endDate, progress, status, remarks,
-    invoiceStatus: prevReport ? (prevReport.invoiceStatus || 'unissued') : 'unissued',
-    invoiceDate: prevReport ? (prevReport.invoiceDate || '') : '',
-    invoiceRemarks: prevReport ? (prevReport.invoiceRemarks || '') : '',
-    invoices: prevReport ? (prevReport.invoices || Array.from({ length: 5 }, () => ({ status: 'unissued', amount: 0, date: '' }))) : Array.from({ length: 5 }, () => ({ status: 'unissued', amount: 0, date: '' })),
-    progressModified: isProgressChanged ? true : (prevReport ? prevReport.progressModified : false),
-    remarksModified: isRemarksChanged ? true : (prevReport ? prevReport.remarksModified : false),
-    finalCompleted: prevReport ? (prevReport.finalCompleted || false) : false,
-    createdAt: prevReport ? (prevReport.createdAt || getNormalizedDateString(new Date())) : getNormalizedDateString(new Date())
-  };
-
-  // 파이어베이스 트랜잭션형 배치를 이용해 간트차트 일정과 동시에 서버에 저장
-  const batch = db.batch();
-  batch.set(db.collection("reports").doc(id), targetReport);
-
-  // 연동 캘린더 일정 계산 배치 연계
-  const eventId = 'e_r_' + id;
-  if (!targetReport.finalCompleted) {
-    const title = `[프로젝트] ${targetReport.project}`;
-    const eventData = {
-      id: eventId, title, startDate: targetReport.startDate, startTime: '09:00',
-      endDate: targetReport.endDate, endTime: '18:00', assignee: targetReport.assignee, assigneeName: targetReport.assigneeName,
-      category: 'project', priority: 'medium', client: targetReport.client, description: `프로젝트 연동 일정 (${targetReport.client})`
-    };
-    batch.set(db.collection("events").doc(eventId), eventData);
-  } else {
-    batch.delete(db.collection("events").doc(eventId));
-  }
-
-  batch.commit().then(() => {
-    showToast('프로젝트 내역 및 연동 스케줄이 실시간 동기화되었습니다.');
-    closeReportModal();
-  });
-}
-
-// [서버 삭제] 프로젝트 파기
-function handleDeleteReport() {
-  const id = document.getElementById('report-id').value;
-  if (!id) return;
-
-  if (confirm('이 프로젝트를 삭제하시겠습니까?')) {
-    const batch = db.batch();
-    batch.delete(db.collection("reports").doc(id));
-    batch.delete(db.collection("events").doc('e_r_' + id));
-
-    batch.commit().then(() => {
-      showToast('프로젝트 및 관계 일정이 전면 제거되었습니다.');
-      closeReportModal();
-    });
-  }
-}
-
-// --- 세금계산서 발행 관리 뷰 렌더링 ---
-function renderInvoiceView() {
-  const tableBody = document.getElementById('invoice-table-body');
-  if (!tableBody) return;
-  tableBody.innerHTML = '';
-
-  const targetYear = state.filters.invoiceYear;
-  const invoiceStatusFilter = state.filters.invoiceStatus || 'all';
-
-  // 세금계산서 구분 탭 UI 액티브 클래스 상태 동기화
-  const tabContainer = document.querySelector('.invoice-tab-container');
-  if (tabContainer) {
-    tabContainer.querySelectorAll('.invoice-tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.status === invoiceStatusFilter);
-    });
-  }
-
-  let sumTotal = 0;
-  let sumIssued = 0;
-  const invoiceReports = [];
-
-  state.reports.forEach(report => {
-    if (report.status !== 'completed' && report.status !== 'ongoing') return;
-    const isAssigneeExist = state.members.some(m => m.id === report.assignee);
-    if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return;
-    if (state.filters.startDate && report.endDate < state.filters.startDate) return;
-    if (state.filters.endDate && report.startDate > state.filters.endDate) return;
-    if (state.filters.client !== 'all' && report.client !== state.filters.client) return;
-
-    let hasInvoiceInTargetYear = false;
-    let projectIssuedSumInTargetYear = 0;
-
-    if (report.invoices && Array.isArray(report.invoices)) {
-      report.invoices.forEach(inv => {
-        if (inv.status === 'issued' && inv.date) {
-          const invYear = inv.date.substring(0, 4);
-          if (targetYear === 'all' || invYear === targetYear) {
-            hasInvoiceInTargetYear = true;
-            sumIssued += (Number(inv.amount) || 0);
-            projectIssuedSumInTargetYear += (Number(inv.amount) || 0);
-          }
-        }
+    } else {
+      state.members.forEach(member => {
+        const opt = document.createElement('option');
+        opt.value = member.id; opt.textContent = member.name;
+        assigneeSelect.appendChild(opt);
       });
     }
 
-    if (targetYear === 'all' || hasInvoiceInTargetYear) {
-      sumTotal += (Number(report.amount) || 0);
-      report._currentYearIssued = projectIssuedSumInTargetYear;
+    if (reportId) {
+      document.getElementById('report-modal-title').textContent = '프로젝트 정보 수정 및 상세';
+      deleteBtn.style.display = 'block';
+      completeBtn.style.display = 'block';
 
-      // 발행완료 판정: 발행금액(총 금액) > 0 이고 잔금이 0인 상태
-      const totalAmount = Number(report.amount) || 0;
-      let totalIssued = 0;
-      if (report.invoices) {
-        report.invoices.forEach(inv => {
-          if (inv.status === 'issued') totalIssued += (Number(inv.amount) || 0);
-        });
+      const report = state.reports.find(r => r.id === reportId);
+      if (report) {
+        document.getElementById('report-id').value = report.id;
+        assigneeSelect.value = report.assignee;
+        projectInput.value = report.project;
+        clientInput.value = report.client;
+        amountInput.value = report.amount;
+        startDateInput.value = report.startDate;
+        endDateInput.value = report.endDate;
+        progressInput.value = report.progress;
+        statusSelect.value = report.status;
+        remarksInput.value = report.remarks || '';
       }
-      const balance = totalAmount - totalIssued;
-      const isCompleted = totalAmount > 0 && balance === 0;
-
-      // 구분 필터링 조건
-      let matchesStatus = true;
-      if (invoiceStatusFilter === 'completed') {
-        matchesStatus = isCompleted;
-      } else if (invoiceStatusFilter === 'pending') {
-        matchesStatus = !isCompleted;
-      }
-
-      if (matchesStatus) {
-        invoiceReports.push(report);
-      }
+    } else {
+      document.getElementById('report-modal-title').textContent = '새 프로젝트 등록';
+      deleteBtn.style.display = 'none';
+      completeBtn.style.display = 'none';
+      document.getElementById('report-id').value = '';
+      const todayStr = getNormalizedDateString(new Date());
+      startDateInput.value = todayStr;
+      endDateInput.value = todayStr;
+      progressInput.value = '0';
+      statusSelect.value = 'ongoing';
     }
-  });
+    modal.classList.add('active');
+  }
 
-  document.getElementById('invoice-sum-total').textContent = sumTotal.toLocaleString() + ' 만원';
-  document.getElementById('invoice-sum-issued').textContent = sumIssued.toLocaleString() + ' 만원';
-  document.getElementById('invoice-sum-unissued').textContent = (sumTotal - sumIssued).toLocaleString() + ' 만원';
+  function closeReportModal() {
+    document.getElementById('modal-report').classList.remove('active');
+  }
 
-  // 팀원별 매출 요약 집계
-  const memberRevenues = {};
-  state.members.forEach(m => {
-    memberRevenues[m.id] = {
-      name: m.name,
-      color: m.color,
-      totalAmount: 0,
-      issuedAmount: 0
+  // [서버 업로드] 프로젝트 추가 및 연동 스케줄 업로드
+  function handleReportSubmit(e) {
+    e.preventDefault();
+    if (state.members.length === 0) {
+      alert('팀원이 존재하지 않아 프로젝트를 등록할 수 없습니다.');
+      return;
+    }
+
+    const id = document.getElementById('report-id').value || 'r_' + Date.now();
+    const assignee = document.getElementById('report-assignee').value;
+    const project = document.getElementById('report-project').value.trim();
+    const client = document.getElementById('report-client').value.trim();
+    const amount = Number(document.getElementById('report-amount').value);
+    const startDate = document.getElementById('report-start-date').value;
+    const endDate = document.getElementById('report-end-date').value;
+    const progress = Number(document.getElementById('report-progress').value);
+    const status = document.getElementById('report-status').value;
+    const remarks = document.getElementById('report-remarks').value.trim();
+
+    if (startDate > endDate) {
+      alert('종료일은 시작일보다 빠를 수 없습니다.');
+      return;
+    }
+
+    const prevReport = state.reports.find(r => r.id === id);
+    const isProgressChanged = prevReport ? Number(prevReport.progress) !== Number(progress) : false;
+    const isRemarksChanged = prevReport ? prevReport.remarks !== remarks : false;
+
+    const memberObj = state.members.find(m => m.id === assignee);
+    const assigneeName = memberObj ? memberObj.name : '';
+
+    const targetReport = {
+      id, assignee, assigneeName, project, client, amount, startDate, endDate, progress, status, remarks,
+      invoiceStatus: prevReport ? (prevReport.invoiceStatus || 'unissued') : 'unissued',
+      invoiceDate: prevReport ? (prevReport.invoiceDate || '') : '',
+      invoiceRemarks: prevReport ? (prevReport.invoiceRemarks || '') : '',
+      invoices: prevReport ? (prevReport.invoices || Array.from({ length: 5 }, () => ({ status: 'unissued', amount: 0, date: '' }))) : Array.from({ length: 5 }, () => ({ status: 'unissued', amount: 0, date: '' })),
+      progressModified: isProgressChanged ? true : (prevReport ? prevReport.progressModified : false),
+      remarksModified: isRemarksChanged ? true : (prevReport ? prevReport.remarksModified : false),
+      finalCompleted: prevReport ? (prevReport.finalCompleted || false) : false,
+      createdAt: prevReport ? (prevReport.createdAt || getNormalizedDateString(new Date())) : getNormalizedDateString(new Date())
     };
-  });
 
-  invoiceReports.forEach(report => {
-    const assignee = report.assignee;
-    if (assignee) {
-      if (!memberRevenues[assignee]) {
-        const assigneeInfo = getAssigneeInfo(assignee);
-        memberRevenues[assignee] = {
-          name: assigneeInfo.name,
-          color: assigneeInfo.color,
-          totalAmount: 0,
-          issuedAmount: 0
-        };
-      }
-      memberRevenues[assignee].totalAmount += (Number(report.amount) || 0);
+    // 파이어베이스 트랜잭션형 배치를 이용해 간트차트 일정과 동시에 서버에 저장
+    const batch = db.batch();
+    batch.set(db.collection("reports").doc(id), targetReport);
 
-      let issued = 0;
-      if (report.invoices) {
+    // 연동 캘린더 일정 계산 배치 연계
+    const eventId = 'e_r_' + id;
+    if (!targetReport.finalCompleted) {
+      const title = `[프로젝트] ${targetReport.project}`;
+      const eventData = {
+        id: eventId, title, startDate: targetReport.startDate, startTime: '09:00',
+        endDate: targetReport.endDate, endTime: '18:00', assignee: targetReport.assignee, assigneeName: targetReport.assigneeName,
+        category: 'project', priority: 'medium', client: targetReport.client, description: `프로젝트 연동 일정 (${targetReport.client})`
+      };
+      batch.set(db.collection("events").doc(eventId), eventData);
+    } else {
+      batch.delete(db.collection("events").doc(eventId));
+    }
+
+    batch.commit().then(() => {
+      showToast('프로젝트 내역 및 연동 스케줄이 실시간 동기화되었습니다.');
+      closeReportModal();
+    });
+  }
+
+  // [서버 삭제] 프로젝트 파기
+  function handleDeleteReport() {
+    const id = document.getElementById('report-id').value;
+    if (!id) return;
+
+    if (confirm('이 프로젝트를 삭제하시겠습니까?')) {
+      const batch = db.batch();
+      batch.delete(db.collection("reports").doc(id));
+      batch.delete(db.collection("events").doc('e_r_' + id));
+
+      batch.commit().then(() => {
+        showToast('프로젝트 및 관계 일정이 전면 제거되었습니다.');
+        closeReportModal();
+      });
+    }
+  }
+
+  // --- 세금계산서 발행 관리 뷰 렌더링 ---
+  function renderInvoiceView() {
+    const tableBody = document.getElementById('invoice-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+
+    const targetYear = state.filters.invoiceYear;
+    const invoiceStatusFilter = state.filters.invoiceStatus || 'all';
+
+    // 세금계산서 구분 탭 UI 액티브 클래스 상태 동기화
+    const tabContainer = document.querySelector('.invoice-tab-container');
+    if (tabContainer) {
+      tabContainer.querySelectorAll('.invoice-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.status === invoiceStatusFilter);
+      });
+    }
+
+    let sumTotal = 0;
+    let sumIssued = 0;
+    const invoiceReports = [];
+
+    state.reports.forEach(report => {
+      if (report.status !== 'completed' && report.status !== 'ongoing') return;
+      const isAssigneeExist = state.members.some(m => m.id === report.assignee);
+      if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return;
+      if (state.filters.startDate && report.endDate < state.filters.startDate) return;
+      if (state.filters.endDate && report.startDate > state.filters.endDate) return;
+      if (state.filters.client !== 'all' && report.client !== state.filters.client) return;
+
+      let hasInvoiceInTargetYear = false;
+      let projectIssuedSumInTargetYear = 0;
+
+      if (report.invoices && Array.isArray(report.invoices)) {
         report.invoices.forEach(inv => {
-          if (inv.status === 'issued') {
-            issued += (Number(inv.amount) || 0);
+          if (inv.status === 'issued' && inv.date) {
+            const invYear = inv.date.substring(0, 4);
+            if (targetYear === 'all' || invYear === targetYear) {
+              hasInvoiceInTargetYear = true;
+              sumIssued += (Number(inv.amount) || 0);
+              projectIssuedSumInTargetYear += (Number(inv.amount) || 0);
+            }
           }
         });
       }
-      memberRevenues[assignee].issuedAmount += issued;
-    }
-  });
 
-  const revenueContainer = document.getElementById('member-revenue-summary');
-  if (revenueContainer) {
-    const revenueItemsHtml = Object.values(memberRevenues)
-      .filter(m => m.totalAmount > 0)
-      .map(m => `
+      if (targetYear === 'all' || hasInvoiceInTargetYear) {
+        sumTotal += (Number(report.amount) || 0);
+        report._currentYearIssued = projectIssuedSumInTargetYear;
+
+        // 발행완료 판정: 발행금액(총 금액) > 0 이고 잔금이 0인 상태
+        const totalAmount = Number(report.amount) || 0;
+        let totalIssued = 0;
+        if (report.invoices) {
+          report.invoices.forEach(inv => {
+            if (inv.status === 'issued') totalIssued += (Number(inv.amount) || 0);
+          });
+        }
+        const balance = totalAmount - totalIssued;
+        const isCompleted = totalAmount > 0 && balance === 0;
+
+        // 구분 필터링 조건
+        let matchesStatus = true;
+        if (invoiceStatusFilter === 'completed') {
+          matchesStatus = isCompleted;
+        } else if (invoiceStatusFilter === 'pending') {
+          matchesStatus = !isCompleted;
+        }
+
+        if (matchesStatus) {
+          invoiceReports.push(report);
+        }
+      }
+    });
+
+    document.getElementById('invoice-sum-total').textContent = sumTotal.toLocaleString() + ' 만원';
+    document.getElementById('invoice-sum-issued').textContent = sumIssued.toLocaleString() + ' 만원';
+    document.getElementById('invoice-sum-unissued').textContent = (sumTotal - sumIssued).toLocaleString() + ' 만원';
+
+    // 팀원별 매출 요약 집계
+    const memberRevenues = {};
+    state.members.forEach(m => {
+      memberRevenues[m.id] = {
+        name: m.name,
+        color: m.color,
+        totalAmount: 0,
+        issuedAmount: 0
+      };
+    });
+
+    invoiceReports.forEach(report => {
+      const assignee = report.assignee;
+      if (assignee) {
+        if (!memberRevenues[assignee]) {
+          const assigneeInfo = getAssigneeInfo(assignee);
+          memberRevenues[assignee] = {
+            name: assigneeInfo.name,
+            color: assigneeInfo.color,
+            totalAmount: 0,
+            issuedAmount: 0
+          };
+        }
+        memberRevenues[assignee].totalAmount += (Number(report.amount) || 0);
+
+        let issued = 0;
+        if (report.invoices) {
+          report.invoices.forEach(inv => {
+            if (inv.status === 'issued') {
+              issued += (Number(inv.amount) || 0);
+            }
+          });
+        }
+        memberRevenues[assignee].issuedAmount += issued;
+      }
+    });
+
+    const revenueContainer = document.getElementById('member-revenue-summary');
+    if (revenueContainer) {
+      const revenueItemsHtml = Object.values(memberRevenues)
+        .filter(m => m.totalAmount > 0)
+        .map(m => `
         <div class="revenue-chip" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 0.5rem 0.85rem; border-radius: 20px; display: flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); font-size: 0.8rem; transition: transform 0.2s ease;">
           <span class="reporter-dot" style="background-color: ${m.color}; margin: 0; width: 8px; height: 8px; flex-shrink: 0;"></span>
           <span style="font-weight: 600; color: var(--text-primary);">${escapeHTML(m.name)}:</span>
@@ -1660,48 +1680,48 @@ function renderInvoiceView() {
         </div>
       `).join('');
 
-    if (revenueItemsHtml) {
-      revenueContainer.innerHTML = revenueItemsHtml;
-      revenueContainer.style.display = 'flex';
-    } else {
-      revenueContainer.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); padding: 0.25rem 0.5rem;">선택 기간 내 매출 내역이 존재하지 않습니다.</span>`;
-      revenueContainer.style.display = 'flex';
+      if (revenueItemsHtml) {
+        revenueContainer.innerHTML = revenueItemsHtml;
+        revenueContainer.style.display = 'flex';
+      } else {
+        revenueContainer.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); padding: 0.25rem 0.5rem;">선택 기간 내 매출 내역이 존재하지 않습니다.</span>`;
+        revenueContainer.style.display = 'flex';
+      }
     }
-  }
 
-  invoiceReports.sort((a, b) => b.endDate.localeCompare(a.endDate));
+    invoiceReports.sort((a, b) => b.endDate.localeCompare(a.endDate));
 
-  const totalItems = invoiceReports.length;
-  const pageSize = state.pagination.invoice.pageSize;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  if (state.pagination.invoice.currentPage > totalPages) state.pagination.invoice.currentPage = Math.max(1, totalPages);
+    const totalItems = invoiceReports.length;
+    const pageSize = state.pagination.invoice.pageSize;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    if (state.pagination.invoice.currentPage > totalPages) state.pagination.invoice.currentPage = Math.max(1, totalPages);
 
-  const start = (state.pagination.invoice.currentPage - 1) * pageSize;
-  const pageReports = invoiceReports.slice(start, start + pageSize);
-  // -----------------------------------------------------------------
-  // 🟢 [교체 구간 끝] 이 아래에 있는 if (pageReports.length === 0) { 부터는 기존 코드 그대로 둡니다.
-  // -----------------------------------------------------------------
+    const start = (state.pagination.invoice.currentPage - 1) * pageSize;
+    const pageReports = invoiceReports.slice(start, start + pageSize);
+    // -----------------------------------------------------------------
+    // 🟢 [교체 구간 끝] 이 아래에 있는 if (pageReports.length === 0) { 부터는 기존 코드 그대로 둡니다.
+    // -----------------------------------------------------------------
 
-  if (pageReports.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 3rem;">프로젝트 내역이 없습니다.</td></tr>`;
-    document.getElementById('invoice-pagination').innerHTML = '';
-    return;
-  }
-
-  pageReports.forEach(report => {
-    const assigneeInfo = getAssigneeInfo(report.assignee);
-    const memberName = assigneeInfo.name;
-    const memberColor = assigneeInfo.color;
-    const totalAmount = Number(report.amount) || 0;
-    let totalIssued = 0;
-    if (report.invoices) {
-      report.invoices.forEach(inv => { if (inv.status === 'issued') totalIssued += (Number(inv.amount) || 0); });
+    if (pageReports.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 3rem;">프로젝트 내역이 없습니다.</td></tr>`;
+      document.getElementById('invoice-pagination').innerHTML = '';
+      return;
     }
-    const balance = totalAmount - totalIssued;
-    const isExpanded = expandedInvoiceIds.has(report.id);
 
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
+    pageReports.forEach(report => {
+      const assigneeInfo = getAssigneeInfo(report.assignee);
+      const memberName = assigneeInfo.name;
+      const memberColor = assigneeInfo.color;
+      const totalAmount = Number(report.amount) || 0;
+      let totalIssued = 0;
+      if (report.invoices) {
+        report.invoices.forEach(inv => { if (inv.status === 'issued') totalIssued += (Number(inv.amount) || 0); });
+      }
+      const balance = totalAmount - totalIssued;
+      const isExpanded = expandedInvoiceIds.has(report.id);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
       <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
       <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
       <td>${report.endDate}</td><td style="text-align: right;">${totalAmount.toLocaleString()}</td>
@@ -1720,19 +1740,19 @@ function renderInvoiceView() {
         </div>
       </td>
     `;
-    tableBody.appendChild(tr);
+      tableBody.appendChild(tr);
 
-    const expandTr = document.createElement('tr');
-    expandTr.className = 'invoice-expand-row';
-    expandTr.id = `invoice-expand-${report.id}`;
-    expandTr.style.display = isExpanded ? 'table-row' : 'none';
-    expandTr.innerHTML = `
+      const expandTr = document.createElement('tr');
+      expandTr.className = 'invoice-expand-row';
+      expandTr.id = `invoice-expand-${report.id}`;
+      expandTr.style.display = isExpanded ? 'table-row' : 'none';
+      expandTr.innerHTML = `
       <td colspan="9" style="padding: 1rem; background: var(--bg-hover);">
         <div class="invoice-expand-card" style="background: var(--bg-card); padding: 1rem; border-radius: 8px;">
           <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:0.5rem;">
             ${[0, 1, 2, 3, 4].map(idx => {
-      const inv = report.invoices[idx] || { status: 'unissued', amount: 0, date: '' };
-      return `
+        const inv = report.invoices[idx] || { status: 'unissued', amount: 0, date: '' };
+        return `
                 <div style="border:1px solid var(--border-color); padding:0.5rem; border-radius:6px;">
                   <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
                     <span>${idx + 1}차</span>
@@ -1744,7 +1764,7 @@ function renderInvoiceView() {
                   <input type="number" value="${inv.amount}" style="width:100%; font-size:0.75rem; margin:4px 0;" onchange="updateInvoiceStage('${report.id}', ${idx}, 'amount', this.value)">
                   <input type="date" value="${inv.date}" style="width:100%; font-size:0.7rem;" ${inv.status === 'unissued' ? 'disabled' : ''} onchange="updateInvoiceStage('${report.id}', ${idx}, 'date', this.value)">
                 </div>`;
-    }).join('')}
+      }).join('')}
           </div>
           <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center;">
             <span style="font-size:0.75rem;">비고:</span>
@@ -1752,125 +1772,125 @@ function renderInvoiceView() {
           </div>
         </div>
       </td>`;
-    tableBody.appendChild(expandTr);
-  });
+      tableBody.appendChild(expandTr);
+    });
 
-  renderPagination('invoice-pagination', state.pagination.invoice.currentPage, totalPages, 'window.changeInvoicePage');
-}
-
-// [서버 업로드] 주간보고 확인 완료 (플래그 리셋)
-window.confirmReport = function (reportId) {
-  db.collection("reports").doc(reportId).update({
-    progressModified: false,
-    remarksModified: false
-  }).then(() => {
-    showToast('수정 내역 알림이 확인 처리되었습니다.');
-  });
-};
-
-// [서버 업로드] 팀장 전용 프로젝트 완전 완료 처리
-function handleProjectComplete() {
-  const id = document.getElementById('report-id').value;
-  if (!id) return;
-
-  if (!confirm('귀하는 팀장 또는 파트장입니까? 완료 처리 시 타임라인에서 일정이 마감 제거됩니다.')) return;
-
-  const batch = db.batch();
-  batch.update(db.collection("reports").doc(id), {
-    status: 'completed',
-    progress: 100,
-    finalCompleted: true,
-    progressModified: true
-  });
-  batch.delete(db.collection("events").doc('e_r_' + id));
-
-  batch.commit().then(() => {
-    showToast('프로젝트 완료 기안 처리가 서버에 최종 반영되었습니다.');
-    closeReportModal();
-    switchView('completed');
-  });
-}
-
-// [서버 업로드] 5차 계산서 분할 상태 변경 시 실시간 업로드
-window.updateInvoiceStage = function (reportId, stageIndex, field, value) {
-  const report = state.reports.find(r => r.id === reportId);
-  if (report) {
-    const invoices = [...report.invoices];
-    if (field === 'status') {
-      invoices[stageIndex].status = value;
-      invoices[stageIndex].date = value === 'unissued' ? '' : getNormalizedDateString(new Date());
-    } else if (field === 'amount') {
-      invoices[stageIndex].amount = Number(value) || 0;
-    } else if (field === 'date') {
-      invoices[stageIndex].date = value;
-    }
-
-    db.collection("reports").doc(reportId).update({ invoices })
-      .then(() => {
-        showToast(`${stageIndex + 1}차 대금 관리 정보가 실시간 업데이트되었습니다.`);
-      });
+    renderPagination('invoice-pagination', state.pagination.invoice.currentPage, totalPages, 'window.changeInvoicePage');
   }
-};
 
-window.handleInvoiceRemarksChange = function (reportId, newRemarks) {
-  db.collection("reports").doc(reportId).update({ invoiceRemarks: newRemarks })
-    .then(() => showToast('계산서 비고란이 업데이트되었습니다.'));
-};
+  // [서버 업로드] 주간보고 확인 완료 (플래그 리셋)
+  window.confirmReport = function (reportId) {
+    db.collection("reports").doc(reportId).update({
+      progressModified: false,
+      remarksModified: false
+    }).then(() => {
+      showToast('수정 내역 알림이 확인 처리되었습니다.');
+    });
+  };
 
-// [서버 삭제] 완료 프로젝트 삭제
-window.deleteCompletedProject = function (reportId) {
-  if (confirm('정말 이 완료된 프로젝트를 데이터베이스에서 영구 삭제하시겠습니까?')) {
+  // [서버 업로드] 팀장 전용 프로젝트 완전 완료 처리
+  function handleProjectComplete() {
+    const id = document.getElementById('report-id').value;
+    if (!id) return;
+
+    if (!confirm('귀하는 팀장 또는 파트장입니까? 완료 처리 시 타임라인에서 일정이 마감 제거됩니다.')) return;
+
     const batch = db.batch();
-    batch.delete(db.collection("reports").doc(reportId));
-    batch.delete(db.collection("events").doc('e_r_' + reportId));
+    batch.update(db.collection("reports").doc(id), {
+      status: 'completed',
+      progress: 100,
+      finalCompleted: true,
+      progressModified: true
+    });
+    batch.delete(db.collection("events").doc('e_r_' + id));
+
     batch.commit().then(() => {
-      showToast('완료 프로젝트 데이터가 서버에서 파기되었습니다.');
+      showToast('프로젝트 완료 기안 처리가 서버에 최종 반영되었습니다.');
+      closeReportModal();
+      switchView('completed');
     });
   }
-};
 
-// --- 프로젝트 완료 현황 뷰 렌더링 ---
-function renderCompletedProjectsView() {
-  const tableBody = document.getElementById('completed-projects-table-body');
-  if (!tableBody) return;
-  tableBody.innerHTML = '';
+  // [서버 업로드] 5차 계산서 분할 상태 변경 시 실시간 업로드
+  window.updateInvoiceStage = function (reportId, stageIndex, field, value) {
+    const report = state.reports.find(r => r.id === reportId);
+    if (report) {
+      const invoices = [...report.invoices];
+      if (field === 'status') {
+        invoices[stageIndex].status = value;
+        invoices[stageIndex].date = value === 'unissued' ? '' : getNormalizedDateString(new Date());
+      } else if (field === 'amount') {
+        invoices[stageIndex].amount = Number(value) || 0;
+      } else if (field === 'date') {
+        invoices[stageIndex].date = value;
+      }
 
-  const filteredReports = state.reports.filter(report => {
-    if (!report.finalCompleted) return false;
-    const isAssigneeExist = state.members.some(m => m.id === report.assignee);
-    if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
-    if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
-    if (state.filters.endDate && report.startDate > state.filters.endDate) return false;
-    if (state.filters.client !== 'all' && report.client !== state.filters.client) return false;
-    if (state.filters.completedYear !== 'all') {
-      const year = report.startDate ? report.startDate.substring(0, 4) : '';
-      if (year !== state.filters.completedYear) return false;
+      db.collection("reports").doc(reportId).update({ invoices })
+        .then(() => {
+          showToast(`${stageIndex + 1}차 대금 관리 정보가 실시간 업데이트되었습니다.`);
+        });
     }
-    return true;
-  });
+  };
 
-  filteredReports.sort((a, b) => b.endDate.localeCompare(a.endDate));
+  window.handleInvoiceRemarksChange = function (reportId, newRemarks) {
+    db.collection("reports").doc(reportId).update({ invoiceRemarks: newRemarks })
+      .then(() => showToast('계산서 비고란이 업데이트되었습니다.'));
+  };
 
-  const totalItems = filteredReports.length;
-  const pageSize = state.pagination.completed.pageSize;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  if (state.pagination.completed.currentPage > totalPages) state.pagination.completed.currentPage = Math.max(1, totalPages);
+  // [서버 삭제] 완료 프로젝트 삭제
+  window.deleteCompletedProject = function (reportId) {
+    if (confirm('정말 이 완료된 프로젝트를 데이터베이스에서 영구 삭제하시겠습니까?')) {
+      const batch = db.batch();
+      batch.delete(db.collection("reports").doc(reportId));
+      batch.delete(db.collection("events").doc('e_r_' + reportId));
+      batch.commit().then(() => {
+        showToast('완료 프로젝트 데이터가 서버에서 파기되었습니다.');
+      });
+    }
+  };
 
-  const start = (state.pagination.completed.currentPage - 1) * pageSize;
-  const pageReports = filteredReports.slice(start, start + pageSize);
+  // --- 프로젝트 완료 현황 뷰 렌더링 ---
+  function renderCompletedProjectsView() {
+    const tableBody = document.getElementById('completed-projects-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
 
-  if (pageReports.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 3rem;">완료 프로젝트 로그가 비어있습니다.</td></tr>`;
-    document.getElementById('completed-pagination').innerHTML = '';
-    return;
-  }
+    const filteredReports = state.reports.filter(report => {
+      if (!report.finalCompleted) return false;
+      const isAssigneeExist = state.members.some(m => m.id === report.assignee);
+      if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
+      if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
+      if (state.filters.endDate && report.startDate > state.filters.endDate) return false;
+      if (state.filters.client !== 'all' && report.client !== state.filters.client) return false;
+      if (state.filters.completedYear !== 'all') {
+        const year = report.startDate ? report.startDate.substring(0, 4) : '';
+        if (year !== state.filters.completedYear) return false;
+      }
+      return true;
+    });
 
-  pageReports.forEach(report => {
-    const assigneeInfo = getAssigneeInfo(report.assignee);
-    const memberName = assigneeInfo.name;
-    const memberColor = assigneeInfo.color;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
+    filteredReports.sort((a, b) => b.endDate.localeCompare(a.endDate));
+
+    const totalItems = filteredReports.length;
+    const pageSize = state.pagination.completed.pageSize;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    if (state.pagination.completed.currentPage > totalPages) state.pagination.completed.currentPage = Math.max(1, totalPages);
+
+    const start = (state.pagination.completed.currentPage - 1) * pageSize;
+    const pageReports = filteredReports.slice(start, start + pageSize);
+
+    if (pageReports.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 3rem;">완료 프로젝트 로그가 비어있습니다.</td></tr>`;
+      document.getElementById('completed-pagination').innerHTML = '';
+      return;
+    }
+
+    pageReports.forEach(report => {
+      const assigneeInfo = getAssigneeInfo(report.assignee);
+      const memberName = assigneeInfo.name;
+      const memberColor = assigneeInfo.color;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
       <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
       <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
       <td>${report.startDate}</td><td>${report.endDate}</td>
@@ -1889,18 +1909,18 @@ function renderCompletedProjectsView() {
         </div>
       </td>
     `;
-    tableBody.appendChild(tr);
-  });
+      tableBody.appendChild(tr);
+    });
 
-  renderPagination('completed-pagination', state.pagination.completed.currentPage, totalPages, 'window.changeCompletedPage');
-}
+    renderPagination('completed-pagination', state.pagination.completed.currentPage, totalPages, 'window.changeCompletedPage');
+  }
 
-// --- 공통 페이지네이션 및 필터 서브 유틸리티 ---
-function renderPagination(containerId, currentPage, totalPages, onPageChangeName) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  if (totalPages <= 1) { container.innerHTML = ''; return; }
-  container.innerHTML = `
+  // --- 공통 페이지네이션 및 필터 서브 유틸리티 ---
+  function renderPagination(containerId, currentPage, totalPages, onPageChangeName) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+    container.innerHTML = `
     <button class="btn-nav" ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChangeName}(${currentPage - 1})">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
@@ -1908,165 +1928,171 @@ function renderPagination(containerId, currentPage, totalPages, onPageChangeName
     <button class="btn-nav" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChangeName}(${currentPage + 1})">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
     </button>`;
-}
+  }
 
-function updateClientFilterDropdown() {
-  const select = document.getElementById('filter-client');
-  if (!select) return;
-  const currentSelected = state.filters.client;
-  const clients = [...new Set(state.reports.map(r => r.client).filter(c => c))].sort();
-  select.innerHTML = '<option value="all">전체 업체</option>';
-  clients.forEach(client => {
-    const opt = document.createElement('option');
-    opt.value = client; opt.textContent = client;
-    if (client === currentSelected) opt.selected = true;
-    select.appendChild(opt);
-  });
-}
-
-function updateYearFilterDropdown() {
-  const selectInvoice = document.getElementById('filter-invoice-year');
-  if (selectInvoice) {
-    const currentSelected = state.filters.invoiceYear;
-    let years = [...new Set(state.reports.map(r => r.startDate ? r.startDate.substring(0, 4) : null).filter(y => y))];
-    const currentYear = new Date().getFullYear().toString();
-    if (!years.includes(currentYear)) {
-      years.push(currentYear);
-    }
-    years.sort((a, b) => b.localeCompare(a));
-
-    selectInvoice.innerHTML = '<option value="all">전체 연도</option>';
-    years.forEach(year => {
+  function updateClientFilterDropdown() {
+    const select = document.getElementById('filter-client');
+    if (!select) return;
+    const currentSelected = state.filters.client;
+    const clients = [...new Set(state.reports.map(r => r.client).filter(c => c))].sort();
+    select.innerHTML = '<option value="all">전체 업체</option>';
+    clients.forEach(client => {
       const opt = document.createElement('option');
-      opt.value = year; opt.textContent = `${year}년`;
-      if (year === currentSelected) opt.selected = true;
-      selectInvoice.appendChild(opt);
+      opt.value = client; opt.textContent = client;
+      if (client === currentSelected) opt.selected = true;
+      select.appendChild(opt);
     });
   }
-  const selectCompleted = document.getElementById('filter-completed-year');
-  if (selectCompleted) {
-    const currentSelected = state.filters.completedYear;
-    const years = [...new Set(state.reports.filter(r => r.finalCompleted).map(r => r.startDate ? r.startDate.substring(0, 4) : null).filter(y => y))].sort((a, b) => b.localeCompare(a));
-    selectCompleted.innerHTML = '<option value="all">전체 연도</option>';
-    years.forEach(year => {
-      const opt = document.createElement('option');
-      opt.value = year; opt.textContent = `${year}년`;
-      if (year === currentSelected) opt.selected = true;
-      selectCompleted.appendChild(opt);
-    });
-  }
-}
 
-function resetPaginationPages() {
-  state.pagination.report.currentPage = 1;
-  state.pagination.invoice.currentPage = 1;
-  state.pagination.completed.currentPage = 1;
-}
-
-window.changeReportPage = (page) => { state.pagination.report.currentPage = page; renderReportView(); };
-window.changeInvoicePage = (page) => { state.pagination.invoice.currentPage = page; renderInvoiceView(); };
-window.changeCompletedPage = (page) => { state.pagination.completed.currentPage = page; renderCompletedProjectsView(); };
-
-window.toggleInvoiceExpand = function (reportId) {
-  const expandRow = document.getElementById(`invoice-expand-${reportId}`);
-  if (expandRow) {
-    const isHidden = expandRow.style.display === 'none';
-    expandRow.style.display = isHidden ? 'table-row' : 'none';
-    if (isHidden) expandedInvoiceIds.add(reportId); else expandedInvoiceIds.delete(reportId);
-  }
-};
-
-// 백업 기능 유지
-function exportData() {
-  const dataStr = JSON.stringify({ members: state.members, events: state.events, reports: state.reports }, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `teamscheduler_cloud_backup.json`;
-  a.click();
-  showToast('서버의 스냅샷 데이터 백업본이 다운로드되었습니다.');
-}
-
-// 백업 본 서버 대량 주입(Override)
-function importData(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function (event) {
-    try {
-      const data = JSON.parse(event.target.result);
-      if (Array.isArray(data.members) && Array.isArray(data.events) && Array.isArray(data.reports)) {
-        if (confirm('클라우드 원격 서버의 전 데이터가 이 파일로 강제 치환됩니다. 계속하시겠습니까?')) {
-          showToast('클라우드 덮어쓰기 작업을 시작합니다...');
-          const batch = db.batch();
-
-          // 기존 데이터 삭제 프로세스 생략(문서ID 덮어쓰기)
-          data.members.forEach(m => batch.set(db.collection("members").doc(m.id), m));
-          data.events.forEach(ev => batch.set(db.collection("events").doc(ev.id), ev));
-          data.reports.forEach(r => batch.set(db.collection("reports").doc(r.id), r));
-
-          batch.commit().then(() => showToast('클라우드 서버 동기화 복원이 완수되었습니다.'));
-        }
+  function updateYearFilterDropdown() {
+    const selectInvoice = document.getElementById('filter-invoice-year');
+    if (selectInvoice) {
+      const currentSelected = state.filters.invoiceYear;
+      let years = [...new Set(state.reports.map(r => r.startDate ? r.startDate.substring(0, 4) : null).filter(y => y))];
+      const currentYear = new Date().getFullYear().toString();
+      if (!years.includes(currentYear)) {
+        years.push(currentYear);
       }
-    } catch (err) { alert('오류: ' + err.message); }
-  };
-  reader.readAsText(file);
-  e.target.value = '';
-}
+      years.sort((a, b) => b.localeCompare(a));
 
-// 위험구역: 서버 폭파 및 리셋
-function resetData() {
-  const password = prompt('서버 초기화 관리자 암호 입력:');
-  if (password !== '23421342') { alert('인증 실패'); return; }
-
-  if (confirm('주의: 클라우드 중앙 DB를 청소하고 데모 데이터 세트로 복원합니다. 확정하시겠습니까?')) {
-    initializeDemoDataToFirebase();
+      selectInvoice.innerHTML = '<option value="all">전체 연도</option>';
+      years.forEach(year => {
+        const opt = document.createElement('option');
+        opt.value = year; opt.textContent = `${year}년`;
+        if (year === currentSelected) opt.selected = true;
+        selectInvoice.appendChild(opt);
+      });
+    }
+    const selectCompleted = document.getElementById('filter-completed-year');
+    if (selectCompleted) {
+      const currentSelected = state.filters.completedYear;
+      const years = [...new Set(state.reports.filter(r => r.finalCompleted).map(r => r.startDate ? r.startDate.substring(0, 4) : null).filter(y => y))].sort((a, b) => b.localeCompare(a));
+      selectCompleted.innerHTML = '<option value="all">전체 연도</option>';
+      years.forEach(year => {
+        const opt = document.createElement('option');
+        opt.value = year; opt.textContent = `${year}년`;
+        if (year === currentSelected) opt.selected = true;
+        selectCompleted.appendChild(opt);
+      });
+    }
   }
-}
 
-// --- 공통 알림 및 헬퍼 유틸리티 ---
-function showToast(message) {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.innerHTML = `<span>${message}</span>`;
-  container.appendChild(toast);
-  setTimeout(() => toast.classList.add('show'), 50);
-  setTimeout(() => {
-    toast.classList.remove('show');
-    toast.addEventListener('transitionend', () => toast.remove());
-  }, 3000);
-}
+  function resetPaginationPages() {
+    state.pagination.report.currentPage = 1;
+    state.pagination.invoice.currentPage = 1;
+    state.pagination.completed.currentPage = 1;
+  }
 
-function getNormalizedDateString(date) {
-  const offset = date.getTimezoneOffset();
-  const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
-  return adjustedDate.toISOString().split('T')[0];
-}
+  window.changeReportPage = (page) => { state.pagination.report.currentPage = page; renderReportView(); };
+  window.changeInvoicePage = (page) => { state.pagination.invoice.currentPage = page; renderInvoiceView(); };
+  window.changeCompletedPage = (page) => { state.pagination.completed.currentPage = page; renderCompletedProjectsView(); };
 
-function isNewProject(createdAt) {
-  if (!createdAt) return false;
-  const createdTime = new Date(createdAt).getTime();
-  const todayTime = new Date(getNormalizedDateString(new Date())).getTime();
-  return ((todayTime - createdTime) / (1000 * 60 * 60 * 24)) <= 7;
-}
+  window.toggleInvoiceExpand = function (reportId) {
+    const expandRow = document.getElementById(`invoice-expand-${reportId}`);
+    if (expandRow) {
+      const isHidden = expandRow.style.display === 'none';
+      expandRow.style.display = isHidden ? 'table-row' : 'none';
+      if (isHidden) expandedInvoiceIds.add(reportId); else expandedInvoiceIds.delete(reportId);
+    }
+  };
 
-function checkIfToday(year, month, day) {
-  const today = new Date();
-  return today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
-}
+  // 백업 기능 유지
+  function exportData() {
+    const dataStr = JSON.stringify({ members: state.members, events: state.events, reports: state.reports }, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `teamscheduler_cloud_backup.json`;
+    a.click();
+    showToast('서버의 스냅샷 데이터 백업본이 다운로드되었습니다.');
+  }
 
-function hexToRgba(hex, alpha) {
-  const cleanHex = hex.replace('#', '');
-  const r = parseInt(cleanHex.substring(0, 2), 16);
-  const g = parseInt(cleanHex.substring(2, 4), 16);
-  const b = parseInt(cleanHex.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+  // 백업 본 서버 대량 주입(Override)
+  function importData(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (Array.isArray(data.members) && Array.isArray(data.events) && Array.isArray(data.reports)) {
+          if (confirm('클라우드 원격 서버의 전 데이터가 이 파일로 강제 치환됩니다. 계속하시겠습니까?')) {
+            showToast('클라우드 덮어쓰기 작업을 시작합니다...');
+            const batch = db.batch();
 
-function escapeHTML(str) {
-  if (!str) return '';
-  return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
-}
+            // 기존 데이터 삭제 프로세스 생략(문서ID 덮어쓰기)
+            data.members.forEach(m => batch.set(db.collection("members").doc(m.id), m));
+            data.events.forEach(ev => batch.set(db.collection("events").doc(ev.id), ev));
+            data.reports.forEach(r => batch.set(db.collection("reports").doc(r.id), r));
+
+            batch.commit().then(() => showToast('클라우드 서버 동기화 복원이 완수되었습니다.'));
+          }
+        }
+      } catch (err) { alert('오류: ' + err.message); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  // 위험구역: 서버 폭파 및 리셋
+  function resetData() {
+    const loggedInUser = sessionStorage.getItem('logged_in_user');
+    if (loggedInUser !== 'whjung@dnde.co.kr') {
+      alert('whjung@dnde.co.kr 계정만 전체 데이터 초기화가 가능합니다.');
+      return;
+    }
+
+    const password = prompt('서버 초기화 관리자 암호 입력:');
+    if (password !== '23421342') { alert('인증 실패'); return; }
+
+    if (confirm('주의: 클라우드 중앙 DB를 청소하고 데모 데이터 세트로 복원합니다. 확정하시겠습니까?')) {
+      initializeDemoDataToFirebase();
+    }
+  }
+
+  // --- 공통 알림 및 헬퍼 유틸리티 ---
+  function showToast(message) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 50);
+    setTimeout(() => {
+      toast.classList.remove('show');
+      toast.addEventListener('transitionend', () => toast.remove());
+    }, 3000);
+  }
+
+  function getNormalizedDateString(date) {
+    const offset = date.getTimezoneOffset();
+    const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+    return adjustedDate.toISOString().split('T')[0];
+  }
+
+  function isNewProject(createdAt) {
+    if (!createdAt) return false;
+    const createdTime = new Date(createdAt).getTime();
+    const todayTime = new Date(getNormalizedDateString(new Date())).getTime();
+    return ((todayTime - createdTime) / (1000 * 60 * 60 * 24)) <= 7;
+  }
+
+  function checkIfToday(year, month, day) {
+    const today = new Date();
+    return today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+  }
+
+  function hexToRgba(hex, alpha) {
+    const cleanHex = hex.replace('#', '');
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+  }
