@@ -275,10 +275,16 @@ function setupLogin() {
       // 세션 지속성 설정 후 로그인 시도 (창 닫으면 자동 로그아웃)
       firebase.auth().setPersistence(firebase.auth.Auth.Persistence.SESSION)
         .then(() => {
+          // 🟢 대소문자 오타 교정 완료: Password -> password
           return firebase.auth().signInWithEmailAndPassword(username, password);
         })
         .then((userCredential) => {
+          // 🟢 로그인 성공 시 토스트 알림 및 즉시 대시보드 화면 열기 연동
           showToast('CAE파트 일정 관리 시스템에 오신 것을 환영합니다.');
+          if (loginContainer) loginContainer.style.display = 'none';
+          if (appContainer) appContainer.style.display = 'flex';
+          setupEventListeners();
+          listenToFirebaseRealtime();
         })
         .catch((error) => {
           console.error("Firebase Auth Error:", error.code, error.message);
