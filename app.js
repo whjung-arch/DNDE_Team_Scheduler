@@ -245,14 +245,18 @@ function setupLogin() {
   const passwordInput = document.getElementById('login-password');
   const errorMsg = document.getElementById('login-error-msg');
 
-  // 실시간 파이어베이스 인증 상태 감지 리스너 등록
   firebase.auth().onAuthStateChanged((user) => {
+    const btnReset = document.getElementById('btn-reset');
     if (user) {
       sessionStorage.setItem('is_logged_in', 'true');
       sessionStorage.setItem('logged_in_user', user.email);
 
       if (loginContainer) loginContainer.style.display = 'none';
       if (appContainer) appContainer.style.display = 'flex';
+
+      if (btnReset) {
+        btnReset.style.display = (user.email === 'whjung@dnde.co.kr') ? 'flex' : 'none';
+      }
 
       setupEventListeners();
       listenToFirebaseRealtime();
@@ -263,6 +267,10 @@ function setupLogin() {
 
       if (loginContainer) loginContainer.style.display = 'flex';
       if (appContainer) appContainer.style.display = 'none';
+
+      if (btnReset) {
+        btnReset.style.display = 'none';
+      }
     }
   });
 
@@ -628,41 +636,6 @@ function setupEventListeners() {
 
   document.getElementById('btn-reset').addEventListener('click', resetData);
 
-  // 2차 패스워드 확인 모달 리스너
-  const formSecondary = document.getElementById('form-secondary-auth');
-  if (formSecondary) {
-    formSecondary.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const loggedInUser = sessionStorage.getItem('logged_in_user');
-      if (loggedInUser !== 'whjung@dnde.co.kr') {
-        alert('whjung@dnde.co.kr 계정만 접근 권한이 있습니다.');
-        closeSecondaryAuthModal();
-        return;
-      }
-      const password = document.getElementById('secondary-password').value;
-      if (password === 'Qkqfkaus21!') {
-        sessionStorage.setItem('secondary_auth', 'true');
-        closeSecondaryAuthModal();
-        if (pendingView) {
-          switchView(pendingView);
-        }
-      } else {
-        const errorMsg = document.getElementById('secondary-error-msg');
-        errorMsg.textContent = '2차 보안 비밀번호가 일치하지 않습니다.';
-        errorMsg.style.display = 'block';
-        document.getElementById('secondary-password').value = '';
-        document.getElementById('secondary-password').focus();
-      }
-    });
-  }
-  const btnCloseSecModal = document.getElementById('btn-close-secondary-modal');
-  if (btnCloseSecModal) {
-    btnCloseSecModal.addEventListener('click', closeSecondaryAuthModal);
-  }
-  const btnCancelSecModal = document.getElementById('btn-cancel-secondary-modal');
-  if (btnCancelSecModal) {
-    btnCancelSecModal.addEventListener('click', closeSecondaryAuthModal);
-  }
 }
 
 // --- 일정/팀원 필터링 연산 ---
@@ -1071,24 +1044,7 @@ function getAssigneeInfo(assigneeId, reports = state.reports, events = state.eve
   return { name: '미배정', color: '#94a3b8', isDeleted: true };
 }
 
-let pendingView = null;
-
 function switchView(view) {
-  if (view === 'invoice' || view === 'completed') {
-    const loggedInUser = sessionStorage.getItem('logged_in_user');
-    if (loggedInUser !== 'whjung@dnde.co.kr') {
-      showToast('whjung@dnde.co.kr 계정만 접근 가능합니다.');
-      return;
-    }
-
-    const isAuthorized = sessionStorage.getItem('secondary_auth') === 'true';
-    if (!isAuthorized) {
-      pendingView = view;
-      openSecondaryAuthModal();
-      return;
-    }
-  }
-
   state.currentView = view;
   document.getElementById('view-btn-timeline').classList.toggle('active', view === 'timeline');
   document.getElementById('view-btn-report').classList.toggle('active', view === 'report');
@@ -1100,24 +1056,6 @@ function switchView(view) {
   else if (view === 'invoice') document.getElementById('main-view-title').textContent = '세금계산서 발행현황';
   else if (view === 'completed') document.getElementById('main-view-title').textContent = '프로젝트 완료 현황';
   renderApp();
-}
-
-function openSecondaryAuthModal() {
-  const modal = document.getElementById('modal-secondary-auth');
-  if (modal) {
-    document.getElementById('secondary-password').value = '';
-    document.getElementById('secondary-error-msg').style.display = 'none';
-    modal.classList.add('active');
-    setTimeout(() => {
-      document.getElementById('secondary-password').focus();
-    }, 100);
-  }
-}
-
-function closeSecondaryAuthModal() {
-  const modal = document.getElementById('modal-secondary-auth');
-  if (modal) modal.classList.remove('active');
-  pendingView = null;
 }
 
 // --- 일정 추가/수정 모달 로직 ---
@@ -1634,9 +1572,16 @@ function renderInvoiceView() {
     }
   });
 
-  document.getElementById('invoice-sum-total').textContent = sumTotal.toLocaleString() + ' 만원';
-  document.getElementById('invoice-sum-issued').textContent = sumIssued.toLocaleString() + ' 만원';
-  document.getElementById('invoice-sum-unissued').textContent = (sumTotal - sumIssued).toLocaleString() + ' 만원';
+  const loggedInUser = sessionStorage.getItem('logged_in_user');
+  if (loggedInUser === 'whjung@dnde.co.kr') {
+    document.getElementById('invoice-sum-total').textContent = sumTotal.toLocaleString() + ' 만원';
+    document.getElementById('invoice-sum-issued').textContent = sumIssued.toLocaleString() + ' 만원';
+    document.getElementById('invoice-sum-unissued').textContent = (sumTotal - sumIssued).toLocaleString() + ' 만원';
+  } else {
+    document.getElementById('invoice-sum-total').textContent = '권한 없음';
+    document.getElementById('invoice-sum-issued').textContent = '권한 없음';
+    document.getElementById('invoice-sum-unissued').textContent = '권한 없음';
+  }
 
   // 팀원별 매출 요약 집계
   const memberRevenues = {};
@@ -1677,23 +1622,29 @@ function renderInvoiceView() {
 
   const revenueContainer = document.getElementById('member-revenue-summary');
   if (revenueContainer) {
-    const revenueItemsHtml = Object.values(memberRevenues)
-      .filter(m => m.totalAmount > 0)
-      .map(m => `
-        <div class="revenue-chip" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 0.5rem 0.85rem; border-radius: 20px; display: flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); font-size: 0.8rem; transition: transform 0.2s ease;">
-          <span class="reporter-dot" style="background-color: ${m.color}; margin: 0; width: 8px; height: 8px; flex-shrink: 0;"></span>
-          <span style="font-weight: 600; color: var(--text-primary);">${escapeHTML(m.name)}:</span>
-          <span style="color: var(--primary); font-weight: 700;">${m.totalAmount.toLocaleString()} 만원</span>
-          <span style="color: var(--text-muted); font-size: 0.7rem; font-weight: normal; margin-left: 0.1rem;">(발행완료: ${m.issuedAmount.toLocaleString()}만)</span>
-        </div>
-      `).join('');
+    const loggedInUser = sessionStorage.getItem('logged_in_user');
+    if (loggedInUser === 'whjung@dnde.co.kr') {
+      const revenueItemsHtml = Object.values(memberRevenues)
+        .filter(m => m.totalAmount > 0)
+        .map(m => `
+          <div class="revenue-chip" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 0.5rem 0.85rem; border-radius: 20px; display: flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); font-size: 0.8rem; transition: transform 0.2s ease;">
+            <span class="reporter-dot" style="background-color: ${m.color}; margin: 0; width: 8px; height: 8px; flex-shrink: 0;"></span>
+            <span style="font-weight: 600; color: var(--text-primary);">${escapeHTML(m.name)}:</span>
+            <span style="color: var(--primary); font-weight: 700;">${m.totalAmount.toLocaleString()} 만원</span>
+            <span style="color: var(--text-muted); font-size: 0.7rem; font-weight: normal; margin-left: 0.1rem;">(발행완료: ${m.issuedAmount.toLocaleString()}만)</span>
+          </div>
+        `).join('');
 
-    if (revenueItemsHtml) {
-      revenueContainer.innerHTML = revenueItemsHtml;
-      revenueContainer.style.display = 'flex';
+      if (revenueItemsHtml) {
+        revenueContainer.innerHTML = revenueItemsHtml;
+        revenueContainer.style.display = 'flex';
+      } else {
+        revenueContainer.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); padding: 0.25rem 0.5rem;">선택 기간 내 매출 내역이 존재하지 않습니다.</span>`;
+        revenueContainer.style.display = 'flex';
+      }
     } else {
-      revenueContainer.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); padding: 0.25rem 0.5rem;">선택 기간 내 매출 내역이 존재하지 않습니다.</span>`;
-      revenueContainer.style.display = 'flex';
+      revenueContainer.innerHTML = '';
+      revenueContainer.style.display = 'none';
     }
   }
 
@@ -2051,11 +2002,10 @@ function resetData() {
     return;
   }
 
-  const password = prompt('서버 초기화 관리자 암호 입력:');
-  if (password !== '23421342') { alert('인증 실패'); return; }
-
   if (confirm('주의: 클라우드 중앙 DB를 청소하고 데모 데이터 세트로 복원합니다. 확정하시겠습니까?')) {
-    initializeDemoDataToFirebase();
+    if (confirm('정말로 모든 데이터를 지우고 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      initializeDemoDataToFirebase();
+    }
   }
 }
 
