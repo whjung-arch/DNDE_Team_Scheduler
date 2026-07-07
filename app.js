@@ -49,6 +49,7 @@ const getDemoEvents = () => {
       endDate: `${year}-${month}-15`,
       endTime: '11:30',
       assignee: 'm1',
+      assigneeName: '김민준',
       category: 'meeting',
       priority: 'high',
       description: '주간 업무 공유 및 마일스톤 점검을 위한 회의입니다.'
@@ -61,6 +62,7 @@ const getDemoEvents = () => {
       endDate: `${year}-${month}-19`,
       endTime: '18:00',
       assignee: 'm2',
+      assigneeName: '이서연',
       category: 'task',
       priority: 'medium',
       description: '사용자 피드백을 반영한 모바일 UI 컴포넌트 리디자인 작업.'
@@ -73,6 +75,7 @@ const getDemoEvents = () => {
       endDate: `${year}-${month}-22`,
       endTime: '18:00',
       assignee: 'm3',
+      assigneeName: '박지훈',
       category: 'task',
       priority: 'high',
       description: 'CSS Grid와 Flexbox를 활용한 간트차트 및 캘린더 반응형 구현.'
@@ -85,6 +88,7 @@ const getDemoEvents = () => {
       endDate: `${year}-${month}-20`,
       endTime: '16:00',
       assignee: 'm4',
+      assigneeName: '최수민',
       category: 'milestone',
       priority: 'high',
       description: 'AWS RDS 스키마 업데이트 및 인덱스 최적화 작업.'
@@ -97,6 +101,7 @@ const getDemoEvents = () => {
       endDate: `${year}-${month}-26`,
       endTime: '18:00',
       assignee: 'm1',
+      assigneeName: '김민준',
       category: 'vacation',
       priority: 'low',
       description: '하반기 추진 동력 확보를 위한 재충전 휴가.'
@@ -109,6 +114,7 @@ const getDemoEvents = () => {
       endDate: `${year}-${month}-22`,
       endTime: '16:00',
       assignee: 'm2',
+      assigneeName: '이서연',
       category: 'meeting',
       priority: 'medium',
       description: '스프린트 3단계 개발 사항 확인 및 와이어프레임 최종 컨펌.'
@@ -131,6 +137,7 @@ const getDemoReports = () => {
     {
       id: 'r1',
       assignee: 'm1',
+      assigneeName: '김민준',
       project: '차세대 국방 물류 ERP 구축',
       client: '국방부',
       startDate: `${year}-${month}-01`,
@@ -146,6 +153,7 @@ const getDemoReports = () => {
     {
       id: 'r2',
       assignee: 'm2',
+      assigneeName: '이서연',
       project: '티맥스 스마트 캘린더 리디자인',
       client: '티맥스소프트',
       startDate: `${year}-${month}-10`,
@@ -161,6 +169,7 @@ const getDemoReports = () => {
     {
       id: 'r3',
       assignee: 'm3',
+      assigneeName: '박지훈',
       project: '티맥스 스마트 캘린더 프론트 개발',
       client: '티맥스소프트',
       startDate: `${year}-${month}-15`,
@@ -176,6 +185,7 @@ const getDemoReports = () => {
     {
       id: 'r4',
       assignee: 'm4',
+      assigneeName: '최수민',
       project: '클라우드 DB 분산 이중화 구축',
       client: 'KT Cloud',
       startDate: `${year}-${month}-05`,
@@ -308,7 +318,14 @@ function listenToFirebaseRealtime() {
   // B. 일정 데이터 실시간 감지
   db.collection("events").onSnapshot((snapshot) => {
     const events = [];
-    snapshot.forEach((doc) => events.push(doc.data()));
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (!data.assigneeName && data.assignee) {
+        const m = state.members.find(member => member.id === data.assignee);
+        if (m) data.assigneeName = m.name;
+      }
+      events.push(data);
+    });
     state.events = events;
     if (loadedCollections < 3) checkAndRender(); else renderApp();
   });
@@ -318,6 +335,10 @@ function listenToFirebaseRealtime() {
     const reports = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
+      if (!data.assigneeName && data.assignee) {
+        const m = state.members.find(member => member.id === data.assignee);
+        if (m) data.assigneeName = m.name;
+      }
       // 계산서 회차 마이그레이션 보정
       if (!data.invoices || !Array.isArray(data.invoices) || data.invoices.length < 5) {
         const invoices = [];
@@ -834,7 +855,25 @@ function renderTimelineView() {
 
   const filteredEvents = getFilteredEvents().filter(event => event.category === 'project');
 
-  state.members.forEach(member => {
+  const activeMembers = [...state.members];
+  const activeMemberIds = state.members.map(m => m.id);
+  const deletedMemberIds = [...new Set(
+    state.reports.map(r => r.assignee)
+      .concat(state.events.map(e => e.assignee))
+  )].filter(id => id && !activeMemberIds.includes(id));
+
+  deletedMemberIds.forEach(id => {
+    const assigneeInfo = getAssigneeInfo(id);
+    activeMembers.push({
+      id: id,
+      name: assigneeInfo.name,
+      color: assigneeInfo.color,
+      role: '삭제된 팀원',
+      isDeleted: true
+    });
+  });
+
+  activeMembers.forEach(member => {
     const memberEvents = [];
 
     if (scale === 'today') {
@@ -895,7 +934,11 @@ function renderTimelineView() {
       <span class="role">${escapeHTML(member.role || '역할 미정')}</span>
       <span class="member-projects" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(projectsStr)}">${escapeHTML(projectsStr)}</span>
     `;
-    profile.addEventListener('click', () => openMemberModal(member.id));
+    if (!member.isDeleted) {
+      profile.addEventListener('click', () => openMemberModal(member.id));
+    } else {
+      profile.style.cursor = 'default';
+    }
     row.appendChild(profile);
 
     const grid = document.createElement('div');
@@ -982,6 +1025,28 @@ function navigateCalendar(direction) {
   else if (scale === 'year') state.currentDate.setFullYear(state.currentDate.getFullYear() + direction);
   else state.currentDate.setMonth(state.currentDate.getMonth() + direction);
   renderApp();
+}
+
+function getAssigneeInfo(assigneeId, reports = state.reports, events = state.events) {
+  if (!assigneeId) {
+    return { name: '미배정', color: '#94a3b8', isDeleted: true };
+  }
+  const member = state.members.find(m => m.id === assigneeId);
+  if (member) {
+    return { name: member.name, color: member.color, isDeleted: false };
+  }
+
+  const rep = reports.find(r => r.assignee === assigneeId);
+  if (rep && rep.assigneeName) {
+    return { name: rep.assigneeName, color: '#94a3b8', isDeleted: true };
+  }
+
+  const ev = events.find(e => e.assignee === assigneeId);
+  if (ev && ev.assigneeName) {
+    return { name: ev.assigneeName, color: '#94a3b8', isDeleted: true };
+  }
+
+  return { name: '미배정', color: '#94a3b8', isDeleted: true };
 }
 
 let pendingView = null;
@@ -1278,9 +1343,9 @@ function renderReportView() {
   }
 
   pageReports.forEach(report => {
-    const member = state.members.find(m => m.id === report.assignee);
-    const memberName = member ? member.name : '미배정';
-    const memberColor = member ? member.color : '#94a3b8';
+    const assigneeInfo = getAssigneeInfo(report.assignee);
+    const memberName = assigneeInfo.name;
+    const memberColor = assigneeInfo.color;
 
     let statusLabel = '대기', statusClass = 'status-pending';
     if (report.status === 'ongoing') { statusLabel = '진행중'; statusClass = 'status-ongoing'; }
@@ -1411,8 +1476,11 @@ function handleReportSubmit(e) {
   const isProgressChanged = prevReport ? Number(prevReport.progress) !== Number(progress) : false;
   const isRemarksChanged = prevReport ? prevReport.remarks !== remarks : false;
 
+  const memberObj = state.members.find(m => m.id === assignee);
+  const assigneeName = memberObj ? memberObj.name : '';
+
   const targetReport = {
-    id, assignee, project, client, amount, startDate, endDate, progress, status, remarks,
+    id, assignee, assigneeName, project, client, amount, startDate, endDate, progress, status, remarks,
     invoiceStatus: prevReport ? (prevReport.invoiceStatus || 'unissued') : 'unissued',
     invoiceDate: prevReport ? (prevReport.invoiceDate || '') : '',
     invoiceRemarks: prevReport ? (prevReport.invoiceRemarks || '') : '',
@@ -1433,7 +1501,7 @@ function handleReportSubmit(e) {
     const title = `[프로젝트] ${targetReport.project}`;
     const eventData = {
       id: eventId, title, startDate: targetReport.startDate, startTime: '09:00',
-      endDate: targetReport.endDate, endTime: '18:00', assignee: targetReport.assignee,
+      endDate: targetReport.endDate, endTime: '18:00', assignee: targetReport.assignee, assigneeName: targetReport.assigneeName,
       category: 'project', priority: 'medium', client: targetReport.client, description: `프로젝트 연동 일정 (${targetReport.client})`
     };
     batch.set(db.collection("events").doc(eventId), eventData);
@@ -1555,7 +1623,16 @@ function renderInvoiceView() {
 
   invoiceReports.forEach(report => {
     const assignee = report.assignee;
-    if (memberRevenues[assignee]) {
+    if (assignee) {
+      if (!memberRevenues[assignee]) {
+        const assigneeInfo = getAssigneeInfo(assignee);
+        memberRevenues[assignee] = {
+          name: assigneeInfo.name,
+          color: assigneeInfo.color,
+          totalAmount: 0,
+          issuedAmount: 0
+        };
+      }
       memberRevenues[assignee].totalAmount += (Number(report.amount) || 0);
 
       let issued = 0;
@@ -1612,7 +1689,9 @@ function renderInvoiceView() {
   }
 
   pageReports.forEach(report => {
-    const member = state.members.find(m => m.id === report.assignee);
+    const assigneeInfo = getAssigneeInfo(report.assignee);
+    const memberName = assigneeInfo.name;
+    const memberColor = assigneeInfo.color;
     const totalAmount = Number(report.amount) || 0;
     let totalIssued = 0;
     if (report.invoices) {
@@ -1623,7 +1702,7 @@ function renderInvoiceView() {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${member ? member.color : '#ccc'};"></span><span>${escapeHTML(member ? member.name : '미배정')}</span></div></td>
+      <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
       <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
       <td>${report.endDate}</td><td style="text-align: right;">${totalAmount.toLocaleString()}</td>
       <td><span class="status-badge ${report.status === 'completed' ? 'status-completed' : 'status-ongoing'}">${report.status === 'completed' ? '완료' : '진행중'}</span></td>
@@ -1787,10 +1866,12 @@ function renderCompletedProjectsView() {
   }
 
   pageReports.forEach(report => {
-    const member = state.members.find(m => m.id === report.assignee);
+    const assigneeInfo = getAssigneeInfo(report.assignee);
+    const memberName = assigneeInfo.name;
+    const memberColor = assigneeInfo.color;
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${member ? member.color : '#ccc'};"></span><span>${escapeHTML(member ? member.name : '미배정')}</span></div></td>
+      <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
       <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
       <td>${report.startDate}</td><td>${report.endDate}</td>
       <td style="text-align: right;">${(Number(report.amount) || 0).toLocaleString()}</td>
