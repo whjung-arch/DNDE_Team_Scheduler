@@ -741,12 +741,12 @@ function renderStatsBar() {
   document.getElementById('stat-total-events').textContent = thisMonthEvents.length;
   document.getElementById('stat-total-members').textContent = state.members.length;
 
-  const todayStr = getNormalizedDateString(new Date());
-  const upcomingMeetings = filteredEvents.filter(event => event.category === 'meeting' && event.endDate >= todayStr);
-  document.getElementById('stat-upcoming-meetings').textContent = upcomingMeetings.length;
-
-  const highPriorityEvents = filteredEvents.filter(event => event.priority === 'high');
-  document.getElementById('stat-high-priority').textContent = highPriorityEvents.length;
+  const endingProjects = filteredEvents.filter(event => {
+    if (event.category !== 'project' || !event.endDate) return false;
+    const end = new Date(event.endDate);
+    return end.getFullYear() === year && end.getMonth() === month;
+  });
+  document.getElementById('stat-high-priority').textContent = endingProjects.length;
 }
 
 // --- 사이드바 팀원 리스트 렌더링 ---
