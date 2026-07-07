@@ -1059,6 +1059,16 @@ function switchView(view) {
   else if (view === 'report') document.getElementById('main-view-title').textContent = '팀원 주간업무보고';
   else if (view === 'invoice') document.getElementById('main-view-title').textContent = '세금계산서 발행현황';
   else if (view === 'completed') document.getElementById('main-view-title').textContent = '프로젝트 완료 현황';
+
+  const statsBar = document.querySelector('.stats-bar');
+  if (statsBar) {
+    if (view === 'invoice' || view === 'completed') {
+      statsBar.style.display = 'none';
+    } else {
+      statsBar.style.display = 'grid';
+    }
+  }
+
   renderApp();
 }
 
