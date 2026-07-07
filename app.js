@@ -1342,7 +1342,7 @@ function renderReportView() {
         <span class="${report.progressModified ? 'progress-text modified-text' : 'progress-text'}">${report.progress}%</span>
       </td>
       <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-      <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(report.remarks || '')}">${escapeHTML(report.remarks || '-')}</td>
+      <td style="min-width: 250px; max-width: 450px; white-space: pre-wrap; word-break: break-all;" title="${escapeHTML(report.remarks || '')}">${escapeHTML(report.remarks || '-')}</td>
       <td><div style="display: flex;"><button class="member-action-btn" onclick="openReportModal('${report.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path></svg></button>${confirmBtn}</div></td>
     `;
     tableBody.appendChild(tr);
@@ -1867,7 +1867,7 @@ function renderCompletedProjectsView() {
       <td>${report.startDate}</td><td>${report.endDate}</td>
       <td style="text-align: right;">${(Number(report.amount) || 0).toLocaleString()}</td>
       <td><span class="status-badge status-completed">완료</span></td>
-      <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(report.remarks || '')}">${escapeHTML(report.remarks || '-')}</td>
+      <td style="min-width: 250px; max-width: 450px; white-space: pre-wrap; word-break: break-all;" title="${escapeHTML(report.remarks || '')}">${escapeHTML(report.remarks || '-')}</td>
       <td>
         <div style="display: flex; gap: 0.25rem; align-items: center;">
           <button class="member-action-btn" onclick="openReportModal('${report.id}')" title="수정">
