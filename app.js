@@ -1424,37 +1424,41 @@ function renderReportView() {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>
-        <div class="reporter-label" style="display: flex; align-items: center; gap: 4px;">
+      <td style="width: 1%; white-space: nowrap; text-align: center;">
+        <div class="reporter-label" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
           <span class="reporter-dot" style="background-color: ${memberColor};"></span>
-          <select class="inline-edit-input" onchange="updateReportInline('${report.id}', 'assignee', this.value)" style="width: 80px;">
+          <select class="inline-edit-input" onchange="updateReportInline('${report.id}', 'assignee', this.value)" style="width: 80px; text-align: center; text-align-last: center;">
             ${options}
           </select>
         </div>
       </td>
-      <td><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
-      <td><input class="inline-edit-input" value="${escapeHTML(report.client)}" onchange="updateReportInline('${report.id}', 'client', this.value)"></td>
-      <td><input type="text" class="inline-edit-input" value="${window.formatShortDate(report.startDate)}" onfocus="this.type='date'; this.value='${report.startDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'startDate', this.value)"></td>
-      <td><input type="text" class="inline-edit-input" value="${window.formatShortDate(report.endDate)}" onfocus="this.type='date'; this.value='${report.endDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'endDate', this.value)"></td>
-      <td><input type="number" class="inline-edit-input" style="text-align: right; width: 80px;" value="${Number(report.amount) || 0}" onchange="updateReportInline('${report.id}', 'amount', this.value)"></td>
-      <td>
-        <div style="display: flex; align-items: center;">
+      <td style="width: 1%; white-space: nowrap; text-align: center;"><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600; text-align: center; min-width: 120px;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
+      <td style="width: 1%; white-space: nowrap; text-align: center;"><input class="inline-edit-input" style="text-align: center; min-width: 100px;" value="${escapeHTML(report.client)}" onchange="updateReportInline('${report.id}', 'client', this.value)"></td>
+      <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.startDate)}" onfocus="this.type='date'; this.value='${report.startDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'startDate', this.value)"></td>
+      <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.endDate)}" onfocus="this.type='date'; this.value='${report.endDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'endDate', this.value)"></td>
+      <td style="width: 1%; white-space: nowrap; text-align: center;">
+        <input type="number" class="inline-edit-input" style="text-align: right; width: 80px; margin: 0 auto; display: block;" value="${Number(report.amount) || 0}" onchange="updateReportInline('${report.id}', 'amount', this.value)">
+      </td>
+      <td style="width: 1%; white-space: nowrap; text-align: center;">
+        <div style="display: flex; align-items: center; justify-content: center;">
           <div class="progress-bar-container" style="flex-shrink: 0;"><div class="progress-bar-fill" style="width: ${report.progress}%;"></div></div>
-          <input type="number" min="0" max="100" class="inline-edit-input ${report.progressModified ? 'modified-text' : ''}" style="width: 50px;" value="${report.progress}" onchange="updateReportInline('${report.id}', 'progress', this.value)">
+          <input type="number" min="0" max="100" class="inline-edit-input ${report.progressModified ? 'modified-text' : ''}" style="width: 50px; text-align: center;" value="${report.progress}" onchange="updateReportInline('${report.id}', 'progress', this.value)">
         </div>
       </td>
-      <td style="white-space: nowrap;">
-        <select class="inline-edit-input status-badge ${statusClass}" onchange="updateReportInline('${report.id}', 'status', this.value)" style="border: 1px solid transparent; height: auto; min-width: 85px;">
+      <td style="width: 1%; white-space: nowrap; text-align: center;">
+        <select class="inline-edit-input status-badge ${statusClass}" onchange="updateReportInline('${report.id}', 'status', this.value)" style="border: 1px solid transparent; height: auto; min-width: 85px; text-align: center; text-align-last: center; margin: 0 auto; display: block;">
           <option value="pending" ${report.status === 'pending' ? 'selected' : ''}>대기</option>
           <option value="ongoing" ${report.status === 'ongoing' ? 'selected' : ''}>진행중</option>
           <option value="completed" ${report.status === 'completed' ? 'selected' : ''}>완료</option>
           <option value="suspended" ${report.status === 'suspended' ? 'selected' : ''}>보류</option>
         </select>
       </td>
-      <td style="min-width: 120px; width: 180px;">
+      <td style="width: auto;">
         <textarea class="inline-edit-input auto-resize-textarea" rows="1" style="resize: none; overflow: hidden; min-height: 28px; width: 100%; box-sizing: border-box;" oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px';" onchange="updateReportInline('${report.id}', 'remarks', this.value)">${escapeHTML(report.remarks || '')}</textarea>
       </td>
-      <td><div style="display: flex;"><button class="member-action-btn" title="상세 모달 열기" onclick="openReportModal('${report.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>${confirmBtn}</div></td>
+      <td style="width: 1%; white-space: nowrap; text-align: center;">
+        <div style="display: flex; justify-content: center;"><button class="member-action-btn" title="상세 모달 열기" onclick="openReportModal('${report.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>${confirmBtn}</div>
+      </td>
     `;
     tableBody.appendChild(tr);
   });
