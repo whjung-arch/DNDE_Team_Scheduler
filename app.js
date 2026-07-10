@@ -624,7 +624,6 @@ function setupEventListeners() {
     });
   });
 
-  document.getElementById('btn-add-event').addEventListener('click', () => openEventModal());
   document.getElementById('btn-close-event-modal').addEventListener('click', closeEventModal);
   document.getElementById('btn-cancel-event-modal').addEventListener('click', closeEventModal);
   document.getElementById('form-event').addEventListener('submit', handleEventSubmit);
@@ -706,14 +705,6 @@ function renderApp() {
   renderStatsBar();
 
   const calNav = document.querySelector('.cal-nav');
-  const btnAddEvent = document.getElementById('btn-add-event');
-  if (btnAddEvent) {
-    if (state.currentView === 'invoice' || state.currentView === 'completed') {
-      btnAddEvent.style.display = 'none';
-    } else {
-      btnAddEvent.style.display = '';
-    }
-  }
 
   if (state.currentView === 'timeline') {
     calNav.style.display = 'flex';
