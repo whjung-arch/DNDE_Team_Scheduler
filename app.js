@@ -1838,7 +1838,7 @@ function renderInvoiceView() {
   // -----------------------------------------------------------------
 
   if (pageReports.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 3rem;">프로젝트 내역이 없습니다.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 3rem;">프로젝트 내역이 없습니다.</td></tr>`;
     document.getElementById('invoice-pagination').innerHTML = '';
     return;
   }
@@ -1855,11 +1855,19 @@ function renderInvoiceView() {
     const balance = totalAmount - totalIssued;
     const isExpanded = expandedInvoiceIds.has(report.id);
 
+    let firstInvoiceDate = '';
+    if (report.invoices && report.invoices.length > 0 && report.invoices[0].status === 'issued') {
+      firstInvoiceDate = window.formatShortDate(report.invoices[0].date);
+    }
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="white-space: nowrap;"><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
       <td>${escapeHTML(report.client)}</td><td style="font-weight: 600;">${escapeHTML(report.project)}</td>
-      <td style="white-space: nowrap;">${window.formatShortDate(report.endDate)}</td><td style="text-align: right; white-space: nowrap;">${totalAmount.toLocaleString()}</td>
+      <td style="white-space: nowrap; text-align: center;">${window.formatShortDate(report.startDate)}</td>
+      <td style="white-space: nowrap; text-align: center;">${window.formatShortDate(report.endDate)}</td>
+      <td style="white-space: nowrap; text-align: center; font-weight: 600; color: var(--primary);">${firstInvoiceDate}</td>
+      <td style="text-align: right; white-space: nowrap;">${totalAmount.toLocaleString()}</td>
       <td style="white-space: nowrap;"><span class="status-badge ${report.status === 'completed' ? 'status-completed' : 'status-ongoing'}">${report.status === 'completed' ? '완료' : '진행중'}</span></td>
       <td style="text-align: right; color: var(--success); font-weight: bold; white-space: nowrap;">${report._currentYearIssued.toLocaleString()} ${targetYear !== 'all' ? `<span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${targetYear}년분)</span>` : ''}</td>
       <td style="text-align: right; color: ${balance > 0 ? '#ef4444' : 'var(--success)'}; white-space: nowrap;">${balance.toLocaleString()}</td>
@@ -1882,7 +1890,7 @@ function renderInvoiceView() {
     expandTr.id = `invoice-expand-${report.id}`;
     expandTr.style.display = isExpanded ? 'table-row' : 'none';
     expandTr.innerHTML = `
-      <td colspan="9" style="padding: 1rem; background: var(--bg-hover);">
+      <td colspan="11" style="padding: 1rem; background: var(--bg-hover);">
         <div class="invoice-expand-card" style="background: var(--bg-card); padding: 1rem; border-radius: 8px;">
           <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:0.5rem;">
             ${[0, 1, 2, 3, 4].map(idx => {
