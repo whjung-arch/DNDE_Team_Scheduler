@@ -1130,6 +1130,25 @@ function switchView(view) {
     }
   }
 
+  // 뷰 변경 시 사이드바 자동 닫기
+  if (window.innerWidth <= 1024) {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+  } else {
+    const sidebar = document.getElementById('sidebar');
+    const icon = document.getElementById('sidebar-collapse-icon');
+    if (sidebar && !sidebar.classList.contains('collapsed')) {
+      sidebar.classList.add('collapsed');
+      if (icon) icon.innerHTML = '<polyline points="9 18 15 12 9 6"></polyline>';
+      if (typeof window.resizeTextareas === 'function') {
+        setTimeout(window.resizeTextareas, 50);
+        setTimeout(window.resizeTextareas, 310);
+      }
+    }
+  }
+
   renderApp();
 }
 
