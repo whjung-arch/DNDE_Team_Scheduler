@@ -1436,6 +1436,21 @@ body {
   border-radius: 50%;
 }
 
+/* 비고란 접기/펴기 */
+.expandable-remarks {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.expandable-remarks.expanded {
+  max-width: 450px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* --- 세금계산서 발행 관리 스타일 --- */
 .invoice-view-container {
   display: flex;

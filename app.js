@@ -1988,7 +1988,7 @@ function renderCompletedProjectsView() {
       <td>${report.startDate}</td><td>${report.endDate}</td>
       <td style="text-align: right;">${(Number(report.amount) || 0).toLocaleString()}</td>
       <td><span class="status-badge status-completed">완료</span></td>
-      <td style="min-width: 250px; max-width: 450px; white-space: pre-wrap; word-break: break-all;" title="${escapeHTML(report.remarks || '')}">${escapeHTML(report.remarks || '-')}</td>
+      <td class="expandable-remarks" onclick="this.classList.toggle('expanded')" title="클릭하여 전체 보기">${escapeHTML(report.remarks || '-')}</td>
       <td>
         <div style="display: flex; gap: 0.25rem; align-items: center;">
           <button class="member-action-btn" onclick="openReportModal('${report.id}')" title="수정">
