@@ -328,7 +328,31 @@ function listenToFirebaseRealtime() {
       } else {
         // 멤버가 있다면 필터 활성화
         if (state.filters.memberIds.length === 0) {
-          state.filters.memberIds = state.members.map(m => m.id);
+          const loggedInUser = sessionStorage.getItem('logged_in_user');
+          if (loggedInUser) {
+            const userPrefix = loggedInUser.split('@')[0];
+            const nameMap = {
+              'hdlee': '이헌덕',
+              'ujkim': '김욱진',
+              'wtkang': '강원태',
+              'shmoon': '문승환',
+              'yslim': '임윤승',
+              'mgkim': '김민건'
+            };
+            if (userPrefix === 'whjung' || !nameMap[userPrefix]) {
+              state.filters.memberIds = state.members.map(m => m.id);
+            } else {
+              const targetName = nameMap[userPrefix];
+              const matchedMember = state.members.find(m => m.name === targetName);
+              if (matchedMember) {
+                state.filters.memberIds = [matchedMember.id];
+              } else {
+                state.filters.memberIds = state.members.map(m => m.id);
+              }
+            }
+          } else {
+            state.filters.memberIds = state.members.map(m => m.id);
+          }
         }
         renderApp();
       }
@@ -622,6 +646,17 @@ function setupEventListeners() {
   const sidebar = document.getElementById('sidebar');
   const sidebarToggle = document.getElementById('sidebar-toggle-btn');
   const overlay = document.getElementById('sidebar-overlay');
+
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+      firebase.auth().signOut().then(() => {
+        showToast('로그아웃 되었습니다.');
+      }).catch(err => {
+        console.error(err);
+      });
+    });
+  }
 
   sidebarToggle.addEventListener('click', () => {
     sidebar.classList.add('active');
@@ -1341,6 +1376,11 @@ function renderReportView() {
     }
 
     const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      openReportModal(report.id);
+    });
     tr.innerHTML = `
       <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
       <td class="${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600;">${escapeHTML(report.project)}</td>

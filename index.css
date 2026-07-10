@@ -470,6 +470,7 @@ body {
 
 .view-toggle {
   display: flex;
+  flex-wrap: wrap;
   background: var(--bg-hover);
   padding: 0.25rem;
   border-radius: 10px;
@@ -971,6 +972,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-overlay.active .modal-container {
@@ -1170,6 +1173,29 @@ body {
   }
   .cal-day-num {
     font-size: 0.75rem;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .header-right {
+    gap: 0.5rem;
+  }
+  .view-toggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .view-btn {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.75rem;
+  }
+  .report-table-wrapper, .invoice-table-wrapper {
+    margin: 0 -1rem;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
   }
 }
 
