@@ -1437,7 +1437,7 @@ function renderReportView() {
       <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.startDate)}" onfocus="this.type='date'; this.value='${report.startDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'startDate', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.endDate)}" onfocus="this.type='date'; this.value='${report.endDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'endDate', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
-        <input type="number" class="inline-edit-input" style="text-align: right; width: 80px; margin: 0 auto; display: block;" value="${Number(report.amount) || 0}" onchange="updateReportInline('${report.id}', 'amount', this.value)">
+        <input type="text" class="inline-edit-input" style="text-align: right; width: 80px; margin: 0 auto; display: block;" value="${Number(report.amount || 0).toLocaleString()}" onfocus="this.value='${report.amount || 0}'" onblur="this.value=Number(this.value).toLocaleString()" onchange="updateReportInline('${report.id}', 'amount', this.value.replace(/,/g, ''))">
       </td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
         <div style="display: flex; align-items: center; justify-content: center;">
@@ -1547,7 +1547,7 @@ function openReportModal(reportId = null) {
       assigneeSelect.value = report.assignee;
       projectInput.value = report.project;
       clientInput.value = report.client;
-      amountInput.value = report.amount;
+      amountInput.value = Number(report.amount || 0).toLocaleString();
       startDateInput.value = report.startDate;
       endDateInput.value = report.endDate;
       progressInput.value = report.progress;
@@ -1584,7 +1584,7 @@ function handleReportSubmit(e) {
   const assignee = document.getElementById('report-assignee').value;
   const project = document.getElementById('report-project').value.trim();
   const client = document.getElementById('report-client').value.trim();
-  const amount = Number(document.getElementById('report-amount').value);
+  const amount = Number(document.getElementById('report-amount').value.replace(/,/g, ''));
   const startDate = document.getElementById('report-start-date').value;
   const endDate = document.getElementById('report-end-date').value;
   const progress = Number(document.getElementById('report-progress').value);

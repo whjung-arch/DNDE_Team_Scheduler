@@ -647,7 +647,7 @@
             </div>
             <div class="form-group">
               <label class="form-label" for="report-amount">금액 (만원)</label>
-              <input class="form-control" type="number" id="report-amount" min="0" required placeholder="예: 1500">
+              <input class="form-control" type="text" id="report-amount" required placeholder="예: 1,500" onfocus="this.value = this.value.replace(/,/g, '')" onblur="if(this.value) this.value = Number(this.value.replace(/,/g, '')).toLocaleString()">
             </div>
           </div>
 
