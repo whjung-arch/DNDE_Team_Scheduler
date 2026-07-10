@@ -1182,12 +1182,13 @@ body {
 /* --- 반응형 디자인 미디어 쿼리 --- */
 @media (max-width: 1024px) {
   .sidebar {
-    position: absolute;
-    left: -320px;
+    position: fixed;
+    left: -100%;
     top: 0;
     bottom: 0;
-    width: 300px;
-    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 100%;
+    z-index: 100;
   }
   .sidebar.active {
     left: 0;
@@ -1436,19 +1437,14 @@ body {
   border-radius: 50%;
 }
 
-/* 비고란 접기/펴기 */
-.expandable-remarks {
-  max-width: 150px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-
-.expandable-remarks.expanded {
-  max-width: 450px;
+/* 비고란 타이트하게 전부 보여주기 */
+.tight-remarks {
+  min-width: 100px;
+  max-width: 180px;
   white-space: pre-wrap;
   word-break: break-all;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 /* --- 세금계산서 발행 관리 스타일 --- */

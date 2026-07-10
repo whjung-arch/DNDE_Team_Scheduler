@@ -636,6 +636,11 @@ function setupEventListeners() {
       } else {
         icon.innerHTML = '<polyline points="15 18 9 12 15 6"></polyline>';
       }
+
+      if (typeof window.resizeTextareas === 'function') {
+        setTimeout(window.resizeTextareas, 50);
+        setTimeout(window.resizeTextareas, 310); // Wait for CSS transition
+      }
     });
   }
 
@@ -838,6 +843,13 @@ function toggleMemberFilter(memberId) {
   else state.filters.memberIds.push(memberId);
   resetPaginationPages();
   renderApp();
+
+  if (window.innerWidth <= 1024) {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+  }
 }
 
 // --- 팀원별 타임라인(Gantt) 뷰 렌더링 ---
@@ -1431,11 +1443,9 @@ function renderReportView() {
   renderPagination('report-pagination', state.pagination.report.currentPage, totalPages, 'window.changeReportPage');
 
   setTimeout(() => {
-    const textareas = tableBody.querySelectorAll('.auto-resize-textarea');
-    textareas.forEach(ta => {
-      ta.style.height = 'auto';
-      ta.style.height = ta.scrollHeight + 'px';
-    });
+    if (typeof window.resizeTextareas === 'function') {
+      window.resizeTextareas();
+    }
   }, 0);
 }
 
@@ -1814,13 +1824,13 @@ function renderInvoiceView() {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
+      <td style="white-space: nowrap;"><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
       <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
-      <td>${report.endDate}</td><td style="text-align: right;">${totalAmount.toLocaleString()}</td>
-      <td><span class="status-badge ${report.status === 'completed' ? 'status-completed' : 'status-ongoing'}">${report.status === 'completed' ? '완료' : '진행중'}</span></td>
-      <td style="text-align: right; color: var(--success); font-weight: bold;">${report._currentYearIssued.toLocaleString()} ${targetYear !== 'all' ? `<span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${targetYear}년분)</span>` : ''}</td>
-      <td style="text-align: right; color: ${balance > 0 ? '#ef4444' : 'var(--success)'};">${balance.toLocaleString()}</td>
-      <td>
+      <td style="white-space: nowrap;">${window.formatShortDate(report.endDate)}</td><td style="text-align: right; white-space: nowrap;">${totalAmount.toLocaleString()}</td>
+      <td style="white-space: nowrap;"><span class="status-badge ${report.status === 'completed' ? 'status-completed' : 'status-ongoing'}">${report.status === 'completed' ? '완료' : '진행중'}</span></td>
+      <td style="text-align: right; color: var(--success); font-weight: bold; white-space: nowrap;">${report._currentYearIssued.toLocaleString()} ${targetYear !== 'all' ? `<span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${targetYear}년분)</span>` : ''}</td>
+      <td style="text-align: right; color: ${balance > 0 ? '#ef4444' : 'var(--success)'}; white-space: nowrap;">${balance.toLocaleString()}</td>
+      <td style="white-space: nowrap;">
         <div style="display: flex; gap: 0.25rem; align-items: center;">
           <button class="btn-secondary toggle-expand-btn" onclick="toggleInvoiceExpand('${report.id}')">발행 관리</button>
           <button class="member-action-btn" onclick="openReportModal('${report.id}')" title="수정">
@@ -1853,7 +1863,7 @@ function renderInvoiceView() {
                       <option value="issued" ${inv.status === 'issued' ? 'selected' : ''}>발행완료</option>
                     </select>
                   </div>
-                  <input type="number" value="${inv.amount}" style="width:100%; font-size:0.75rem; margin:4px 0;" onchange="updateInvoiceStage('${report.id}', ${idx}, 'amount', this.value)">
+                  <input type="text" value="${Number(inv.amount || 0).toLocaleString()}" style="width:100%; font-size:0.75rem; margin:4px 0; text-align:right;" onfocus="this.value='${inv.amount || 0}'" onblur="this.value=Number(this.value).toLocaleString()" onchange="updateInvoiceStage('${report.id}', ${idx}, 'amount', this.value.replace(/,/g, ''))">
                   <input type="date" value="${inv.date}" style="width:100%; font-size:0.7rem;" ${inv.status === 'unissued' ? 'disabled' : ''} onchange="updateInvoiceStage('${report.id}', ${idx}, 'date', this.value)">
                 </div>`;
     }).join('')}
@@ -1983,13 +1993,13 @@ function renderCompletedProjectsView() {
     const memberColor = assigneeInfo.color;
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
+      <td style="white-space: nowrap;"><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
       <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
-      <td>${report.startDate}</td><td>${report.endDate}</td>
-      <td style="text-align: right;">${(Number(report.amount) || 0).toLocaleString()}</td>
-      <td><span class="status-badge status-completed">완료</span></td>
-      <td class="expandable-remarks" onclick="this.classList.toggle('expanded')" title="클릭하여 전체 보기">${escapeHTML(report.remarks || '-')}</td>
-      <td>
+      <td style="white-space: nowrap;">${window.formatShortDate(report.startDate)}</td><td style="white-space: nowrap;">${window.formatShortDate(report.endDate)}</td>
+      <td style="text-align: right; white-space: nowrap;">${(Number(report.amount) || 0).toLocaleString()}</td>
+      <td style="white-space: nowrap;"><span class="status-badge status-completed">완료</span></td>
+      <td class="tight-remarks">${escapeHTML(report.remarks || '-')}</td>
+      <td style="white-space: nowrap;">
         <div style="display: flex; gap: 0.25rem; align-items: center;">
           <button class="member-action-btn" onclick="openReportModal('${report.id}')" title="수정">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2193,3 +2203,21 @@ function escapeHTML(str) {
   if (!str) return '';
   return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 }
+
+// Textarea Auto Resize Function
+window.resizeTextareas = function () {
+  const textareas = document.querySelectorAll('.auto-resize-textarea');
+  textareas.forEach(ta => {
+    ta.style.height = 'auto';
+    const newHeight = ta.scrollHeight;
+    ta.style.height = newHeight + 'px';
+  });
+};
+
+window.addEventListener('resize', () => {
+  requestAnimationFrame(() => {
+    if (typeof window.resizeTextareas === 'function') {
+      window.resizeTextareas();
+    }
+  });
+});
