@@ -1375,31 +1375,70 @@ function renderReportView() {
         </button>`;
     }
 
+    const options = state.members.map(m => `<option value="${m.id}" ${m.id === report.assignee ? 'selected' : ''}>${escapeHTML(m.name)}</option>`).join('');
+
     const tr = document.createElement('tr');
-    tr.style.cursor = 'pointer';
-    tr.addEventListener('click', (e) => {
-      if (e.target.closest('button')) return;
-      openReportModal(report.id);
-    });
     tr.innerHTML = `
-      <td><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
-      <td class="${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600;">${escapeHTML(report.project)}</td>
-      <td>${escapeHTML(report.client)}</td>
-      <td>${report.startDate}</td><td>${report.endDate}</td>
-      <td><div style="text-align: right;">${(Number(report.amount) || 0).toLocaleString()}</div></td>
       <td>
-        <div class="progress-bar-container"><div class="progress-bar-fill" style="width: ${report.progress}%;"></div></div>
-        <span class="${report.progressModified ? 'progress-text modified-text' : 'progress-text'}">${report.progress}%</span>
+        <div class="reporter-label" style="display: flex; align-items: center; gap: 4px;">
+          <span class="reporter-dot" style="background-color: ${memberColor};"></span>
+          <select class="inline-edit-input" onchange="updateReportInline('${report.id}', 'assignee', this.value)" style="width: 80px;">
+            ${options}
+          </select>
+        </div>
       </td>
-      <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-      <td style="min-width: 250px; max-width: 450px; white-space: pre-wrap; word-break: break-all;" title="${escapeHTML(report.remarks || '')}">${escapeHTML(report.remarks || '-')}</td>
-      <td><div style="display: flex;"><button class="member-action-btn" onclick="openReportModal('${report.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path></svg></button>${confirmBtn}</div></td>
+      <td><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
+      <td><input class="inline-edit-input" value="${escapeHTML(report.client)}" onchange="updateReportInline('${report.id}', 'client', this.value)"></td>
+      <td><input type="date" class="inline-edit-input" value="${report.startDate}" onchange="updateReportInline('${report.id}', 'startDate', this.value)"></td>
+      <td><input type="date" class="inline-edit-input" value="${report.endDate}" onchange="updateReportInline('${report.id}', 'endDate', this.value)"></td>
+      <td><input type="number" class="inline-edit-input" style="text-align: right; width: 80px;" value="${Number(report.amount) || 0}" onchange="updateReportInline('${report.id}', 'amount', this.value)"></td>
+      <td>
+        <div style="display: flex; align-items: center;">
+          <div class="progress-bar-container" style="flex-shrink: 0;"><div class="progress-bar-fill" style="width: ${report.progress}%;"></div></div>
+          <input type="number" min="0" max="100" class="inline-edit-input ${report.progressModified ? 'modified-text' : ''}" style="width: 50px;" value="${report.progress}" onchange="updateReportInline('${report.id}', 'progress', this.value)">
+        </div>
+      </td>
+      <td>
+        <select class="inline-edit-input status-badge ${statusClass}" onchange="updateReportInline('${report.id}', 'status', this.value)" style="border: 1px solid transparent; height: auto;">
+          <option value="pending" ${report.status === 'pending' ? 'selected' : ''}>대기</option>
+          <option value="ongoing" ${report.status === 'ongoing' ? 'selected' : ''}>진행중</option>
+          <option value="completed" ${report.status === 'completed' ? 'selected' : ''}>완료</option>
+          <option value="suspended" ${report.status === 'suspended' ? 'selected' : ''}>보류</option>
+        </select>
+      </td>
+      <td style="min-width: 250px; max-width: 450px;">
+        <textarea class="inline-edit-input" rows="1" style="resize: vertical; min-height: 28px; width: 100%; box-sizing: border-box;" onchange="updateReportInline('${report.id}', 'remarks', this.value)">${escapeHTML(report.remarks || '')}</textarea>
+      </td>
+      <td><div style="display: flex;"><button class="member-action-btn" title="상세 모달 열기" onclick="openReportModal('${report.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>${confirmBtn}</div></td>
     `;
     tableBody.appendChild(tr);
   });
 
   renderPagination('report-pagination', state.pagination.report.currentPage, totalPages, 'window.changeReportPage');
 }
+
+window.updateReportInline = function (id, field, value) {
+  const existing = state.reports.find(r => r.id === id);
+  if (!existing) return;
+
+  if (field === 'amount' || field === 'progress') value = Number(value);
+
+  const updateData = { [field]: value };
+
+  if (field === 'progress' && existing.progress !== value) {
+    updateData.progressModified = true;
+  }
+  if (field === 'remarks' && existing.remarks !== value) {
+    updateData.remarksModified = true;
+  }
+
+  db.collection("reports").doc(id).update(updateData).then(() => {
+    // Data syncs automatically
+  }).catch(err => {
+    console.error("Error updating report inline:", err);
+    showToast('수정 중 오류가 발생했습니다.');
+  });
+};
 
 // --- 주간 업무보고 모달 ---
 function openReportModal(reportId = null) {

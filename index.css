@@ -470,20 +470,32 @@ body {
 
 .view-toggle {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  width: 100%;
+  gap: 0.25rem;
   background: var(--bg-hover);
   padding: 0.25rem;
   border-radius: 10px;
   border: 1px solid var(--border-color);
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+}
+.view-toggle::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 
 .view-btn {
-  padding: 0.5rem 1rem;
+  flex: 1;
+  padding: 0.5rem clamp(0.25rem, 1vw, 1rem);
   border: none;
   background: transparent;
   color: var(--text-secondary);
   font-weight: 500;
-  font-size: 0.85rem;
+  font-size: clamp(0.65rem, 1.2vw, 0.85rem);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  text-align: center;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1178,16 +1190,6 @@ body {
   .header-right {
     gap: 0.5rem;
   }
-  .view-toggle {
-    width: 100%;
-    justify-content: space-between;
-  }
-  .view-btn {
-    flex: 1;
-    text-align: center;
-    padding: 0.5rem 0.25rem;
-    font-size: 0.75rem;
-  }
   .report-table-wrapper, .invoice-table-wrapper {
     margin: 0 -1rem;
     border-radius: 0;
@@ -1364,6 +1366,29 @@ body {
   align-items: center;
   gap: 0.4rem;
   font-weight: 500;
+}
+
+/* 인라인 에디트 인풋 스타일 */
+.inline-edit-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 4px;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+.inline-edit-input:hover {
+  border-color: var(--border-color);
+  background: var(--bg-hover);
+}
+.inline-edit-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
 
 .reporter-dot {
