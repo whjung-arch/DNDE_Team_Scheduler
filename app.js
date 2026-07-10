@@ -1432,8 +1432,8 @@ function renderReportView() {
           </select>
         </div>
       </td>
-      <td style="text-align: left;"><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600; text-align: left; min-width: 120px; width: 100%; box-sizing: border-box;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
-      <td style="text-align: left;"><input class="inline-edit-input" style="text-align: left; min-width: 100px; width: 100%; box-sizing: border-box;" value="${escapeHTML(report.client)}" onchange="updateReportInline('${report.id}', 'client', this.value)"></td>
+      <td style="width: 25%; text-align: left;"><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600; text-align: left; min-width: 120px; width: 100%; box-sizing: border-box;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
+      <td style="width: 15%; text-align: left;"><input class="inline-edit-input" style="text-align: left; min-width: 100px; width: 100%; box-sizing: border-box;" value="${escapeHTML(report.client)}" onchange="updateReportInline('${report.id}', 'client', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.startDate)}" onfocus="this.type='date'; this.value='${report.startDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'startDate', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input ${isNewProject(report.endDateModifiedAt) ? 'new-project-name' : ''} ${isEndDateApproaching(report.endDate, report.status) ? 'approaching-end-date' : ''}" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.endDate)}" onfocus="this.type='date'; this.value='${report.endDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'endDate', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
@@ -1453,7 +1453,7 @@ function renderReportView() {
           <option value="suspended" ${report.status === 'suspended' ? 'selected' : ''}>보류</option>
         </select>
       </td>
-      <td style="width: auto;">
+      <td style="width: 40%;">
         <textarea class="inline-edit-input auto-resize-textarea" rows="1" style="resize: none; overflow: hidden; min-height: 28px; width: 100%; box-sizing: border-box;" oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px';" onchange="updateReportInline('${report.id}', 'remarks', this.value)">${escapeHTML(report.remarks || '')}</textarea>
       </td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
