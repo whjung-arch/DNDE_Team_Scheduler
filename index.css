@@ -123,8 +123,49 @@ body {
   flex-direction: column;
   gap: 2rem;
   z-index: 10;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
+}
+
+@media (min-width: 1025px) {
+  .sidebar.collapsed {
+    margin-left: -320px;
+  }
+}
+
+.sidebar-collapse-btn {
+  position: absolute;
+  top: 50%;
+  left: 304px;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 50;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-collapse-btn:hover {
+  color: var(--primary);
+  background: var(--bg-hover);
+}
+
+.sidebar.collapsed ~ .sidebar-collapse-btn {
+  left: 16px;
+}
+
+@media (max-width: 1024px) {
+  .sidebar-collapse-btn {
+    display: none;
+  }
 }
 
 .logo-section {

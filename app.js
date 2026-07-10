@@ -624,6 +624,21 @@ function setupEventListeners() {
     });
   });
 
+  const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
+  if (sidebarCollapseBtn) {
+    sidebarCollapseBtn.addEventListener('click', () => {
+      const sidebar = document.getElementById('sidebar');
+      const icon = document.getElementById('sidebar-collapse-icon');
+      sidebar.classList.toggle('collapsed');
+
+      if (sidebar.classList.contains('collapsed')) {
+        icon.innerHTML = '<polyline points="9 18 15 12 9 6"></polyline>';
+      } else {
+        icon.innerHTML = '<polyline points="15 18 9 12 15 6"></polyline>';
+      }
+    });
+  }
+
   document.getElementById('btn-close-event-modal').addEventListener('click', closeEventModal);
   document.getElementById('btn-cancel-event-modal').addEventListener('click', closeEventModal);
   document.getElementById('form-event').addEventListener('submit', handleEventSubmit);
