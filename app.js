@@ -1104,8 +1104,8 @@ function switchView(view) {
   document.getElementById('view-btn-invoice').classList.toggle('active', view === 'invoice');
   document.getElementById('view-btn-completed').classList.toggle('active', view === 'completed');
 
-  if (view === 'timeline') document.getElementById('main-view-title').textContent = '팀원 스케줄 타임라인';
-  else if (view === 'report') document.getElementById('main-view-title').textContent = '팀원 주간업무보고';
+  if (view === 'timeline') document.getElementById('main-view-title').textContent = '스케줄 타임라인';
+  else if (view === 'report') document.getElementById('main-view-title').textContent = '주간업무 보고';
   else if (view === 'invoice') document.getElementById('main-view-title').textContent = '세금계산서 발행현황';
   else if (view === 'completed') document.getElementById('main-view-title').textContent = '프로젝트 완료 현황';
 
