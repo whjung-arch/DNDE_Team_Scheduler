@@ -1443,15 +1443,15 @@ function renderReportView() {
           <input type="number" min="0" max="100" class="inline-edit-input ${report.progressModified ? 'modified-text' : ''}" style="width: 50px;" value="${report.progress}" onchange="updateReportInline('${report.id}', 'progress', this.value)">
         </div>
       </td>
-      <td>
-        <select class="inline-edit-input status-badge ${statusClass}" onchange="updateReportInline('${report.id}', 'status', this.value)" style="border: 1px solid transparent; height: auto;">
+      <td style="white-space: nowrap;">
+        <select class="inline-edit-input status-badge ${statusClass}" onchange="updateReportInline('${report.id}', 'status', this.value)" style="border: 1px solid transparent; height: auto; min-width: 85px;">
           <option value="pending" ${report.status === 'pending' ? 'selected' : ''}>대기</option>
           <option value="ongoing" ${report.status === 'ongoing' ? 'selected' : ''}>진행중</option>
           <option value="completed" ${report.status === 'completed' ? 'selected' : ''}>완료</option>
           <option value="suspended" ${report.status === 'suspended' ? 'selected' : ''}>보류</option>
         </select>
       </td>
-      <td style="width: 30%;">
+      <td style="min-width: 120px; width: 180px;">
         <textarea class="inline-edit-input auto-resize-textarea" rows="1" style="resize: none; overflow: hidden; min-height: 28px; width: 100%; box-sizing: border-box;" oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px';" onchange="updateReportInline('${report.id}', 'remarks', this.value)">${escapeHTML(report.remarks || '')}</textarea>
       </td>
       <td><div style="display: flex;"><button class="member-action-btn" title="상세 모달 열기" onclick="openReportModal('${report.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>${confirmBtn}</div></td>
