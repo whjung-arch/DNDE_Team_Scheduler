@@ -805,12 +805,12 @@ body {
 .timeline-header-days {
   flex-grow: 1;
   display: flex;
-  overflow-x: auto;
+  overflow: hidden;
 }
 
 .timeline-header-day {
   flex: 1;
-  min-width: 60px;
+  min-width: 0;
   text-align: center;
   padding: 0.75rem 0;
   border-right: 1px solid var(--border-color);
@@ -882,7 +882,7 @@ body {
 
 .timeline-grid-cell {
   flex: 1;
-  min-width: 60px;
+  min-width: 0;
   border-right: 1px solid var(--border-color);
   height: 100%;
 }
@@ -916,16 +916,13 @@ body {
   color: var(--text-inverse);
   font-size: 0.75rem;
   font-weight: 500;
-  display: flex;
-  align-items: center;
-  padding: 0 0.5rem;
-  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
   user-select: none;
+  font-size: clamp(0.6rem, 1vw, 0.75rem);
 }
 
 .timeline-event-bar:hover {
