@@ -1863,3 +1863,11 @@ select.invoice-status-select.issued {
   transform: translateY(0);
 }
 
+
+ . a p p r o a c h i n g - e n d - d a t e   { 
+     c o l o r :   # e f 4 4 4 4   ! i m p o r t a n t ; 
+     f o n t - w e i g h t :   7 0 0   ! i m p o r t a n t ; 
+     b a c k g r o u n d - c o l o r :   r g b a ( 2 3 9 ,   6 8 ,   6 8 ,   0 . 1 )   ! i m p o r t a n t ; 
+     b o r d e r - r a d i u s :   4 p x ; 
+ }  
+ 
