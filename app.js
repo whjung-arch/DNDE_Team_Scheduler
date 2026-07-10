@@ -1432,10 +1432,10 @@ function renderReportView() {
           </select>
         </div>
       </td>
-      <td style="width: 1%; white-space: nowrap; text-align: center;"><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600; text-align: center; min-width: 180px;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
-      <td style="width: 1%; white-space: nowrap; text-align: center;"><input class="inline-edit-input" style="text-align: center; min-width: 120px;" value="${escapeHTML(report.client)}" onchange="updateReportInline('${report.id}', 'client', this.value)"></td>
+      <td style="width: 1%; white-space: nowrap; text-align: left;"><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600; text-align: left; min-width: 180px;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
+      <td style="width: 1%; white-space: nowrap; text-align: left;"><input class="inline-edit-input" style="text-align: left; min-width: 120px;" value="${escapeHTML(report.client)}" onchange="updateReportInline('${report.id}', 'client', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.startDate)}" onfocus="this.type='date'; this.value='${report.startDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'startDate', this.value)"></td>
-      <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.endDate)}" onfocus="this.type='date'; this.value='${report.endDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'endDate', this.value)"></td>
+      <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input ${isNewProject(report.endDateModifiedAt) ? 'new-project-name' : ''}" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.endDate)}" onfocus="this.type='date'; this.value='${report.endDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'endDate', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
         <input type="text" class="inline-edit-input" style="text-align: right; width: 80px; margin: 0 auto; display: block;" value="${Number(report.amount || 0).toLocaleString()}" onfocus="this.value='${report.amount || 0}'" onblur="this.value=Number(this.value).toLocaleString()" onchange="updateReportInline('${report.id}', 'amount', this.value.replace(/,/g, ''))">
       </td>
@@ -1495,6 +1495,9 @@ window.updateReportInline = function (id, field, value) {
   }
   if (field === 'remarks' && existing.remarks !== value) {
     updateData.remarksModified = true;
+  }
+  if (field === 'endDate' && existing.endDate !== value) {
+    updateData.endDateModifiedAt = getNormalizedDateString(new Date());
   }
 
   db.collection("reports").doc(id).update(updateData).then(() => {
@@ -1599,6 +1602,7 @@ function handleReportSubmit(e) {
   const prevReport = state.reports.find(r => r.id === id);
   const isProgressChanged = prevReport ? Number(prevReport.progress) !== Number(progress) : false;
   const isRemarksChanged = prevReport ? prevReport.remarks !== remarks : false;
+  const isEndDateChanged = prevReport ? prevReport.endDate !== endDate : false;
 
   const memberObj = state.members.find(m => m.id === assignee);
   const assigneeName = memberObj ? memberObj.name : '';
@@ -1611,6 +1615,7 @@ function handleReportSubmit(e) {
     invoices: prevReport ? (prevReport.invoices || Array.from({ length: 5 }, () => ({ status: 'unissued', amount: 0, date: '' }))) : Array.from({ length: 5 }, () => ({ status: 'unissued', amount: 0, date: '' })),
     progressModified: isProgressChanged ? true : (prevReport ? prevReport.progressModified : false),
     remarksModified: isRemarksChanged ? true : (prevReport ? prevReport.remarksModified : false),
+    endDateModifiedAt: isEndDateChanged ? getNormalizedDateString(new Date()) : (prevReport ? prevReport.endDateModifiedAt : null),
     finalCompleted: prevReport ? (prevReport.finalCompleted || false) : false,
     createdAt: prevReport ? (prevReport.createdAt || getNormalizedDateString(new Date())) : getNormalizedDateString(new Date())
   };
@@ -2206,7 +2211,7 @@ function isNewProject(createdAt) {
   if (!createdAt) return false;
   const createdTime = new Date(createdAt).getTime();
   const todayTime = new Date(getNormalizedDateString(new Date())).getTime();
-  return ((todayTime - createdTime) / (1000 * 60 * 60 * 24)) <= 7;
+  return ((todayTime - createdTime) / (1000 * 60 * 60 * 24)) <= 5;
 }
 
 function checkIfToday(year, month, day) {
