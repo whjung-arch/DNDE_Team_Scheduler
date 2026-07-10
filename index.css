@@ -1266,21 +1266,21 @@ body {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.85rem;
-  min-width: 1400px;
+  font-size: 0.8rem;
 }
 
 .report-table th {
-  padding: 1rem;
+  padding: 0.5rem 0.25rem;
   background: var(--bg-hover);
   color: var(--text-secondary);
   font-weight: 600;
   border-bottom: 1px solid var(--border-color);
   font-family: var(--font-heading);
+  white-space: nowrap;
 }
 
 .report-table td {
-  padding: 1rem;
+  padding: 0.5rem 0.25rem;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-primary);
   vertical-align: middle;

@@ -1405,8 +1405,8 @@ function renderReportView() {
           <option value="suspended" ${report.status === 'suspended' ? 'selected' : ''}>보류</option>
         </select>
       </td>
-      <td style="min-width: 250px; max-width: 450px;">
-        <textarea class="inline-edit-input" rows="1" style="resize: vertical; min-height: 28px; width: 100%; box-sizing: border-box;" onchange="updateReportInline('${report.id}', 'remarks', this.value)">${escapeHTML(report.remarks || '')}</textarea>
+      <td style="width: 30%;">
+        <textarea class="inline-edit-input auto-resize-textarea" rows="1" style="resize: none; overflow: hidden; min-height: 28px; width: 100%; box-sizing: border-box;" oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px';" onchange="updateReportInline('${report.id}', 'remarks', this.value)">${escapeHTML(report.remarks || '')}</textarea>
       </td>
       <td><div style="display: flex;"><button class="member-action-btn" title="상세 모달 열기" onclick="openReportModal('${report.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>${confirmBtn}</div></td>
     `;
@@ -1414,6 +1414,14 @@ function renderReportView() {
   });
 
   renderPagination('report-pagination', state.pagination.report.currentPage, totalPages, 'window.changeReportPage');
+
+  setTimeout(() => {
+    const textareas = tableBody.querySelectorAll('.auto-resize-textarea');
+    textareas.forEach(ta => {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    });
+  }, 0);
 }
 
 window.formatShortDate = function (dateStr) {
