@@ -724,6 +724,11 @@ function renderApp() {
   renderSidebarMembers();
   renderStatsBar();
 
+  renderCurrentView();
+}
+
+function renderCurrentView() {
+  updatePageSize();
   const calNav = document.querySelector('.cal-nav');
 
   if (state.currentView === 'timeline') {
@@ -2250,10 +2255,30 @@ window.resizeTextareas = function () {
   });
 };
 
+window.updatePageSize = function () {
+  const rowHeight = 65; // Approximate pixels per row including padding
+  const reservedHeight = 350; // Pixels reserved for header, navigation, pagination, etc.
+  const availableHeight = window.innerHeight - reservedHeight;
+  const calculatedSize = Math.max(5, Math.floor(availableHeight / rowHeight));
+
+  if (state.pagination.report.pageSize !== calculatedSize) {
+    state.pagination.report.pageSize = calculatedSize;
+    state.pagination.invoice.pageSize = calculatedSize;
+    state.pagination.completed.pageSize = calculatedSize;
+    return true;
+  }
+  return false;
+};
+
 window.addEventListener('resize', () => {
   requestAnimationFrame(() => {
     if (typeof window.resizeTextareas === 'function') {
       window.resizeTextareas();
+    }
+    if (typeof window.updatePageSize === 'function') {
+      if (window.updatePageSize()) {
+        renderCurrentView();
+      }
     }
   });
 });
