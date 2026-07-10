@@ -1432,8 +1432,8 @@ function renderReportView() {
           </select>
         </div>
       </td>
-      <td style="width: 25%; text-align: center;"><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600; text-align: left; min-width: 120px; width: 85%; margin: 0 auto; display: block; box-sizing: border-box;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
       <td style="width: 15%; text-align: center;"><input class="inline-edit-input" style="text-align: left; min-width: 100px; width: 85%; margin: 0 auto; display: block; box-sizing: border-box;" value="${escapeHTML(report.client)}" onchange="updateReportInline('${report.id}', 'client', this.value)"></td>
+      <td style="width: 25%; text-align: center;"><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600; text-align: left; min-width: 120px; width: 85%; margin: 0 auto; display: block; box-sizing: border-box;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.startDate)}" onfocus="this.type='date'; this.value='${report.startDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'startDate', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input ${isNewProject(report.endDateModifiedAt) ? 'new-project-name' : ''} ${isEndDateApproaching(report.endDate, report.status) ? 'approaching-end-date' : ''}" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.endDate)}" onfocus="this.type='date'; this.value='${report.endDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'endDate', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
@@ -1853,7 +1853,7 @@ function renderInvoiceView() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="white-space: nowrap;"><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
-      <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
+      <td>${escapeHTML(report.client)}</td><td style="font-weight: 600;">${escapeHTML(report.project)}</td>
       <td style="white-space: nowrap;">${window.formatShortDate(report.endDate)}</td><td style="text-align: right; white-space: nowrap;">${totalAmount.toLocaleString()}</td>
       <td style="white-space: nowrap;"><span class="status-badge ${report.status === 'completed' ? 'status-completed' : 'status-ongoing'}">${report.status === 'completed' ? '완료' : '진행중'}</span></td>
       <td style="text-align: right; color: var(--success); font-weight: bold; white-space: nowrap;">${report._currentYearIssued.toLocaleString()} ${targetYear !== 'all' ? `<span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${targetYear}년분)</span>` : ''}</td>
@@ -2022,7 +2022,7 @@ function renderCompletedProjectsView() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="white-space: nowrap;"><div class="reporter-label"><span class="reporter-dot" style="background-color: ${memberColor};"></span><span>${escapeHTML(memberName)}</span></div></td>
-      <td style="font-weight: 600;">${escapeHTML(report.project)}</td><td>${escapeHTML(report.client)}</td>
+      <td>${escapeHTML(report.client)}</td><td style="font-weight: 600;">${escapeHTML(report.project)}</td>
       <td style="white-space: nowrap;">${window.formatShortDate(report.startDate)}</td><td style="white-space: nowrap;">${window.formatShortDate(report.endDate)}</td>
       <td style="text-align: right; white-space: nowrap;">${(Number(report.amount) || 0).toLocaleString()}</td>
       <td style="white-space: nowrap;"><span class="status-badge status-completed">완료</span></td>
