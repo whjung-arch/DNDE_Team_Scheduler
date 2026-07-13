@@ -7,6 +7,7 @@
   <title>CAE파트 스케줄러 - 팀원 일정 관리 시스템</title>
   <meta name="description" content="팀원들의 일정을 달력과 간트식 타임라인으로 효율적으로 시각화하고 관리하는 모던 스케줄 매니저">
   <link rel="stylesheet" href="index.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -738,6 +739,48 @@
 
   <!-- 토스트 메시지 컨테이너 -->
   <div class="toast-container" id="toast-container"></div>
+
+  <!-- 매출 현황 그래프 모달 -->
+  <div class="modal-overlay" id="modal-revenue-chart">
+    <div class="modal-container" style="max-width: 900px; width: 95%;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="revenue-chart-modal-title">매출 현황 분석</h3>
+        <button class="btn-close" id="btn-close-revenue-chart-modal" aria-label="닫기">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 2rem; max-height: 75vh; overflow-y: auto;">
+        
+        <div class="chart-section" style="background: var(--bg-card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border-glass);">
+          <h4 class="chart-title" id="chart-title-personal" style="margin-top:0; margin-bottom: 1rem; font-size: 1.1rem; color: var(--text-primary);">개인별 월별 매출 (선택된 팀원)</h4>
+          <div class="chart-canvas-wrapper" style="position: relative; height: 300px; width: 100%;">
+            <canvas id="chart-personal-monthly"></canvas>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem;">
+          <div class="chart-section" style="background: var(--bg-card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border-glass);">
+            <h4 class="chart-title" style="margin-top:0; margin-bottom: 1rem; font-size: 1.1rem; color: var(--text-primary);">전체 팀원별 매출 비교</h4>
+            <div class="chart-canvas-wrapper" style="position: relative; height: 280px; width: 100%;">
+              <canvas id="chart-team-comparison"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-section" style="background: var(--bg-card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border-glass);">
+            <h4 class="chart-title" style="margin-top:0; margin-bottom: 1rem; font-size: 1.1rem; color: var(--text-primary);">전체 팀 월별 매출 흐름</h4>
+            <div class="chart-canvas-wrapper" style="position: relative; height: 280px; width: 100%;">
+              <canvas id="chart-overall-monthly"></canvas>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 

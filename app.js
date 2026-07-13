@@ -1763,6 +1763,7 @@ function renderInvoiceView() {
   const memberRevenues = {};
   state.members.forEach(m => {
     memberRevenues[m.id] = {
+      id: m.id,
       name: m.name,
       color: m.color,
       totalAmount: 0,
@@ -1776,6 +1777,7 @@ function renderInvoiceView() {
       if (!memberRevenues[assignee]) {
         const assigneeInfo = getAssigneeInfo(assignee);
         memberRevenues[assignee] = {
+          id: assignee,
           name: assigneeInfo.name,
           color: assigneeInfo.color,
           totalAmount: 0,
@@ -1803,7 +1805,7 @@ function renderInvoiceView() {
       const revenueItemsHtml = Object.values(memberRevenues)
         .filter(m => m.totalAmount > 0)
         .map(m => `
-          <div class="revenue-chip" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 0.5rem 0.85rem; border-radius: 20px; display: flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); font-size: 0.8rem; transition: transform 0.2s ease;">
+          <div class="revenue-chip" onclick="openRevenueChartModal('${m.id}')" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 0.5rem 0.85rem; border-radius: 20px; display: flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); font-size: 0.8rem; transition: transform 0.2s ease;">
             <span class="reporter-dot" style="background-color: ${m.color}; margin: 0; width: 8px; height: 8px; flex-shrink: 0;"></span>
             <span style="font-weight: 600; color: var(--text-primary);">${escapeHTML(m.name)}:</span>
             <span style="color: var(--primary); font-weight: 700;">${m.totalAmount.toLocaleString()} 만원</span>
@@ -2305,4 +2307,132 @@ window.addEventListener('resize', () => {
       }
     }
   });
+});
+
+// --- 매출 현황 그래프 모달 및 Chart.js 로직 ---
+let revenueChartInstances = {};
+
+window.openRevenueChartModal = function (memberId) {
+  const modal = document.getElementById('modal-revenue-chart');
+  if (!modal) return;
+
+  if (typeof Chart === 'undefined') {
+    showToast('차트 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.', 'error');
+    return;
+  }
+
+  modal.style.display = 'flex';
+
+  const monthlyDataByMember = {};
+  const totalByMember = {};
+  const overallMonthlyData = {};
+
+  state.members.forEach(m => {
+    monthlyDataByMember[m.id] = {};
+    totalByMember[m.id] = 0;
+  });
+
+  state.reports.forEach(report => {
+    if (report.status !== 'completed' && report.status !== 'ongoing') return;
+    const assignee = report.assignee;
+    if (!assignee) return;
+
+    if (report.invoices && Array.isArray(report.invoices)) {
+      report.invoices.forEach(inv => {
+        if (inv.status === 'issued' && inv.date) {
+          const yyyyMM = inv.date.substring(0, 7);
+          const amt = Number(inv.amount) || 0;
+
+          if (!monthlyDataByMember[assignee]) monthlyDataByMember[assignee] = {};
+          if (!monthlyDataByMember[assignee][yyyyMM]) monthlyDataByMember[assignee][yyyyMM] = 0;
+          monthlyDataByMember[assignee][yyyyMM] += amt;
+
+          if (!totalByMember[assignee]) totalByMember[assignee] = 0;
+          totalByMember[assignee] += amt;
+
+          if (!overallMonthlyData[yyyyMM]) overallMonthlyData[yyyyMM] = 0;
+          overallMonthlyData[yyyyMM] += amt;
+        }
+      });
+    }
+  });
+
+  const allMonthsSet = new Set();
+  Object.values(monthlyDataByMember).forEach(memberData => {
+    Object.keys(memberData).forEach(m => allMonthsSet.add(m));
+  });
+  const allMonths = Array.from(allMonthsSet).sort();
+
+  if (revenueChartInstances.personal) revenueChartInstances.personal.destroy();
+  if (revenueChartInstances.team) revenueChartInstances.team.destroy();
+  if (revenueChartInstances.overall) revenueChartInstances.overall.destroy();
+
+  const ctxPersonal = document.getElementById('chart-personal-monthly');
+  const ctxTeam = document.getElementById('chart-team-comparison');
+  const ctxOverall = document.getElementById('chart-overall-monthly');
+
+  if (!ctxPersonal || !ctxTeam || !ctxOverall) return;
+
+  const memberInfo = getAssigneeInfo(memberId);
+  document.getElementById('chart-title-personal').textContent = `개인별 월별 매출 (${escapeHTML(memberInfo.name)})`;
+
+  const personalData = allMonths.map(m => (monthlyDataByMember[memberId] ? monthlyDataByMember[memberId][m] || 0 : 0));
+  revenueChartInstances.personal = new Chart(ctxPersonal, {
+    type: 'bar',
+    data: {
+      labels: allMonths,
+      datasets: [{
+        label: `${memberInfo.name} 월별 매출 (만원)`,
+        data: personalData,
+        backgroundColor: memberInfo.color,
+        borderRadius: 4
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+
+  const activeMembers = state.members.filter(m => totalByMember[m.id] > 0);
+  const teamLabels = activeMembers.map(m => m.name);
+  const teamData = activeMembers.map(m => totalByMember[m.id]);
+  const teamColors = activeMembers.map(m => m.color);
+
+  revenueChartInstances.team = new Chart(ctxTeam, {
+    type: 'doughnut',
+    data: {
+      labels: teamLabels,
+      datasets: [{
+        data: teamData,
+        backgroundColor: teamColors,
+        borderWidth: 1
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+
+  const overallData = allMonths.map(m => overallMonthlyData[m] || 0);
+  revenueChartInstances.overall = new Chart(ctxOverall, {
+    type: 'line',
+    data: {
+      labels: allMonths,
+      datasets: [{
+        label: '전체 월별 매출 (만원)',
+        data: overallData,
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: '#10b981'
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+};
+
+document.getElementById('btn-close-revenue-chart-modal')?.addEventListener('click', () => {
+  document.getElementById('modal-revenue-chart').style.display = 'none';
+});
+window.addEventListener('click', (e) => {
+  const modal = document.getElementById('modal-revenue-chart');
+  if (e.target === modal) modal.style.display = 'none';
 });

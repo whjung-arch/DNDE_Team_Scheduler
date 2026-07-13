@@ -1502,6 +1502,17 @@ body {
 }
 
 /* --- 세금계산서 발행 관리 스타일 --- */
+.revenue-chip {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.revenue-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md) !important;
+  border-color: var(--primary) !important;
+}
+
 .invoice-view-container {
   display: flex;
   flex-direction: column;
