@@ -1727,7 +1727,6 @@ function renderInvoiceView() {
           const invYear = inv.date.substring(0, 4);
           if (targetYear === 'all' || invYear === targetYear) {
             hasInvoiceInTargetYear = true;
-            sumIssued += (Number(inv.amount) || 0);
             projectIssuedSumInTargetYear += (Number(inv.amount) || 0);
           }
         }
@@ -1739,9 +1738,6 @@ function renderInvoiceView() {
     const isProjectInTargetYear = (projStartYear === targetYear || projEndYear === targetYear);
 
     if (targetYear === 'all' || hasInvoiceInTargetYear || isProjectInTargetYear) {
-      sumTotal += (Number(report.amount) || 0);
-      report._currentYearIssued = projectIssuedSumInTargetYear;
-
       // 발행완료 판정: 발행금액(총 금액) > 0 이고 잔금이 0인 상태
       const totalAmount = Number(report.amount) || 0;
       let totalIssued = 0;
@@ -1762,6 +1758,9 @@ function renderInvoiceView() {
       }
 
       if (matchesStatus) {
+        sumTotal += totalAmount;
+        sumIssued += projectIssuedSumInTargetYear;
+        report._currentYearIssued = projectIssuedSumInTargetYear;
         invoiceReports.push(report);
       }
     }
@@ -1808,16 +1807,7 @@ function renderInvoiceView() {
         };
       }
       memberRevenues[assignee].totalAmount += (Number(report.amount) || 0);
-
-      let issued = 0;
-      if (report.invoices) {
-        report.invoices.forEach(inv => {
-          if (inv.status === 'issued') {
-            issued += (Number(inv.amount) || 0);
-          }
-        });
-      }
-      memberRevenues[assignee].issuedAmount += issued;
+      memberRevenues[assignee].issuedAmount += (Number(report._currentYearIssued) || 0);
     }
   });
 
