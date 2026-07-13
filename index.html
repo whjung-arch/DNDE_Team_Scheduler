@@ -390,22 +390,22 @@
         </div>
 
         <!-- 세금계산서 발행 통계 카드 -->
-        <div class="invoice-summary-cards" onclick="openYearlySummaryChartModal()" style="display: flex; gap: 1rem; margin-bottom: 1.25rem;">
-          <div class="summary-card"
+        <div class="invoice-summary-cards" style="display: flex; gap: 1rem; margin-bottom: 1.25rem;">
+          <div class="summary-card" onclick="openYearlySummaryChartModal('total')"
             style="flex: 1; background: var(--bg-card); padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.25rem; box-shadow: var(--shadow-sm);">
             <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">선택 연도 총 금액</span>
             <span id="invoice-sum-total"
               style="font-size: 1.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--text-primary);">0
               만원</span>
           </div>
-          <div class="summary-card"
+          <div class="summary-card" onclick="openYearlySummaryChartModal('issued')"
             style="flex: 1; background: var(--bg-card); padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.25rem; box-shadow: var(--shadow-sm);">
             <span style="font-size: 0.75rem; color: var(--success); font-weight: 600;">선택 연도 발행완료 합계</span>
             <span id="invoice-sum-issued"
               style="font-size: 1.25rem; font-weight: 700; color: var(--success); font-family: var(--font-heading);">0
               만원</span>
           </div>
-          <div class="summary-card"
+          <div class="summary-card" onclick="openYearlySummaryChartModal('unissued')"
             style="flex: 1; background: var(--bg-card); padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.25rem; box-shadow: var(--shadow-sm);">
             <span style="font-size: 0.75rem; color: #ef4444; font-weight: 600;">선택 연도 미발행 합계</span>
             <span id="invoice-sum-unissued"
@@ -803,11 +803,23 @@
         </button>
       </div>
       <div class="modal-body" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; max-height: 75vh; overflow-y: auto;">
-        <div class="chart-section" style="background: var(--bg-card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border-glass);">
-          <div class="chart-canvas-wrapper" style="position: relative; height: 350px; width: 100%;">
-            <canvas id="chart-yearly-summary"></canvas>
+        
+        <!-- 특정 지표 막대 차트 영역 (동적 표시) -->
+        <div class="chart-section" id="chart-section-specific" style="background: var(--bg-card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border-glass); display: none;">
+          <h4 id="yearly-summary-specific-title" style="margin-bottom: 1rem; font-size: 1rem; color: var(--text-primary);">월별 상세 통계</h4>
+          <div class="chart-canvas-wrapper" style="position: relative; height: 300px; width: 100%;">
+            <canvas id="chart-yearly-specific"></canvas>
           </div>
         </div>
+
+        <!-- 누적 매출 선형 차트 영역 (항상 표시) -->
+        <div class="chart-section" id="chart-section-cumulative" style="background: var(--bg-card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border-glass);">
+          <h4 style="margin-bottom: 1rem; font-size: 1rem; color: var(--text-primary);">연간 누적 매출 추이</h4>
+          <div class="chart-canvas-wrapper" style="position: relative; height: 300px; width: 100%;">
+            <canvas id="chart-yearly-cumulative"></canvas>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>

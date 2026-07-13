@@ -2461,9 +2461,10 @@ window.addEventListener('click', (e) => {
 });
 
 // --- 연도별 요약 그래프 모달 로직 ---
-let yearlySummaryChartInstance = null;
+let yearlySpecificChartInstance = null;
+let yearlyCumulativeChartInstance = null;
 
-window.openYearlySummaryChartModal = function () {
+window.openYearlySummaryChartModal = function (type) {
   const loggedInUser = sessionStorage.getItem('logged_in_user');
   if (loggedInUser !== 'whjung@dnde.co.kr') return;
 
@@ -2478,7 +2479,15 @@ window.openYearlySummaryChartModal = function () {
   modal.classList.add('active');
 
   const targetYear = state.filters.invoiceYear;
-  document.getElementById('yearly-summary-chart-modal-title').textContent = targetYear === 'all' ? '전체 연도 월별 매출 현황' : `${targetYear}년 월별 매출 현황`;
+
+  let titleStr = '';
+  if (type === 'total') titleStr = '총 금액';
+  else if (type === 'issued') titleStr = '발행 완료';
+  else if (type === 'unissued') titleStr = '미발행 합계';
+
+  document.getElementById('yearly-summary-chart-modal-title').textContent = targetYear === 'all' ? '전체 연도 매출 현황' : `${targetYear}년 매출 현황`;
+  const specificTitleEl = document.getElementById('yearly-summary-specific-title');
+  if (specificTitleEl) specificTitleEl.textContent = `월별 ${titleStr} 상세 통계`;
 
   const monthlyStats = {};
 
@@ -2553,63 +2562,124 @@ window.openYearlySummaryChartModal = function () {
   const dataIssued = allMonths.map(m => monthlyStats[m] ? monthlyStats[m].issued : 0);
   const dataUnissued = allMonths.map(m => monthlyStats[m] ? monthlyStats[m].unissued : 0);
 
-  const ctx = document.getElementById('chart-yearly-summary');
-  if (!ctx) return;
-
-  if (yearlySummaryChartInstance) {
-    yearlySummaryChartInstance.destroy();
+  // 누적 데이터 계산
+  const cumulativeTotal = [];
+  const cumulativeIssued = [];
+  let curTot = 0;
+  let curIss = 0;
+  for (let i = 0; i < allMonths.length; i++) {
+    curTot += dataTotal[i];
+    curIss += dataIssued[i];
+    cumulativeTotal.push(curTot);
+    cumulativeIssued.push(curIss);
   }
 
-  yearlySummaryChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: '총 금액 (만원)',
-          data: dataTotal,
-          backgroundColor: 'rgba(99, 102, 241, 0.8)',
+  // 특정 지표 차트 렌더링
+  let specificData = [];
+  let specificLabel = '';
+  let specificColor = '';
+
+  if (type === 'total') {
+    specificData = dataTotal;
+    specificLabel = '총 금액 (만원)';
+    specificColor = 'rgba(99, 102, 241, 0.8)';
+  } else if (type === 'issued') {
+    specificData = dataIssued;
+    specificLabel = '발행 완료 (만원)';
+    specificColor = 'rgba(16, 185, 129, 0.8)';
+  } else if (type === 'unissued') {
+    specificData = dataUnissued;
+    specificLabel = '미발행 합계 (만원)';
+    specificColor = 'rgba(239, 68, 68, 0.8)';
+  }
+
+  const sectionSpecific = document.getElementById('chart-section-specific');
+  const ctxSpecific = document.getElementById('chart-yearly-specific');
+
+  if (sectionSpecific && ctxSpecific) {
+    sectionSpecific.style.display = 'block';
+    if (yearlySpecificChartInstance) {
+      yearlySpecificChartInstance.destroy();
+    }
+    yearlySpecificChartInstance = new Chart(ctxSpecific, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: specificLabel,
+          data: specificData,
+          backgroundColor: specificColor,
           borderRadius: 4
-        },
-        {
-          label: '발행 완료 (만원)',
-          data: dataIssued,
-          backgroundColor: 'rgba(16, 185, 129, 0.8)',
-          borderRadius: 4
-        },
-        {
-          label: '미발행 합계 (만원)',
-          data: dataUnissued,
-          backgroundColor: 'rgba(239, 68, 68, 0.8)',
-          borderRadius: 4
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false,
+        }]
       },
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: function (context) {
-              let label = context.dataset.label || '';
-              if (label) {
-                label += ': ';
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function (context) {
+                return context.parsed.y.toLocaleString() + ' 만원';
               }
-              if (context.parsed.y !== null) {
-                label += context.parsed.y.toLocaleString() + ' 만원';
-              }
-              return label;
             }
           }
         }
       }
+    });
+  }
+
+  // 누적 차트 렌더링
+  const ctxCumul = document.getElementById('chart-yearly-cumulative');
+  if (ctxCumul) {
+    if (yearlyCumulativeChartInstance) {
+      yearlyCumulativeChartInstance.destroy();
     }
-  });
+    yearlyCumulativeChartInstance = new Chart(ctxCumul, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: '누적 총 금액 (만원)',
+            data: cumulativeTotal,
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#6366f1'
+          },
+          {
+            label: '누적 발행 완료 (만원)',
+            data: cumulativeIssued,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#10b981'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function (context) {
+                return context.dataset.label + ': ' + context.parsed.y.toLocaleString() + ' 만원';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
 };
 
 document.getElementById('btn-close-yearly-summary-chart-modal')?.addEventListener('click', () => {
