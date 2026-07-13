@@ -2587,6 +2587,9 @@ window.openYearlySummaryChartModal = function (type) {
   const dataUnissued = allMonths.map(m => monthlyStats[m] ? monthlyStats[m].unissued : 0);
 
   // 누적 데이터 계산
+  const today = new Date();
+  const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
   const cumulativeTotal = [];
   const cumulativeIssued = [];
   let curTot = 0;
@@ -2595,7 +2598,12 @@ window.openYearlySummaryChartModal = function (type) {
     curTot += dataTotal[i];
     curIss += dataIssued[i];
     cumulativeTotal.push(curTot);
-    cumulativeIssued.push(curIss);
+
+    if (allMonths[i] <= currentYearMonth) {
+      cumulativeIssued.push(curIss);
+    } else {
+      cumulativeIssued.push(null);
+    }
   }
 
   // 특정 지표 차트 렌더링
