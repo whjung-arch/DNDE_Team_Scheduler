@@ -1718,6 +1718,7 @@ function renderInvoiceView() {
 
   let sumTotal = 0;
   let sumIssued = 0;
+  let sumUnissued = 0;
   const invoiceReports = [];
 
   state.reports.forEach(report => {
@@ -1780,13 +1781,20 @@ function renderInvoiceView() {
       }
 
       if (matchesStatus) {
-        sumTotal += totalAmount;
         sumIssued += projectIssuedSumInTargetPeriod;
+
+        if (targetYear === 'all' || isProjectInTargetYear) {
+          const balanceAllTime = Math.max(0, totalAmount - totalIssued);
+          sumUnissued += balanceAllTime;
+        }
+
         report._currentYearIssued = projectIssuedSumInTargetPeriod;
         invoiceReports.push(report);
       }
     }
   });
+
+  sumTotal = sumIssued + sumUnissued;
 
   const summaryCardsContainer = document.querySelector('.invoice-summary-cards');
   const loggedInUser = sessionStorage.getItem('logged_in_user');
@@ -1804,7 +1812,7 @@ function renderInvoiceView() {
     }
     document.getElementById('invoice-sum-total').textContent = sumTotal.toLocaleString() + ' 만원';
     document.getElementById('invoice-sum-issued').textContent = sumIssued.toLocaleString() + ' 만원';
-    document.getElementById('invoice-sum-unissued').textContent = (sumTotal - sumIssued).toLocaleString() + ' 만원';
+    document.getElementById('invoice-sum-unissued').textContent = sumUnissued.toLocaleString() + ' 만원';
   } else {
     if (summaryCardsContainer) {
       summaryCardsContainer.style.display = 'none';
@@ -2554,10 +2562,14 @@ window.openYearlySummaryChartModal = function (type) {
 
     if (projMonth) {
       if (!monthlyStats[projMonth]) monthlyStats[projMonth] = { total: 0, issued: 0, unissued: 0 };
-      monthlyStats[projMonth].total += totalAmt;
       const unissuedAmt = Math.max(0, totalAmt - totalIssuedAmt);
       monthlyStats[projMonth].unissued += unissuedAmt;
     }
+  });
+
+  // Calculate total = issued + unissued for all months
+  Object.keys(monthlyStats).forEach(month => {
+    monthlyStats[month].total = monthlyStats[month].issued + monthlyStats[month].unissued;
   });
 
   let allMonths = Object.keys(monthlyStats);
