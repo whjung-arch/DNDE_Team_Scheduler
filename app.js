@@ -218,7 +218,8 @@ const state = {
     completedYear: new Date().getFullYear().toString(),
     reportAssignee: 'all',
     invoiceAssignee: 'all',
-    invoiceStatus: 'all'
+    invoiceStatus: 'all',
+    invoiceMonth: 'all'
   },
   currentView: 'timeline',
   currentDate: new Date(),
@@ -534,6 +535,15 @@ function setupEventListeners() {
     resetPaginationPages();
     renderApp();
   });
+
+  const filterInvoiceMonth = document.getElementById('filter-invoice-month');
+  if (filterInvoiceMonth) {
+    filterInvoiceMonth.addEventListener('change', (e) => {
+      state.filters.invoiceMonth = e.target.value;
+      resetPaginationPages();
+      renderApp();
+    });
+  }
 
   const selectInvoiceAssignee = document.getElementById('filter-invoice-assignee');
   if (selectInvoiceAssignee) {
@@ -1683,6 +1693,7 @@ function renderInvoiceView() {
   tableBody.innerHTML = '';
 
   const targetYear = state.filters.invoiceYear;
+  const targetMonth = state.filters.invoiceMonth || 'all';
   const invoiceStatusFilter = state.filters.invoiceStatus || 'all';
 
   const selectInvoiceAssignee = document.getElementById('filter-invoice-assignee');
@@ -1718,16 +1729,20 @@ function renderInvoiceView() {
     if (state.filters.client !== 'all' && report.client !== state.filters.client) return;
     if (state.filters.invoiceAssignee && state.filters.invoiceAssignee !== 'all' && report.assignee !== state.filters.invoiceAssignee) return;
 
-    let hasInvoiceInTargetYear = false;
-    let projectIssuedSumInTargetYear = 0;
+    let hasInvoiceInTargetPeriod = false;
+    let projectIssuedSumInTargetPeriod = 0;
 
     if (report.invoices && Array.isArray(report.invoices)) {
       report.invoices.forEach(inv => {
         if (inv.status === 'issued' && inv.date) {
           const invYear = inv.date.substring(0, 4);
-          if (targetYear === 'all' || invYear === targetYear) {
-            hasInvoiceInTargetYear = true;
-            projectIssuedSumInTargetYear += (Number(inv.amount) || 0);
+          const invMonth = inv.date.substring(5, 7);
+          const yearMatches = targetYear === 'all' || invYear === targetYear;
+          const monthMatches = targetMonth === 'all' || invMonth === targetMonth;
+
+          if (yearMatches && monthMatches) {
+            hasInvoiceInTargetPeriod = true;
+            projectIssuedSumInTargetPeriod += (Number(inv.amount) || 0);
           }
         }
       });
@@ -1737,7 +1752,14 @@ function renderInvoiceView() {
     const projEndYear = report.endDate ? report.endDate.substring(0, 4) : '';
     const isProjectInTargetYear = (projStartYear === targetYear || projEndYear === targetYear);
 
-    if (targetYear === 'all' || hasInvoiceInTargetYear || isProjectInTargetYear) {
+    let includeReport = false;
+    if (targetMonth !== 'all') {
+      includeReport = hasInvoiceInTargetPeriod;
+    } else {
+      includeReport = (targetYear === 'all' || hasInvoiceInTargetPeriod || isProjectInTargetYear);
+    }
+
+    if (includeReport) {
       // 발행완료 판정: 발행금액(총 금액) > 0 이고 잔금이 0인 상태
       const totalAmount = Number(report.amount) || 0;
       let totalIssued = 0;
@@ -1759,8 +1781,8 @@ function renderInvoiceView() {
 
       if (matchesStatus) {
         sumTotal += totalAmount;
-        sumIssued += projectIssuedSumInTargetYear;
-        report._currentYearIssued = projectIssuedSumInTargetYear;
+        sumIssued += projectIssuedSumInTargetPeriod;
+        report._currentYearIssued = projectIssuedSumInTargetPeriod;
         invoiceReports.push(report);
       }
     }
@@ -1771,6 +1793,14 @@ function renderInvoiceView() {
   if (loggedInUser === 'whjung@dnde.co.kr') {
     if (summaryCardsContainer) {
       summaryCardsContainer.style.display = 'flex';
+
+      const periodText = targetYear === 'all' ? '전체 연도' : (targetMonth === 'all' ? `선택 연도` : `선택 기간`);
+      const cardTitles = summaryCardsContainer.querySelectorAll('.summary-card span:first-child');
+      if (cardTitles.length >= 3) {
+        cardTitles[0].textContent = `${periodText} 총 금액`;
+        cardTitles[1].textContent = `${periodText} 발행완료 합계`;
+        cardTitles[2].textContent = `${periodText} 미발행 합계`;
+      }
     }
     document.getElementById('invoice-sum-total').textContent = sumTotal.toLocaleString() + ' 만원';
     document.getElementById('invoice-sum-issued').textContent = sumIssued.toLocaleString() + ' 만원';
@@ -1884,7 +1914,10 @@ function renderInvoiceView() {
       <td style="white-space: nowrap; text-align: center; font-weight: 600; color: var(--primary);">${firstInvoiceDate}</td>
       <td style="text-align: right; white-space: nowrap;">${totalAmount.toLocaleString()}</td>
       <td style="white-space: nowrap;"><span class="status-badge ${report.status === 'completed' ? 'status-completed' : 'status-ongoing'}">${report.status === 'completed' ? '완료' : '진행중'}</span></td>
-      <td style="text-align: right; color: var(--success); font-weight: bold; white-space: nowrap;">${report._currentYearIssued.toLocaleString()} ${targetYear !== 'all' ? `<span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${targetYear}년분)</span>` : ''}</td>
+      <td style="text-align: right; color: var(--success); font-weight: bold; white-space: nowrap;">
+        ${report._currentYearIssued.toLocaleString()} 
+        ${targetYear !== 'all' ? `<span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${targetYear}년${targetMonth !== 'all' ? ` ${targetMonth}월` : ''}분)</span>` : ''}
+      </td>
       <td style="text-align: right; color: ${balance > 0 ? '#ef4444' : 'var(--success)'}; white-space: nowrap;">${balance.toLocaleString()}</td>
       <td style="white-space: nowrap;">
         <div style="display: flex; gap: 0.25rem; align-items: center;">
