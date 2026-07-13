@@ -2321,7 +2321,7 @@ window.openRevenueChartModal = function (memberId) {
     return;
   }
 
-  modal.style.display = 'flex';
+  modal.classList.add('active');
 
   const monthlyDataByMember = {};
   const totalByMember = {};
@@ -2430,9 +2430,9 @@ window.openRevenueChartModal = function (memberId) {
 };
 
 document.getElementById('btn-close-revenue-chart-modal')?.addEventListener('click', () => {
-  document.getElementById('modal-revenue-chart').style.display = 'none';
+  document.getElementById('modal-revenue-chart').classList.remove('active');
 });
 window.addEventListener('click', (e) => {
   const modal = document.getElementById('modal-revenue-chart');
-  if (e.target === modal) modal.style.display = 'none';
+  if (e.target === modal) modal.classList.remove('active');
 });
