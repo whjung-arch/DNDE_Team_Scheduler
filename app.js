@@ -2534,7 +2534,8 @@ window.openYearlySummaryChartModal = function (type) {
 
     if (!includeReport) return;
 
-    const projMonth = report.endDate ? report.endDate.substring(0, 7) : (report.startDate ? report.startDate.substring(0, 7) : '');
+    // 총 금액을 '시작일' 기준으로 집계하여 누적 차트가 선행되도록 변경
+    const projMonth = report.startDate ? report.startDate.substring(0, 7) : (report.endDate ? report.endDate.substring(0, 7) : '');
     const totalAmt = Number(report.amount) || 0;
     let totalIssuedAmt = 0;
 
