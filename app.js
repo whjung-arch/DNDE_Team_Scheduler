@@ -2228,10 +2228,26 @@ function isNewProject(createdAt) {
 }
 
 function isEndDateApproaching(endDateStr, status) {
-  if (!endDateStr || status === 'completed') return false;
-  const endDate = new Date(endDateStr).getTime();
-  const todayTime = new Date(getNormalizedDateString(new Date())).getTime();
-  const diffDays = (endDate - todayTime) / (1000 * 60 * 60 * 24);
+  if (!endDateStr || status === 'completed' || status === 'suspended') return false;
+
+  // Safely parse YYYY-MM-DD
+  const parts = endDateStr.split('-');
+  if (parts.length !== 3) return false;
+
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+
+  const endDate = new Date(year, month, day);
+  endDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const diffTime = endDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  // Highlight if end date is within 7 days (and includes past due)
   return diffDays <= 7;
 }
 
