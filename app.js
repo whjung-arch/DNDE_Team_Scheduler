@@ -217,6 +217,7 @@ const state = {
     invoiceYear: new Date().getFullYear().toString(),
     completedYear: new Date().getFullYear().toString(),
     reportAssignee: 'all',
+    invoiceAssignee: 'all',
     invoiceStatus: 'all'
   },
   currentView: 'timeline',
@@ -533,6 +534,15 @@ function setupEventListeners() {
     resetPaginationPages();
     renderApp();
   });
+
+  const selectInvoiceAssignee = document.getElementById('filter-invoice-assignee');
+  if (selectInvoiceAssignee) {
+    selectInvoiceAssignee.addEventListener('change', (e) => {
+      state.filters.invoiceAssignee = e.target.value;
+      state.pagination.invoice.currentPage = 1;
+      renderApp();
+    });
+  }
 
   // 팀원 전체 선택 / 전체 해제 리스너
   const btnSelectAll = document.getElementById('btn-select-all-members');
@@ -1675,6 +1685,18 @@ function renderInvoiceView() {
   const targetYear = state.filters.invoiceYear;
   const invoiceStatusFilter = state.filters.invoiceStatus || 'all';
 
+  const selectInvoiceAssignee = document.getElementById('filter-invoice-assignee');
+  if (selectInvoiceAssignee) {
+    const currentSelected = state.filters.invoiceAssignee || 'all';
+    selectInvoiceAssignee.innerHTML = '<option value="all">전체 작성자</option>';
+    state.members.forEach(member => {
+      const opt = document.createElement('option');
+      opt.value = member.id; opt.textContent = member.name;
+      if (member.id === currentSelected) opt.selected = true;
+      selectInvoiceAssignee.appendChild(opt);
+    });
+  }
+
   // 세금계산서 구분 탭 UI 액티브 클래스 상태 동기화
   const tabContainer = document.querySelector('.invoice-tab-container');
   if (tabContainer) {
@@ -1694,6 +1716,7 @@ function renderInvoiceView() {
     if (state.filters.startDate && report.endDate < state.filters.startDate) return;
     if (state.filters.endDate && report.startDate > state.filters.endDate) return;
     if (state.filters.client !== 'all' && report.client !== state.filters.client) return;
+    if (state.filters.invoiceAssignee && state.filters.invoiceAssignee !== 'all' && report.assignee !== state.filters.invoiceAssignee) return;
 
     let hasInvoiceInTargetYear = false;
     let projectIssuedSumInTargetYear = 0;
@@ -2434,5 +2457,165 @@ document.getElementById('btn-close-revenue-chart-modal')?.addEventListener('clic
 });
 window.addEventListener('click', (e) => {
   const modal = document.getElementById('modal-revenue-chart');
+  if (e.target === modal) modal.classList.remove('active');
+});
+
+// --- 연도별 요약 그래프 모달 로직 ---
+let yearlySummaryChartInstance = null;
+
+window.openYearlySummaryChartModal = function () {
+  const loggedInUser = sessionStorage.getItem('logged_in_user');
+  if (loggedInUser !== 'whjung@dnde.co.kr') return;
+
+  const modal = document.getElementById('modal-yearly-summary-chart');
+  if (!modal) return;
+
+  if (typeof Chart === 'undefined') {
+    showToast('차트 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.', 'error');
+    return;
+  }
+
+  modal.classList.add('active');
+
+  const targetYear = state.filters.invoiceYear;
+  document.getElementById('yearly-summary-chart-modal-title').textContent = targetYear === 'all' ? '전체 연도 월별 매출 현황' : `${targetYear}년 월별 매출 현황`;
+
+  const monthlyStats = {};
+
+  state.reports.forEach(report => {
+    if (report.status !== 'completed' && report.status !== 'ongoing') return;
+
+    let includeReport = false;
+    if (targetYear === 'all') {
+      includeReport = true;
+    } else {
+      const projStartYear = report.startDate ? report.startDate.substring(0, 4) : '';
+      const projEndYear = report.endDate ? report.endDate.substring(0, 4) : '';
+      let hasInvoiceInTargetYear = false;
+      if (report.invoices) {
+        hasInvoiceInTargetYear = report.invoices.some(inv => inv.status === 'issued' && inv.date && inv.date.substring(0, 4) === targetYear);
+      }
+      if (hasInvoiceInTargetYear || projStartYear === targetYear || projEndYear === targetYear) {
+        includeReport = true;
+      }
+    }
+
+    if (!includeReport) return;
+
+    const projMonth = report.endDate ? report.endDate.substring(0, 7) : (report.startDate ? report.startDate.substring(0, 7) : '');
+    const totalAmt = Number(report.amount) || 0;
+    let totalIssuedAmt = 0;
+
+    if (report.invoices) {
+      report.invoices.forEach(inv => {
+        if (inv.status === 'issued' && inv.date) {
+          const invMonth = inv.date.substring(0, 7);
+          const invAmt = Number(inv.amount) || 0;
+          totalIssuedAmt += invAmt;
+
+          if (!monthlyStats[invMonth]) monthlyStats[invMonth] = { total: 0, issued: 0, unissued: 0 };
+          monthlyStats[invMonth].issued += invAmt;
+        }
+      });
+    }
+
+    if (projMonth) {
+      if (!monthlyStats[projMonth]) monthlyStats[projMonth] = { total: 0, issued: 0, unissued: 0 };
+      monthlyStats[projMonth].total += totalAmt;
+      const unissuedAmt = Math.max(0, totalAmt - totalIssuedAmt);
+      monthlyStats[projMonth].unissued += unissuedAmt;
+    }
+  });
+
+  let allMonths = Object.keys(monthlyStats);
+  if (targetYear !== 'all') {
+    allMonths = allMonths.filter(m => m.startsWith(targetYear));
+  }
+  allMonths.sort();
+
+  if (targetYear !== 'all') {
+    for (let i = 1; i <= 12; i++) {
+      const mStr = `${targetYear}-${String(i).padStart(2, '0')}`;
+      if (!allMonths.includes(mStr)) {
+        allMonths.push(mStr);
+        monthlyStats[mStr] = { total: 0, issued: 0, unissued: 0 };
+      }
+    }
+    allMonths.sort();
+  }
+
+  const labels = allMonths.map(m => {
+    const parts = m.split('-');
+    return targetYear === 'all' ? `${parts[0]}년 ${parts[1]}월` : `${parts[1]}월`;
+  });
+
+  const dataTotal = allMonths.map(m => monthlyStats[m] ? monthlyStats[m].total : 0);
+  const dataIssued = allMonths.map(m => monthlyStats[m] ? monthlyStats[m].issued : 0);
+  const dataUnissued = allMonths.map(m => monthlyStats[m] ? monthlyStats[m].unissued : 0);
+
+  const ctx = document.getElementById('chart-yearly-summary');
+  if (!ctx) return;
+
+  if (yearlySummaryChartInstance) {
+    yearlySummaryChartInstance.destroy();
+  }
+
+  yearlySummaryChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: '총 금액 (만원)',
+          data: dataTotal,
+          backgroundColor: 'rgba(99, 102, 241, 0.8)',
+          borderRadius: 4
+        },
+        {
+          label: '발행 완료 (만원)',
+          data: dataIssued,
+          backgroundColor: 'rgba(16, 185, 129, 0.8)',
+          borderRadius: 4
+        },
+        {
+          label: '미발행 합계 (만원)',
+          data: dataUnissued,
+          backgroundColor: 'rgba(239, 68, 68, 0.8)',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += context.parsed.y.toLocaleString() + ' 만원';
+              }
+              return label;
+            }
+          }
+        }
+      }
+    }
+  });
+};
+
+document.getElementById('btn-close-yearly-summary-chart-modal')?.addEventListener('click', () => {
+  document.getElementById('modal-yearly-summary-chart').classList.remove('active');
+});
+window.addEventListener('click', (e) => {
+  const modal = document.getElementById('modal-yearly-summary-chart');
   if (e.target === modal) modal.classList.remove('active');
 });
