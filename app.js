@@ -847,9 +847,12 @@ function renderStatsBar() {
   });
   document.getElementById('stat-high-priority').textContent = endingProjects.length;
 
+  let statHoverTimeout;
+
   const statCardHigh = document.getElementById('stat-card-high-priority');
   if (statCardHigh) {
     statCardHigh.onmouseenter = (e) => {
+      clearTimeout(statHoverTimeout);
       if (endingProjects.length === 0) return;
       let tooltip = document.getElementById('custom-stat-tooltip');
       if (!tooltip) {
@@ -866,9 +869,17 @@ function renderStatsBar() {
         tooltip.style.borderRadius = '12px';
         tooltip.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
         tooltip.style.border = '1px solid var(--border-color)';
-        tooltip.style.pointerEvents = 'none';
+        tooltip.style.pointerEvents = 'auto';
         tooltip.style.minWidth = '400px';
         tooltip.style.maxWidth = '90vw';
+
+        tooltip.onmouseenter = () => clearTimeout(statHoverTimeout);
+        tooltip.onmouseleave = () => {
+          statHoverTimeout = setTimeout(() => {
+            tooltip.style.display = 'none';
+          }, 300);
+        };
+
         document.body.appendChild(tooltip);
       }
 
@@ -928,8 +939,10 @@ function renderStatsBar() {
     };
 
     statCardHigh.onmouseleave = () => {
-      const tooltip = document.getElementById('custom-stat-tooltip');
-      if (tooltip) tooltip.style.display = 'none';
+      statHoverTimeout = setTimeout(() => {
+        const tooltip = document.getElementById('custom-stat-tooltip');
+        if (tooltip) tooltip.style.display = 'none';
+      }, 300);
     };
   }
 }

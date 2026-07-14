@@ -1503,12 +1503,17 @@ body {
 
 /* --- 세금계산서 발행 관리 스타일 --- */
 .invoice-summary-cards {
-  cursor: pointer;
-  transition: transform 0.2s ease;
+  /* Container styles */
 }
 
-.invoice-summary-cards:hover {
+.invoice-summary-cards .summary-card {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.invoice-summary-cards .summary-card:hover {
   transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .revenue-chip {
