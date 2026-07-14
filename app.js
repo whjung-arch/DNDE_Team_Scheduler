@@ -1,4 +1,4 @@
-﻿// ==========================================
+// ==========================================
 // 1. 파이어베이스 초기화 및 설정 (보내주신 비밀키 적용)
 // ==========================================
 const firebaseConfig = {
@@ -687,7 +687,7 @@ function setupEventListeners() {
   document.getElementById('btn-close-event-modal').addEventListener('click', closeEventModal);
   document.getElementById('btn-cancel-event-modal').addEventListener('click', closeEventModal);
 
-  const closeUrgentModal = () => closeModal(document.getElementById('modal-urgent-project'));
+  const closeUrgentModal = () => document.getElementById('modal-urgent-project').classList.remove('active');
   document.getElementById('btn-close-urgent-modal').addEventListener('click', closeUrgentModal);
   document.getElementById('btn-cancel-urgent-modal').addEventListener('click', closeUrgentModal);
 
@@ -2942,10 +2942,10 @@ window.openUrgentProjectModal = function (reportId, eventId) {
   `;
 
   document.getElementById('btn-detail-urgent-modal').onclick = () => {
-    closeModal(modal);
+    modal.classList.remove('active');
     if (reportId) openReportModal(reportId);
     else openEventModal(eventId);
   };
 
-  openModal(modal);
+  modal.classList.add('active');
 };
