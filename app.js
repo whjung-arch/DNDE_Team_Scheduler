@@ -1144,7 +1144,7 @@ function showCustomTooltip(event, e) {
   endDate.setHours(0, 0, 0, 0);
   const diffTime = endDate - today;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  let remainingStr = diffDays > 0 ? `D-\${diffDays}` : (diffDays === 0 ? 'D-Day' : `D+\${Math.abs(diffDays)}`);
+  let remainingStr = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : `D+${Math.abs(diffDays)}`);
 
   let progress = 0;
   let projectName = event.title;
@@ -1162,14 +1162,14 @@ function showCustomTooltip(event, e) {
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
       긴급 주요 프로젝트
     </div>
-    <div style="font-size: 0.85rem; margin-bottom: 0.25rem;"><strong>프로젝트명:</strong> \${escapeHTML(projectName)}</div>
-    <div style="font-size: 0.85rem; margin-bottom: 0.35rem;"><strong>남은 일정:</strong> <span style="font-weight:bold; color:var(--primary);">\${remainingStr}</span> <span style="color:var(--text-muted); font-size:0.75rem;">(\${window.formatShortDate(event.endDate)})</span></div>
+    <div style="font-size: 0.85rem; margin-bottom: 0.25rem;"><strong>프로젝트명:</strong> ${escapeHTML(projectName)}</div>
+    <div style="font-size: 0.85rem; margin-bottom: 0.35rem;"><strong>남은 일정:</strong> <span style="font-weight:bold; color:var(--primary);">${remainingStr}</span> <span style="color:var(--text-muted); font-size:0.75rem;">(${window.formatShortDate(event.endDate)})</span></div>
     <div style="font-size: 0.85rem;">
       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-        <strong>진행률:</strong> <span>\${progress}%</span>
+        <strong>진행률:</strong> <span>${progress}%</span>
       </div>
       <div style="width: 100%; background: var(--bg-hover); height: 6px; border-radius: 3px; overflow: hidden; border: 1px solid var(--border-color);">
-        <div style="width: \${progress}%; background: var(--primary); height: 100%;"></div>
+        <div style="width: ${progress}%; background: var(--primary); height: 100%;"></div>
       </div>
     </div>
   `;
@@ -1987,9 +1987,6 @@ function renderInvoiceView() {
 
   const start = (state.pagination.invoice.currentPage - 1) * pageSize;
   const pageReports = invoiceReports.slice(start, start + pageSize);
-  // -----------------------------------------------------------------
-  // 🟢 [교체 구간 끝] 이 아래에 있는 if (pageReports.length === 0) { 부터는 기존 코드 그대로 둡니다.
-  // -----------------------------------------------------------------
 
   if (pageReports.length === 0) {
     tableBody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 3rem;">프로젝트 내역이 없습니다.</td></tr>`;
@@ -2044,33 +2041,8 @@ function renderInvoiceView() {
 
     const expandTr = document.createElement('tr');
     expandTr.className = 'invoice-expand-row';
-    expandTr.id = `invoice-expand-\${report.id}`;
+    expandTr.id = `invoice-expand-${report.id}`;
     expandTr.style.display = isExpanded ? 'table-row' : 'none';
-
-    let hoverTimeout;
-    const showExpand = () => {
-      clearTimeout(hoverTimeout);
-      expandTr.style.display = 'table-row';
-      expandedInvoiceIds.add(report.id);
-    };
-    const hideExpand = () => {
-      hoverTimeout = setTimeout(() => {
-        if (!expandTr.contains(document.activeElement)) {
-          expandTr.style.display = 'none';
-          expandedInvoiceIds.delete(report.id);
-        }
-      }, 150);
-    };
-
-    tr.addEventListener('mouseenter', showExpand);
-    tr.addEventListener('mouseleave', hideExpand);
-    expandTr.addEventListener('mouseenter', showExpand);
-    expandTr.addEventListener('mouseleave', hideExpand);
-    expandTr.addEventListener('focusout', () => {
-      setTimeout(() => {
-        if (!expandTr.contains(document.activeElement)) hideExpand();
-      }, 10);
-    });
     expandTr.innerHTML = `
       <td colspan="11" style="padding: 1rem; background: var(--bg-hover);">
         <div class="invoice-expand-card" style="background: var(--bg-card); padding: 1rem; border-radius: 8px;">
