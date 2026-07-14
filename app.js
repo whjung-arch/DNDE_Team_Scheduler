@@ -1,4 +1,4 @@
-// ==========================================
+﻿// ==========================================
 // 1. 파이어베이스 초기화 및 설정 (보내주신 비밀키 적용)
 // ==========================================
 const firebaseConfig = {
@@ -207,6 +207,7 @@ const state = {
   members: [],
   events: [],
   reports: [],
+  quotes: [],
   filters: {
     category: 'all',
     priority: 'all',
@@ -221,7 +222,9 @@ const state = {
     reportAssignee: 'all',
     invoiceAssignee: 'all',
     invoiceStatus: 'all',
-    invoiceMonth: 'all'
+    invoiceMonth: 'all',
+    quoteSearch: '',
+    quoteMonth: ''
   },
   currentView: 'timeline',
   currentDate: new Date(),
@@ -230,7 +233,8 @@ const state = {
   pagination: {
     report: { currentPage: 1, pageSize: 10 },
     invoice: { currentPage: 1, pageSize: 10 },
-    completed: { currentPage: 1, pageSize: 10 }
+    completed: { currentPage: 1, pageSize: 10 },
+    quote: { currentPage: 1, pageSize: 10 }
   }
 };
 const expandedInvoiceIds = new Set();
@@ -324,7 +328,7 @@ function listenToFirebaseRealtime() {
 
   function checkAndRender() {
     loadedCollections++;
-    if (loadedCollections >= 3) {
+    if (loadedCollections >= 4) {
       // 테마는 UI 설정이므로 로컬 유지
       state.theme = localStorage.getItem('ts_theme') || 'light';
       document.documentElement.setAttribute('data-theme', state.theme);
@@ -371,7 +375,7 @@ function listenToFirebaseRealtime() {
     const members = [];
     snapshot.forEach((doc) => members.push(doc.data()));
     state.members = members;
-    if (loadedCollections < 3) checkAndRender(); else renderApp();
+    if (loadedCollections < 4) checkAndRender(); else renderApp();
   });
 
   // B. 일정 데이터 실시간 감지
@@ -386,7 +390,7 @@ function listenToFirebaseRealtime() {
       events.push(data);
     });
     state.events = events;
-    if (loadedCollections < 3) checkAndRender(); else renderApp();
+    if (loadedCollections < 4) checkAndRender(); else renderApp();
   });
 
   // C. 프로젝트/주간보고 데이터 실시간 감지
@@ -414,7 +418,24 @@ function listenToFirebaseRealtime() {
       reports.push(data);
     });
     state.reports = reports;
-    if (loadedCollections < 3) checkAndRender(); else renderApp();
+    if (loadedCollections < 4) checkAndRender(); else renderApp();
+  });
+
+  // D. 견적 데이터 실시간 감지
+  db.collection("quotes").onSnapshot((snapshot) => {
+    const quotes = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (!data.assigneeName && data.assignee) {
+        const m = state.members.find(member => member.id === data.assignee);
+        if (m) data.assigneeName = m.name;
+      }
+      quotes.push(data);
+    });
+    // 최신 날짜순 정렬 (기본)
+    quotes.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    state.quotes = quotes;
+    if (loadedCollections < 4) checkAndRender(); else renderApp();
   });
 }
 
@@ -667,6 +688,24 @@ function setupEventListeners() {
     });
   });
 
+  const filterQuoteSearch = document.getElementById('filter-quote-search');
+  if (filterQuoteSearch) {
+    filterQuoteSearch.addEventListener('input', (e) => {
+      state.filters.quoteSearch = e.target.value;
+      state.pagination.quote.currentPage = 1;
+      renderApp();
+    });
+  }
+
+  const filterQuoteMonth = document.getElementById('filter-quote-month');
+  if (filterQuoteMonth) {
+    filterQuoteMonth.addEventListener('change', (e) => {
+      state.filters.quoteMonth = e.target.value;
+      state.pagination.quote.currentPage = 1;
+      renderApp();
+    });
+  }
+
   const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
   if (sidebarCollapseBtn) {
     sidebarCollapseBtn.addEventListener('click', () => {
@@ -714,6 +753,61 @@ function setupEventListeners() {
   document.getElementById('form-report').addEventListener('submit', handleReportSubmit);
   document.getElementById('btn-delete-report').addEventListener('click', handleDeleteReport);
   document.getElementById('btn-complete-report').addEventListener('click', handleProjectComplete);
+
+  // 견적 관리 리스너
+  const btnAddQuote = document.getElementById('btn-add-quote');
+  if (btnAddQuote) {
+    btnAddQuote.addEventListener('click', () => openQuoteModal());
+  }
+
+  const btnUploadQuotePdf = document.getElementById('btn-upload-quote-pdf');
+  const quotePdfInput = document.getElementById('quote-pdf-input');
+  if (btnUploadQuotePdf && quotePdfInput) {
+    btnUploadQuotePdf.addEventListener('click', () => quotePdfInput.click());
+    quotePdfInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        openQuoteModal(); // 모달 띄우고
+        parseQuotePDF(e.target.files[0]); // 파싱 진행
+        e.target.value = ''; // 동일 파일 재선택 가능하게 초기화
+      }
+    });
+  }
+
+  const quotePdfDropZone = document.getElementById('quote-pdf-drop-zone');
+  if (quotePdfDropZone) {
+    quotePdfDropZone.addEventListener('click', () => quotePdfInput.click());
+    quotePdfDropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      quotePdfDropZone.classList.add('dragover');
+    });
+    quotePdfDropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      quotePdfDropZone.classList.remove('dragover');
+    });
+    quotePdfDropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      quotePdfDropZone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        if (e.dataTransfer.files[0].type === 'application/pdf') {
+          parseQuotePDF(e.dataTransfer.files[0]);
+        } else {
+          showToast('PDF 파일만 업로드 가능합니다.', 'danger');
+        }
+      }
+    });
+  }
+
+  const btnCloseQuoteModal = document.getElementById('btn-close-quote-modal');
+  if (btnCloseQuoteModal) btnCloseQuoteModal.addEventListener('click', closeQuoteModal);
+
+  const btnCancelQuoteModal = document.getElementById('btn-cancel-quote-modal');
+  if (btnCancelQuoteModal) btnCancelQuoteModal.addEventListener('click', closeQuoteModal);
+
+  const formQuote = document.getElementById('form-quote');
+  if (formQuote) formQuote.addEventListener('submit', saveQuote);
+
+  const btnDeleteQuote = document.getElementById('btn-delete-quote');
+  if (btnDeleteQuote) btnDeleteQuote.addEventListener('click', deleteQuote);
 
   const sidebar = document.getElementById('sidebar');
   const sidebarToggle = document.getElementById('sidebar-toggle-btn');
@@ -788,6 +882,7 @@ function renderCurrentView() {
     calNav.style.display = 'flex';
     document.getElementById('timeline-view-wrapper').style.display = 'flex';
     document.getElementById('report-view-wrapper').style.display = 'none';
+    document.getElementById('quote-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderTimelineView();
@@ -795,13 +890,23 @@ function renderCurrentView() {
     calNav.style.display = 'none';
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'flex';
+    document.getElementById('quote-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderReportView();
+  } else if (state.currentView === 'quote') {
+    calNav.style.display = 'none';
+    document.getElementById('timeline-view-wrapper').style.display = 'none';
+    document.getElementById('report-view-wrapper').style.display = 'none';
+    document.getElementById('quote-view-wrapper').style.display = 'flex';
+    document.getElementById('invoice-view-wrapper').style.display = 'none';
+    document.getElementById('completed-projects-view-wrapper').style.display = 'none';
+    renderQuoteView();
   } else if (state.currentView === 'invoice') {
     calNav.style.display = 'none';
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
+    document.getElementById('quote-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'flex';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderInvoiceView();
@@ -809,6 +914,7 @@ function renderCurrentView() {
     calNav.style.display = 'none';
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
+    document.getElementById('quote-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'flex';
     renderCompletedProjectsView();
@@ -1284,17 +1390,20 @@ function switchView(view) {
   state.currentView = view;
   document.getElementById('view-btn-timeline').classList.toggle('active', view === 'timeline');
   document.getElementById('view-btn-report').classList.toggle('active', view === 'report');
+  document.getElementById('view-btn-quote').classList.toggle('active', view === 'quote');
   document.getElementById('view-btn-invoice').classList.toggle('active', view === 'invoice');
   document.getElementById('view-btn-completed').classList.toggle('active', view === 'completed');
 
   if (view === 'timeline') document.getElementById('main-view-title').textContent = '스케줄 타임라인';
   else if (view === 'report') document.getElementById('main-view-title').textContent = '주간업무 보고';
+  else if (view === 'quote') document.getElementById('main-view-title').textContent = '견적 관리';
   else if (view === 'invoice') document.getElementById('main-view-title').textContent = '세금계산서 발행현황';
   else if (view === 'completed') document.getElementById('main-view-title').textContent = '프로젝트 완료 현황';
 
-  const statsBar = document.querySelector('.stats-bar');
+  // 메인 스탯 바 숨김/표시 처리
+  const statsBar = document.querySelector('.stats-bar:not(.quote-stats-bar)');
   if (statsBar) {
-    if (view === 'invoice' || view === 'completed') {
+    if (view === 'invoice' || view === 'completed' || view === 'quote') {
       statsBar.style.display = 'none';
     } else {
       statsBar.style.display = 'grid';
@@ -1844,6 +1953,259 @@ function handleDeleteReport() {
       closeReportModal();
     });
   }
+}
+
+// --- 견적 관리 뷰 렌더링 ---
+function renderQuoteView() {
+  const tableBody = document.getElementById('quote-table-body');
+  if (!tableBody) return;
+  tableBody.innerHTML = '';
+
+  let filtered = [...state.quotes];
+
+  if (state.filters.quoteSearch) {
+    const s = state.filters.quoteSearch.toLowerCase();
+    filtered = filtered.filter(q =>
+      (q.client && q.client.toLowerCase().includes(s)) ||
+      (q.item && q.item.toLowerCase().includes(s))
+    );
+  }
+
+  if (state.filters.quoteMonth) {
+    filtered = filtered.filter(q => q.date && q.date.startsWith(state.filters.quoteMonth));
+  }
+
+  // 통계 계산
+  const totalCount = filtered.length;
+  const totalAmount = filtered.reduce((acc, q) => acc + (Number(q.amount) || 0), 0);
+
+  const currentMonthStr = `${state.currentDate.getFullYear()}-${String(state.currentDate.getMonth() + 1).padStart(2, '0')}`;
+  const newQuotesThisMonth = state.quotes.filter(q => q.date && q.date.startsWith(currentMonthStr)).length;
+
+  document.getElementById('stat-total-quotes').textContent = totalCount + '건';
+  document.getElementById('stat-total-quote-amount').textContent = new Intl.NumberFormat().format(totalAmount) + '원';
+  document.getElementById('stat-new-quotes-month').textContent = newQuotesThisMonth + '건';
+
+  // 페이징
+  const { currentPage, pageSize } = state.pagination.quote;
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  if (currentPage > totalPages) state.pagination.quote.currentPage = totalPages;
+
+  const startIdx = (state.pagination.quote.currentPage - 1) * pageSize;
+  const pageData = filtered.slice(startIdx, startIdx + pageSize);
+
+  if (pageData.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem;">등록된 견적이 없습니다.</td></tr>`;
+  } else {
+    pageData.forEach(quote => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${quote.date || ''}</td>
+        <td>${quote.client || ''}</td>
+        <td>${quote.item || ''}</td>
+        <td style="text-align: right;">${new Intl.NumberFormat().format(quote.amount || 0)}원</td>
+        <td style="text-align: center;">${quote.assigneeName || ''}</td>
+        <td style="text-align: center;">
+          ${quote.pdfUrl ? `<button class="btn-secondary btn-sm" onclick="window.open('${quote.pdfUrl}', '_blank')">PDF 열기</button>` : '-'}
+        </td>
+        <td>
+          <button class="btn-primary btn-sm" onclick="openQuoteModal('${quote.id}')">수정</button>
+        </td>
+      `;
+      tableBody.appendChild(tr);
+    });
+  }
+
+  renderPagination('quote-pagination', totalPages, state.pagination.quote.currentPage, (page) => {
+    state.pagination.quote.currentPage = page;
+    renderQuoteView();
+  });
+}
+
+function openQuoteModal(quoteId = null) {
+  const modal = document.getElementById('modal-quote');
+  const form = document.getElementById('form-quote');
+  const idInput = document.getElementById('quote-id');
+  const dateInput = document.getElementById('quote-date');
+  const assigneeSelect = document.getElementById('quote-assignee');
+  const clientInput = document.getElementById('quote-client');
+  const amountInput = document.getElementById('quote-amount');
+  const itemInput = document.getElementById('quote-item');
+  const pdfUrlInput = document.getElementById('quote-pdf-url');
+  const pdfNameInput = document.getElementById('quote-pdf-name');
+  const deleteBtn = document.getElementById('btn-delete-quote');
+  const uploadStatus = document.getElementById('quote-pdf-upload-status');
+
+  form.reset();
+  uploadStatus.textContent = '';
+
+  // 멤버 셀렉트 구성
+  assigneeSelect.innerHTML = '<option value="">담당자 선택</option>';
+  state.members.forEach(m => {
+    assigneeSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+  });
+
+  if (quoteId) {
+    document.getElementById('quote-modal-title').textContent = '견적서 수정';
+    const q = state.quotes.find(x => x.id === quoteId);
+    if (q) {
+      idInput.value = q.id;
+      dateInput.value = q.date || '';
+      assigneeSelect.value = q.assignee || '';
+      clientInput.value = q.client || '';
+      amountInput.value = q.amount || '';
+      itemInput.value = q.item || '';
+      pdfUrlInput.value = q.pdfUrl || '';
+      pdfNameInput.value = q.pdfName || '';
+    }
+    deleteBtn.style.display = 'block';
+  } else {
+    document.getElementById('quote-modal-title').textContent = '견적서 등록';
+    idInput.value = '';
+    const today = new Date();
+    dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const loggedInUser = sessionStorage.getItem('logged_in_user');
+    if (loggedInUser) {
+      const userPrefix = loggedInUser.split('@')[0];
+      const nameMap = {
+        'hdlee': '이헌덕',
+        'ujkim': '김욱진',
+        'wtkang': '강원태',
+        'shmoon': '문승환',
+        'yslim': '임윤승',
+        'mgkim': '김민건',
+        'whjung': '정원혁'
+      };
+      const targetName = nameMap[userPrefix];
+      const matchedMember = state.members.find(m => m.name === targetName);
+      if (matchedMember) {
+        assigneeSelect.value = matchedMember.id;
+      }
+    }
+    deleteBtn.style.display = 'none';
+  }
+
+  modal.classList.add('active');
+}
+
+function closeQuoteModal() {
+  document.getElementById('modal-quote').classList.remove('active');
+}
+
+function saveQuote(e) {
+  e.preventDefault();
+  const id = document.getElementById('quote-id').value;
+  const quoteData = {
+    date: document.getElementById('quote-date').value,
+    assignee: document.getElementById('quote-assignee').value,
+    client: document.getElementById('quote-client').value,
+    amount: Number(document.getElementById('quote-amount').value),
+    item: document.getElementById('quote-item').value,
+    pdfUrl: document.getElementById('quote-pdf-url').value,
+    pdfName: document.getElementById('quote-pdf-name').value,
+    updatedAt: new Date().toISOString()
+  };
+
+  const m = state.members.find(mem => mem.id === quoteData.assignee);
+  if (m) quoteData.assigneeName = m.name;
+
+  if (id) {
+    db.collection("quotes").doc(id).update(quoteData).then(() => {
+      showToast('견적이 수정되었습니다.');
+      closeQuoteModal();
+    });
+  } else {
+    quoteData.createdAt = new Date().toISOString();
+    db.collection("quotes").add(quoteData).then(() => {
+      showToast('견적이 등록되었습니다.');
+      closeQuoteModal();
+    });
+  }
+}
+
+function deleteQuote() {
+  const id = document.getElementById('quote-id').value;
+  if (!id) return;
+  if (confirm('이 견적을 삭제하시겠습니까?')) {
+    db.collection("quotes").doc(id).delete().then(() => {
+      showToast('견적이 삭제되었습니다.');
+      closeQuoteModal();
+    });
+  }
+}
+
+async function parseQuotePDF(file) {
+  const uploadStatus = document.getElementById('quote-pdf-upload-status');
+  uploadStatus.textContent = 'PDF 파싱 중...';
+  uploadStatus.style.color = 'var(--primary)';
+
+  try {
+    const fileReader = new FileReader();
+    fileReader.onload = async function () {
+      const typedarray = new Uint8Array(this.result);
+      const pdf = await pdfjsLib.getDocument(typedarray).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + ' ';
+      }
+
+      // 금액: (공급가액|합계금액|총액|견적금액)...\d{1,3}(,\d{3})*
+      const amountMatch = fullText.match(/(?:공급가액|합계금액|총액|견적금액|합계)[^\d]*([\d,]+)/);
+      if (amountMatch) {
+        const amount = parseInt(amountMatch[1].replace(/,/g, ''), 10);
+        if (!isNaN(amount) && amount > 0) {
+          document.getElementById('quote-amount').value = amount;
+        }
+      }
+
+      // 날짜: YYYY년 MM월 DD일 또는 YYYY-MM-DD
+      const dateMatch = fullText.match(/(\d{4})[년\-\.\/]\s*(\d{1,2})[월\-\.\/]\s*(\d{1,2})[일]?/);
+      if (dateMatch) {
+        const year = dateMatch[1];
+        const month = String(dateMatch[2]).padStart(2, '0');
+        const day = String(dateMatch[3]).padStart(2, '0');
+        document.getElementById('quote-date').value = `${year}-${month}-${day}`;
+      }
+
+      // 거래처
+      const clientMatch = fullText.match(/([가-힣a-zA-Z0-9\(\)주]+)\s*(귀하|님|대표님)/);
+      if (clientMatch) {
+        document.getElementById('quote-client').value = clientMatch[1].replace(/\(주\)/g, '').trim();
+      }
+
+      uploadStatus.textContent = '파싱 완료! 내용을 확인해주세요. 파일 업로드 중...';
+
+      uploadQuotePDF(file);
+    };
+    fileReader.readAsArrayBuffer(file);
+  } catch (err) {
+    console.error(err);
+    uploadStatus.textContent = 'PDF 파싱 중 오류가 발생했습니다.';
+    uploadStatus.style.color = 'var(--danger)';
+    uploadQuotePDF(file);
+  }
+}
+
+function uploadQuotePDF(file) {
+  const uploadStatus = document.getElementById('quote-pdf-upload-status');
+  const storageRef = firebase.storage().ref();
+  const fileRef = storageRef.child(`quotes/${Date.now()}_${file.name}`);
+
+  fileRef.put(file).then((snapshot) => {
+    snapshot.ref.getDownloadURL().then((url) => {
+      document.getElementById('quote-pdf-url').value = url;
+      document.getElementById('quote-pdf-name').value = file.name;
+      uploadStatus.textContent = '파일 업로드 완료! (' + file.name + ')';
+      uploadStatus.style.color = '#10b981';
+    });
+  }).catch(err => {
+    console.error(err);
+    uploadStatus.textContent = '업로드 실패';
+    uploadStatus.style.color = 'var(--danger)';
+  });
 }
 
 // --- 세금계산서 발행 관리 뷰 렌더링 ---
@@ -3004,17 +3366,17 @@ function exportReportListToExcel() {
   });
 
   const processedAssignees = new Set();
-  
+
   filteredReports.forEach(report => {
     const assigneeId = report.assignee;
     if (processedAssignees.has(assigneeId)) return;
     processedAssignees.add(assigneeId);
-    
+
     const assigneeReports = grouped[assigneeId];
     const assigneeInfo = getAssigneeInfo(assigneeId);
-    
+
     const count = assigneeReports.length;
-    
+
     if (count > 1) {
       merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow + count - 1, c: 0 } });
     }
@@ -3027,7 +3389,7 @@ function exportReportListToExcel() {
           dateStr = `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
         }
       }
-      
+
       let remarksStr = r.remarks ? r.remarks.trim() : '';
       if (r.progress !== undefined && r.progress !== null && !remarksStr.includes(`${r.progress}%`)) {
         if (remarksStr) remarksStr += '\n';
@@ -3040,13 +3402,13 @@ function exportReportListToExcel() {
         aoa.push(['', r.client || '', r.project || '', dateStr, remarksStr]);
       }
     });
-    
+
     currentRow += count;
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  
+
   if (merges.length > 0) {
     ws['!merges'] = merges;
   }
@@ -3064,11 +3426,11 @@ function exportReportListToExcel() {
   for (let R = range.s.r; R <= range.e.r; ++R) {
     for (let C = range.s.c; C <= range.e.c; ++C) {
       const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
-      
+
       if (!ws[cellRef]) {
         ws[cellRef] = { t: 's', v: '' };
       }
-      
+
       ws[cellRef].s = {
         font: { name: '맑은 고딕', sz: 10 },
         alignment: { vertical: 'center', wrapText: true },
@@ -3079,7 +3441,7 @@ function exportReportListToExcel() {
           right: { style: 'thin', color: { rgb: "000000" } }
         }
       };
-      
+
       // 헤더 셀 스타일
       if (R === 0) {
         ws[cellRef].s.fill = { fgColor: { rgb: "DCE6F1" } };
@@ -3087,7 +3449,7 @@ function exportReportListToExcel() {
         ws[cellRef].s.alignment.horizontal = 'center';
       } else {
         // 데이터 셀 스타일 (비고란 제외하고 가운데 정렬)
-        if (C !== 4 && C !== 2) { 
+        if (C !== 4 && C !== 2) {
           // 4번: 비고, 2번: 과제명 -> 좌측정렬
           ws[cellRef].s.alignment.horizontal = 'center';
         } else {
@@ -3098,9 +3460,9 @@ function exportReportListToExcel() {
   }
 
   XLSX.utils.book_append_sheet(wb, ws, '주간보고');
-  
+
   const today = new Date();
-  const dateSuffix = `${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-  
+  const dateSuffix = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+
   XLSX.writeFile(wb, `주간보고_${dateSuffix}.xlsx`);
 }
