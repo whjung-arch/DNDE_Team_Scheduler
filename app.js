@@ -855,17 +855,20 @@ function renderStatsBar() {
       if (!tooltip) {
         tooltip = document.createElement('div');
         tooltip.id = 'custom-stat-tooltip';
-        tooltip.style.position = 'absolute';
+        tooltip.style.position = 'fixed';
+        tooltip.style.top = '50%';
+        tooltip.style.left = '50%';
+        tooltip.style.transform = 'translate(-50%, -50%)';
         tooltip.style.zIndex = '9999';
         tooltip.style.background = 'var(--bg-card)';
         tooltip.style.color = 'var(--text-primary)';
-        tooltip.style.padding = '1rem';
-        tooltip.style.borderRadius = '8px';
-        tooltip.style.boxShadow = 'var(--shadow-lg)';
+        tooltip.style.padding = '1.5rem';
+        tooltip.style.borderRadius = '12px';
+        tooltip.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
         tooltip.style.border = '1px solid var(--border-color)';
         tooltip.style.pointerEvents = 'none';
-        tooltip.style.minWidth = '250px';
-        tooltip.style.maxWidth = '350px';
+        tooltip.style.minWidth = '400px';
+        tooltip.style.maxWidth = '90vw';
         document.body.appendChild(tooltip);
       }
 
@@ -875,12 +878,15 @@ function renderStatsBar() {
       const itemsHtml = endingProjects.map(event => {
         let progress = 0;
         let projectName = event.title;
+        let assigneeName = event.assigneeName || '담당자 미지정';
+
         if (event.id.startsWith('e_r_')) {
           const reportId = event.id.replace('e_r_', '');
           const report = state.reports.find(r => r.id === reportId);
           if (report) {
             progress = report.progress || 0;
             projectName = report.project || event.title;
+            assigneeName = report.assigneeName || assigneeName;
           }
         }
 
@@ -891,14 +897,17 @@ function renderStatsBar() {
         let remainingStr = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : `D+${Math.abs(diffDays)}`);
 
         return `
-          <div style="margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
-            <div style="font-size: 0.85rem; margin-bottom: 0.2rem;"><strong>${escapeHTML(projectName)}</strong></div>
-            <div style="font-size: 0.75rem; margin-bottom: 0.2rem;">남은 일정: <span style="font-weight:bold; color:var(--primary);">${remainingStr}</span> <span style="color:var(--text-muted);">(${window.formatShortDate(event.endDate)})</span></div>
-            <div style="font-size: 0.75rem;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+          <div style="margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+            <div style="font-size: 0.95rem; margin-bottom: 0.3rem; display: flex; justify-content: space-between; align-items: flex-start;">
+              <strong style="word-break: keep-all;">${escapeHTML(projectName)}</strong>
+              <span style="font-size: 0.8rem; padding: 2px 6px; background: var(--bg-hover); border-radius: 4px; white-space: nowrap;">${escapeHTML(assigneeName)}</span>
+            </div>
+            <div style="font-size: 0.85rem; margin-bottom: 0.3rem;">남은 일정: <span style="font-weight:bold; color:var(--primary);">${remainingStr}</span> <span style="color:var(--text-muted);">(${window.formatShortDate(event.endDate)})</span></div>
+            <div style="font-size: 0.85rem;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                 <span>진행률:</span> <span>${progress}%</span>
               </div>
-              <div style="width: 100%; background: var(--bg-hover); height: 4px; border-radius: 2px; overflow: hidden;">
+              <div style="width: 100%; background: var(--bg-hover); height: 6px; border-radius: 3px; overflow: hidden;">
                 <div style="width: ${progress}%; background: var(--primary); height: 100%;"></div>
               </div>
             </div>
@@ -907,25 +916,15 @@ function renderStatsBar() {
       }).join('');
 
       tooltip.innerHTML = `
-        <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--danger); display: flex; align-items: center; gap: 0.25rem;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 1rem; color: var(--danger); display: flex; align-items: center; gap: 0.35rem;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           긴급 중요 일정 (이달 마감)
         </div>
-        <div style="max-height: 300px; overflow-y: auto; padding-right: 4px;">
+        <div style="max-height: 400px; overflow-y: auto; padding-right: 8px;">
           ${itemsHtml}
         </div>
       `;
       tooltip.style.display = 'block';
-      tooltip.style.left = (e.pageX + 15) + 'px';
-      tooltip.style.top = (e.pageY + 15) + 'px';
-    };
-
-    statCardHigh.onmousemove = (e) => {
-      const tooltip = document.getElementById('custom-stat-tooltip');
-      if (tooltip && tooltip.style.display === 'block') {
-        tooltip.style.left = (e.pageX + 15) + 'px';
-        tooltip.style.top = (e.pageY + 15) + 'px';
-      }
     };
 
     statCardHigh.onmouseleave = () => {
