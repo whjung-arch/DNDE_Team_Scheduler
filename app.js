@@ -1,4 +1,4 @@
-// ==========================================
+﻿// ==========================================
 // 1. 파이어베이스 초기화 및 설정 (보내주신 비밀키 적용)
 // ==========================================
 const firebaseConfig = {
@@ -686,6 +686,11 @@ function setupEventListeners() {
 
   document.getElementById('btn-close-event-modal').addEventListener('click', closeEventModal);
   document.getElementById('btn-cancel-event-modal').addEventListener('click', closeEventModal);
+
+  const closeUrgentModal = () => closeModal(document.getElementById('modal-urgent-project'));
+  document.getElementById('btn-close-urgent-modal').addEventListener('click', closeUrgentModal);
+  document.getElementById('btn-cancel-urgent-modal').addEventListener('click', closeUrgentModal);
+
   document.getElementById('form-event').addEventListener('submit', handleEventSubmit);
   document.getElementById('btn-delete-event').addEventListener('click', handleDeleteEvent);
 
@@ -1186,27 +1191,21 @@ function renderTimelineView() {
       bar.innerHTML = `<span style="margin-right: 4px;">💼</span> ${escapeHTML(displayTitle)}`;
 
       if (event.priority === 'high' && event.id.startsWith('e_r_')) {
+        bar.classList.add('urgent-timeline-event');
         bar.removeAttribute('title');
-        bar.addEventListener('mouseenter', (e) => showCustomTooltip(event, e));
-        bar.addEventListener('mousemove', (e) => {
-          const tooltip = document.getElementById('custom-timeline-tooltip');
-          if (tooltip) {
-            tooltip.style.left = (e.pageX + 15) + 'px';
-            tooltip.style.top = (e.pageY + 15) + 'px';
-          }
+        bar.addEventListener('click', () => {
+          openUrgentProjectModal(event.id.replace('e_r_', ''), event.id);
         });
-        bar.addEventListener('mouseleave', () => hideCustomTooltip());
       } else {
         bar.title = `${displayTitle}\n기간: ${event.startDate} ~ ${event.endDate}\n${event.description || ''}`;
+        bar.addEventListener('click', () => {
+          if (event.id.startsWith('e_r_')) {
+            openReportModal(event.id.replace('e_r_', ''));
+          } else {
+            openEventModal(event.id);
+          }
+        });
       }
-
-      bar.addEventListener('click', () => {
-        if (event.id.startsWith('e_r_')) {
-          openReportModal(event.id.replace('e_r_', ''));
-        } else {
-          openEventModal(event.id);
-        }
-      });
       grid.appendChild(bar);
     });
 
@@ -1586,7 +1585,21 @@ function renderReportView() {
 
     const options = state.members.map(m => `<option value="${m.id}" ${m.id === report.assignee ? 'selected' : ''}>${escapeHTML(m.name)}</option>`).join('');
 
+    const correspondingEvent = state.events.find(e => e.id === `e_r_${report.id}`);
+    const isUrgent = correspondingEvent && correspondingEvent.priority === 'high';
+
     const tr = document.createElement('tr');
+    if (isUrgent) {
+      tr.classList.add('urgent-report-row');
+      tr.title = '클릭하여 긴급 프로젝트 요약 보기';
+      tr.onclick = (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA' || e.target.closest('button')) {
+          return;
+        }
+        openUrgentProjectModal(report.id, `e_r_${report.id}`);
+      };
+    }
+
     tr.innerHTML = `
       <td style="width: 1%; white-space: nowrap; text-align: center;">
         <div class="reporter-label" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
@@ -2888,3 +2901,51 @@ window.addEventListener('click', (e) => {
   const modal = document.getElementById('modal-yearly-summary-chart');
   if (e.target === modal) modal.classList.remove('active');
 });
+
+window.openUrgentProjectModal = function (reportId, eventId) {
+  const report = state.reports.find(r => r.id === reportId);
+  const event = state.events.find(e => e.id === eventId);
+  if (!report && !event) return;
+
+  const modal = document.getElementById('modal-urgent-project');
+  const body = document.getElementById('urgent-project-modal-body');
+
+  let progress = report ? (report.progress || 0) : 0;
+  let projectName = report ? (report.project || event?.title) : event?.title;
+  let assigneeName = report ? report.assigneeName : (event?.assigneeName || '담당자 미지정');
+  let endDateStr = report ? report.endDate : event?.endDate;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endDate = new Date(endDateStr);
+  endDate.setHours(0, 0, 0, 0);
+  const diffTime = endDate - today;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  let remainingStr = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : `D+${Math.abs(diffDays)}`);
+
+  body.innerHTML = `
+    <div style="margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+      <div style="font-size: 1.05rem; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: flex-start;">
+        <strong style="word-break: keep-all;">${escapeHTML(projectName)}</strong>
+        <span style="font-size: 0.8rem; padding: 2px 6px; background: var(--bg-hover); border-radius: 4px; white-space: nowrap;">${escapeHTML(assigneeName)}</span>
+      </div>
+      <div style="font-size: 0.9rem; margin-bottom: 0.5rem;">남은 일정: <span style="font-weight:bold; color:var(--primary);">${remainingStr}</span> <span style="color:var(--text-muted);">(${window.formatShortDate(endDateStr)})</span></div>
+      <div style="font-size: 0.9rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>진행률:</span> <span>${progress}%</span>
+        </div>
+        <div style="width: 100%; background: var(--bg-hover); height: 8px; border-radius: 4px; overflow: hidden;">
+          <div style="width: ${progress}%; background: var(--primary); height: 100%;"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btn-detail-urgent-modal').onclick = () => {
+    closeModal(modal);
+    if (reportId) openReportModal(reportId);
+    else openEventModal(eventId);
+  };
+
+  openModal(modal);
+};
