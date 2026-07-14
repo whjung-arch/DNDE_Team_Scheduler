@@ -3059,6 +3059,44 @@ function exportReportListToExcel() {
     { wch: 50 }
   ];
 
+  // 전체 셀에 대해 스타일 적용 (줄바꿈 허용, 가운데 정렬, 테두리)
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let R = range.s.r; R <= range.e.r; ++R) {
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
+      
+      if (!ws[cellRef]) {
+        ws[cellRef] = { t: 's', v: '' };
+      }
+      
+      ws[cellRef].s = {
+        font: { name: '맑은 고딕', sz: 10 },
+        alignment: { vertical: 'center', wrapText: true },
+        border: {
+          top: { style: 'thin', color: { rgb: "000000" } },
+          bottom: { style: 'thin', color: { rgb: "000000" } },
+          left: { style: 'thin', color: { rgb: "000000" } },
+          right: { style: 'thin', color: { rgb: "000000" } }
+        }
+      };
+      
+      // 헤더 셀 스타일
+      if (R === 0) {
+        ws[cellRef].s.fill = { fgColor: { rgb: "DCE6F1" } };
+        ws[cellRef].s.font.bold = true;
+        ws[cellRef].s.alignment.horizontal = 'center';
+      } else {
+        // 데이터 셀 스타일 (비고란 제외하고 가운데 정렬)
+        if (C !== 4 && C !== 2) { 
+          // 4번: 비고, 2번: 과제명 -> 좌측정렬
+          ws[cellRef].s.alignment.horizontal = 'center';
+        } else {
+          ws[cellRef].s.alignment.horizontal = 'left';
+        }
+      }
+    }
+  }
+
   XLSX.utils.book_append_sheet(wb, ws, '주간보고');
   
   const today = new Date();
