@@ -526,6 +526,7 @@ function setupEventListeners() {
 
   document.getElementById('view-btn-timeline').addEventListener('click', () => switchView('timeline'));
   document.getElementById('view-btn-report').addEventListener('click', () => switchView('report'));
+  document.getElementById('view-btn-quote').addEventListener('click', () => switchView('quote'));
   document.getElementById('view-btn-invoice').addEventListener('click', () => switchView('invoice'));
   document.getElementById('view-btn-completed').addEventListener('click', () => switchView('completed'));
 
