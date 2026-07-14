@@ -253,6 +253,7 @@ function setupLogin() {
     const btnReset = document.getElementById('btn-reset');
     const btnExport = document.getElementById('btn-export');
     const btnImport = document.getElementById('btn-import-trigger');
+    const btnExportReportExcel = document.getElementById('btn-export-report-excel');
 
     if (user) {
       sessionStorage.setItem('is_logged_in', 'true');
@@ -265,6 +266,7 @@ function setupLogin() {
       if (btnReset) btnReset.style.display = showAdminActions ? 'flex' : 'none';
       if (btnExport) btnExport.style.display = showAdminActions ? 'flex' : 'none';
       if (btnImport) btnImport.style.display = showAdminActions ? 'flex' : 'none';
+      if (btnExportReportExcel) btnExportReportExcel.style.display = showAdminActions ? 'inline-flex' : 'none';
 
       setupEventListeners();
       listenToFirebaseRealtime();
@@ -279,6 +281,7 @@ function setupLogin() {
       if (btnReset) btnReset.style.display = 'none';
       if (btnExport) btnExport.style.display = 'none';
       if (btnImport) btnImport.style.display = 'none';
+      if (btnExportReportExcel) btnExportReportExcel.style.display = 'none';
     }
   });
 
@@ -701,6 +704,11 @@ function setupEventListeners() {
   document.getElementById('btn-delete-member').addEventListener('click', handleDeleteMember);
 
   document.getElementById('btn-add-report').addEventListener('click', () => openReportModal());
+
+  const btnExportReportExcel = document.getElementById('btn-export-report-excel');
+  if (btnExportReportExcel) {
+    btnExportReportExcel.addEventListener('click', () => exportReportListToExcel());
+  }
   document.getElementById('btn-close-report-modal').addEventListener('click', closeReportModal);
   document.getElementById('btn-cancel-report-modal').addEventListener('click', closeReportModal);
   document.getElementById('form-report').addEventListener('submit', handleReportSubmit);
@@ -2949,3 +2957,112 @@ window.openUrgentProjectModal = function (reportId, eventId) {
 
   modal.classList.add('active');
 };
+
+// --- 엑셀 내보내기 ---
+function exportReportListToExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert('엑셀 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  // 필터링된 주간보고 목록 가져오기 (renderReportView와 동일한 조건)
+  const filteredReports = state.reports.filter(report => {
+    if (report.finalCompleted) return false;
+    const isAssigneeExist = state.members.some(m => m.id === report.assignee);
+    if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
+    if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
+    if (state.filters.endDate && report.startDate > state.filters.endDate) return false;
+    if (state.filters.client !== 'all' && report.client !== state.filters.client) return false;
+    if (state.filters.reportAssignee && state.filters.reportAssignee !== 'all' && report.assignee !== state.filters.reportAssignee) return false;
+    return true;
+  });
+
+  filteredReports.sort((a, b) => {
+    const indexA = state.members.findIndex(m => m.id === a.assignee);
+    const indexB = state.members.findIndex(m => m.id === b.assignee);
+    const valA = indexA === -1 ? Infinity : indexA;
+    const valB = indexB === -1 ? Infinity : indexB;
+    if (valA !== valB) return valA - valB;
+    return b.startDate.localeCompare(a.startDate);
+  });
+
+  if (filteredReports.length === 0) {
+    alert('내보낼 데이터가 없습니다.');
+    return;
+  }
+
+  const aoa = [['엔지니어', '업체', '과제명', '납기', '비고']];
+  const merges = [];
+  let currentRow = 1;
+
+  const grouped = {};
+  filteredReports.forEach(report => {
+    if (!grouped[report.assignee]) {
+      grouped[report.assignee] = [];
+    }
+    grouped[report.assignee].push(report);
+  });
+
+  const processedAssignees = new Set();
+  
+  filteredReports.forEach(report => {
+    const assigneeId = report.assignee;
+    if (processedAssignees.has(assigneeId)) return;
+    processedAssignees.add(assigneeId);
+    
+    const assigneeReports = grouped[assigneeId];
+    const assigneeInfo = getAssigneeInfo(assigneeId);
+    
+    const count = assigneeReports.length;
+    
+    if (count > 1) {
+      merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow + count - 1, c: 0 } });
+    }
+
+    assigneeReports.forEach((r, idx) => {
+      let dateStr = '';
+      if (r.endDate) {
+        const parts = r.endDate.split('-');
+        if (parts.length === 3) {
+          dateStr = `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+        }
+      }
+      
+      let remarksStr = r.remarks ? r.remarks.trim() : '';
+      if (r.progress !== undefined && r.progress !== null && !remarksStr.includes(`${r.progress}%`)) {
+        if (remarksStr) remarksStr += '\n';
+        remarksStr += `(${r.progress}%)`;
+      }
+
+      if (idx === 0) {
+        aoa.push([assigneeInfo.name, r.client || '', r.project || '', dateStr, remarksStr]);
+      } else {
+        aoa.push(['', r.client || '', r.project || '', dateStr, remarksStr]);
+      }
+    });
+    
+    currentRow += count;
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  
+  if (merges.length > 0) {
+    ws['!merges'] = merges;
+  }
+
+  ws['!cols'] = [
+    { wch: 15 },
+    { wch: 20 },
+    { wch: 40 },
+    { wch: 10 },
+    { wch: 50 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, '주간보고');
+  
+  const today = new Date();
+  const dateSuffix = `${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+  
+  XLSX.writeFile(wb, `주간보고_${dateSuffix}.xlsx`);
+}
