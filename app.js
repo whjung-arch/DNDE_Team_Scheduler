@@ -1080,8 +1080,12 @@ function renderTimelineView() {
       bar.style.gridColumn = `${event.clampedStartCol} / ${event.clampedEndCol + 1}`;
       bar.style.gridRow = event.timelineRow;
 
-      bar.innerHTML = `<span style="margin-right: 4px;">💼</span> ${escapeHTML(event.title)}`;
-      bar.title = `${event.title}\n기간: ${event.startDate} ~ ${event.endDate}\n${event.description || ''}`;
+      let displayTitle = event.title;
+      if (event.category === 'project' && event.client) {
+        displayTitle = displayTitle.replace('[프로젝트]', `[${event.client}]`);
+      }
+      bar.innerHTML = `<span style="margin-right: 4px;">💼</span> ${escapeHTML(displayTitle)}`;
+      bar.title = `${displayTitle}\n기간: ${event.startDate} ~ ${event.endDate}\n${event.description || ''}`;
 
       bar.addEventListener('click', () => {
         if (event.id.startsWith('e_r_')) {
@@ -1672,7 +1676,7 @@ function handleReportSubmit(e) {
   // 연동 캘린더 일정 계산 배치 연계
   const eventId = 'e_r_' + id;
   if (!targetReport.finalCompleted) {
-    const title = `[프로젝트] ${targetReport.project}`;
+    const title = `[${targetReport.client}] ${targetReport.project}`;
     const eventData = {
       id: eventId, title, startDate: targetReport.startDate, startTime: '09:00',
       endDate: targetReport.endDate, endTime: '18:00', assignee: targetReport.assignee, assigneeName: targetReport.assigneeName,
