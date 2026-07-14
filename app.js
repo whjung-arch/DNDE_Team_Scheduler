@@ -216,6 +216,8 @@ const state = {
     client: 'all',
     invoiceYear: new Date().getFullYear().toString(),
     completedYear: new Date().getFullYear().toString(),
+    completedMonth: 'all',
+    completedAssignee: 'all',
     reportAssignee: 'all',
     invoiceAssignee: 'all',
     invoiceStatus: 'all',
@@ -603,6 +605,24 @@ function setupEventListeners() {
     resetPaginationPages();
     renderApp();
   });
+
+  const completedMonthSelect = document.getElementById('filter-completed-month');
+  if (completedMonthSelect) {
+    completedMonthSelect.addEventListener('change', (e) => {
+      state.filters.completedMonth = e.target.value;
+      resetPaginationPages();
+      renderApp();
+    });
+  }
+
+  const completedAssigneeSelect = document.getElementById('filter-completed-assignee');
+  if (completedAssigneeSelect) {
+    completedAssigneeSelect.addEventListener('change', (e) => {
+      state.filters.completedAssignee = e.target.value;
+      resetPaginationPages();
+      renderApp();
+    });
+  }
 
   const selectReportAssignee = document.getElementById('filter-report-assignee');
   if (selectReportAssignee) {
@@ -2054,6 +2074,18 @@ function renderCompletedProjectsView() {
   if (!tableBody) return;
   tableBody.innerHTML = '';
 
+  const selectCompletedAssignee = document.getElementById('filter-completed-assignee');
+  if (selectCompletedAssignee) {
+    const currentSelected = state.filters.completedAssignee || 'all';
+    selectCompletedAssignee.innerHTML = '<option value="all">전체 작성자</option>';
+    state.members.forEach(member => {
+      const opt = document.createElement('option');
+      opt.value = member.id; opt.textContent = member.name;
+      if (member.id === currentSelected) opt.selected = true;
+      selectCompletedAssignee.appendChild(opt);
+    });
+  }
+
   const filteredReports = state.reports.filter(report => {
     if (!report.finalCompleted) return false;
     const isAssigneeExist = state.members.some(m => m.id === report.assignee);
@@ -2061,9 +2093,16 @@ function renderCompletedProjectsView() {
     if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
     if (state.filters.endDate && report.startDate > state.filters.endDate) return false;
     if (state.filters.client !== 'all' && report.client !== state.filters.client) return false;
+
+    if (state.filters.completedAssignee && state.filters.completedAssignee !== 'all' && report.assignee !== state.filters.completedAssignee) return false;
+
     if (state.filters.completedYear !== 'all') {
       const year = report.startDate ? report.startDate.substring(0, 4) : '';
       if (year !== state.filters.completedYear) return false;
+    }
+    if (state.filters.completedMonth !== 'all') {
+      const month = report.startDate ? report.startDate.substring(5, 7) : '';
+      if (month !== state.filters.completedMonth) return false;
     }
     return true;
   });
