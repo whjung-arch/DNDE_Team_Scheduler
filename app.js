@@ -846,6 +846,93 @@ function renderStatsBar() {
     return end.getFullYear() === year && end.getMonth() === month;
   });
   document.getElementById('stat-high-priority').textContent = endingProjects.length;
+
+  const statCardHigh = document.getElementById('stat-card-high-priority');
+  if (statCardHigh) {
+    statCardHigh.onmouseenter = (e) => {
+      if (endingProjects.length === 0) return;
+      let tooltip = document.getElementById('custom-stat-tooltip');
+      if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'custom-stat-tooltip';
+        tooltip.style.position = 'absolute';
+        tooltip.style.zIndex = '9999';
+        tooltip.style.background = 'var(--bg-card)';
+        tooltip.style.color = 'var(--text-primary)';
+        tooltip.style.padding = '1rem';
+        tooltip.style.borderRadius = '8px';
+        tooltip.style.boxShadow = 'var(--shadow-lg)';
+        tooltip.style.border = '1px solid var(--border-color)';
+        tooltip.style.pointerEvents = 'none';
+        tooltip.style.minWidth = '250px';
+        tooltip.style.maxWidth = '350px';
+        document.body.appendChild(tooltip);
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const itemsHtml = endingProjects.map(event => {
+        let progress = 0;
+        let projectName = event.title;
+        if (event.id.startsWith('e_r_')) {
+          const reportId = event.id.replace('e_r_', '');
+          const report = state.reports.find(r => r.id === reportId);
+          if (report) {
+            progress = report.progress || 0;
+            projectName = report.project || event.title;
+          }
+        }
+
+        const endDate = new Date(event.endDate);
+        endDate.setHours(0, 0, 0, 0);
+        const diffTime = endDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        let remainingStr = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : `D+${Math.abs(diffDays)}`);
+
+        return `
+          <div style="margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
+            <div style="font-size: 0.85rem; margin-bottom: 0.2rem;"><strong>${escapeHTML(projectName)}</strong></div>
+            <div style="font-size: 0.75rem; margin-bottom: 0.2rem;">남은 일정: <span style="font-weight:bold; color:var(--primary);">${remainingStr}</span> <span style="color:var(--text-muted);">(${window.formatShortDate(event.endDate)})</span></div>
+            <div style="font-size: 0.75rem;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                <span>진행률:</span> <span>${progress}%</span>
+              </div>
+              <div style="width: 100%; background: var(--bg-hover); height: 4px; border-radius: 2px; overflow: hidden;">
+                <div style="width: ${progress}%; background: var(--primary); height: 100%;"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      tooltip.innerHTML = `
+        <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--danger); display: flex; align-items: center; gap: 0.25rem;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          긴급 중요 일정 (이달 마감)
+        </div>
+        <div style="max-height: 300px; overflow-y: auto; padding-right: 4px;">
+          ${itemsHtml}
+        </div>
+      `;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.pageX + 15) + 'px';
+      tooltip.style.top = (e.pageY + 15) + 'px';
+    };
+
+    statCardHigh.onmousemove = (e) => {
+      const tooltip = document.getElementById('custom-stat-tooltip');
+      if (tooltip && tooltip.style.display === 'block') {
+        tooltip.style.left = (e.pageX + 15) + 'px';
+        tooltip.style.top = (e.pageY + 15) + 'px';
+      }
+    };
+
+    statCardHigh.onmouseleave = () => {
+      const tooltip = document.getElementById('custom-stat-tooltip');
+      if (tooltip) tooltip.style.display = 'none';
+    };
+  }
 }
 
 // --- 사이드바 팀원 리스트 렌더링 ---
@@ -1120,68 +1207,7 @@ function renderTimelineView() {
   }
 }
 
-function showCustomTooltip(event, e) {
-  let tooltip = document.getElementById('custom-timeline-tooltip');
-  if (!tooltip) {
-    tooltip = document.createElement('div');
-    tooltip.id = 'custom-timeline-tooltip';
-    tooltip.style.position = 'absolute';
-    tooltip.style.zIndex = '9999';
-    tooltip.style.background = 'var(--bg-card)';
-    tooltip.style.color = 'var(--text-primary)';
-    tooltip.style.padding = '1rem';
-    tooltip.style.borderRadius = '8px';
-    tooltip.style.boxShadow = 'var(--shadow-lg)';
-    tooltip.style.border = '1px solid var(--border-color)';
-    tooltip.style.pointerEvents = 'none';
-    tooltip.style.minWidth = '220px';
-    document.body.appendChild(tooltip);
-  }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const endDate = new Date(event.endDate);
-  endDate.setHours(0, 0, 0, 0);
-  const diffTime = endDate - today;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  let remainingStr = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : `D+${Math.abs(diffDays)}`);
-
-  let progress = 0;
-  let projectName = event.title;
-  if (event.id.startsWith('e_r_')) {
-    const reportId = event.id.replace('e_r_', '');
-    const report = state.reports.find(r => r.id === reportId);
-    if (report) {
-      progress = report.progress || 0;
-      projectName = report.project || event.title;
-    }
-  }
-
-  tooltip.innerHTML = `
-    <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--danger); display: flex; align-items: center; gap: 0.25rem;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-      긴급 주요 프로젝트
-    </div>
-    <div style="font-size: 0.85rem; margin-bottom: 0.25rem;"><strong>프로젝트명:</strong> ${escapeHTML(projectName)}</div>
-    <div style="font-size: 0.85rem; margin-bottom: 0.35rem;"><strong>남은 일정:</strong> <span style="font-weight:bold; color:var(--primary);">${remainingStr}</span> <span style="color:var(--text-muted); font-size:0.75rem;">(${window.formatShortDate(event.endDate)})</span></div>
-    <div style="font-size: 0.85rem;">
-      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-        <strong>진행률:</strong> <span>${progress}%</span>
-      </div>
-      <div style="width: 100%; background: var(--bg-hover); height: 6px; border-radius: 3px; overflow: hidden; border: 1px solid var(--border-color);">
-        <div style="width: ${progress}%; background: var(--primary); height: 100%;"></div>
-      </div>
-    </div>
-  `;
-  tooltip.style.display = 'block';
-  tooltip.style.left = (e.pageX + 15) + 'px';
-  tooltip.style.top = (e.pageY + 15) + 'px';
-}
-
-function hideCustomTooltip() {
-  const tooltip = document.getElementById('custom-timeline-tooltip');
-  if (tooltip) tooltip.style.display = 'none';
-}
 
 function assignRowsToEvents(memberEvents) {
   memberEvents.sort((a, b) => b.startDate.localeCompare(a.startDate));
