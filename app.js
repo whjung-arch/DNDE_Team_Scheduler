@@ -2039,11 +2039,21 @@ function renderQuoteView() {
   const pageData = filtered.slice(startIdx, startIdx + pageSize);
 
   if (pageData.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem;">등록된 견적이 없습니다.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem;">등록된 견적이 없습니다.</td></tr>`;
   } else {
     pageData.forEach(quote => {
+      let quoteNo = '-';
+      if (quote.pdfName) {
+        const match = quote.pdfName.match(/PRJ-QT-\d{4}-\d+/i);
+        if (match) {
+          quoteNo = match[0].toUpperCase();
+        } else {
+          quoteNo = quote.pdfName.split('.').slice(0, -1).join('.');
+        }
+      }
       const tr = document.createElement('tr');
       tr.innerHTML = `
+        <td style="font-weight: 500; color: var(--primary);">${quoteNo}</td>
         <td>${quote.date || ''}</td>
         <td>${quote.client || ''} ${quote.clientRep ? `(${quote.clientRep})` : ''}</td>
         <td>${quote.item || ''}</td>
