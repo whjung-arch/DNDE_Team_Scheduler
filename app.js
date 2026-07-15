@@ -2198,9 +2198,9 @@ async function parseQuotePDF(file) {
 
 async function analyzeWithAI(text, file) {
   const uploadStatus = document.getElementById('quote-pdf-upload-status');
-  let apiKey = localStorage.getItem('openai_api_key');
+  let apiKey = await requireApiKey();
   if (!apiKey) {
-    uploadStatus.innerHTML = `API 키가 없습니다. <a href="#" onclick="const k=prompt('OpenAI API Key를 입력하세요');if(k)localStorage.setItem('openai_api_key', k);return false;" style="color:var(--primary);text-decoration:underline;">[API 키 입력하기]</a>`;
+    uploadStatus.textContent = 'API 키 입력이 취소되어 분석을 건너뛰었습니다.';
     uploadStatus.style.color = 'var(--danger)';
     return;
   }
@@ -3567,9 +3567,56 @@ function exportReportListToExcel() {
   XLSX.writeFile(wb, `주간보고_${dateSuffix}.xlsx`);
 }
 
+// --- API Key Modal Helper ---
+function requireApiKey() {
+  return new Promise((resolve) => {
+    const existingKey = localStorage.getItem('openai_api_key');
+    if (existingKey) {
+      return resolve(existingKey);
+    }
+
+    const modal = document.getElementById('modal-api-key');
+    const input = document.getElementById('input-api-key');
+    const btnSave = document.getElementById('btn-save-api-key');
+    const btnCancel = document.getElementById('btn-cancel-api-key-modal');
+    const btnClose = document.getElementById('btn-close-api-key-modal');
+
+    // Clean up function
+    const cleanup = () => {
+      modal.style.display = 'none';
+      btnSave.onclick = null;
+      btnCancel.onclick = null;
+      btnClose.onclick = null;
+    };
+
+    modal.style.display = 'flex';
+    input.value = '';
+    input.focus();
+
+    btnSave.onclick = () => {
+      const key = input.value.trim();
+      if (key) {
+        localStorage.setItem('openai_api_key', key);
+        cleanup();
+        resolve(key);
+      } else {
+        alert("API 키를 입력해주세요.");
+      }
+    };
+
+    const cancelFn = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    btnCancel.onclick = cancelFn;
+    btnClose.onclick = cancelFn;
+  });
+}
+
 // --- AI Text Parsing Helper ---
 async function parseTextWithAI(text) {
-  let apiKey = localStorage.getItem('openai_api_key');
+  let apiKey = await requireApiKey();
   if (!apiKey) {
     throw new Error("NO_API_KEY");
   }
@@ -3672,6 +3719,13 @@ const msalLoginRequest = {
 async function syncOneDriveQuotes() {
   if (!msalInstance) {
     showToast("MSAL 라이브러리가 로드되지 않았습니다.", "error");
+    return;
+  }
+
+  // 먼저 API 키가 있는지 확인/입력 받기 (이 과정에서 비동기 지연이 생기면 팝업이 차단될 수 있으므로 분기 처리)
+  let apiKey = await requireApiKey();
+  if (!apiKey) {
+    showToast("API 키가 입력되지 않아 동기화를 취소합니다.");
     return;
   }
 
@@ -3781,7 +3835,7 @@ async function syncOneDriveQuotes() {
         } catch (aiErr) {
           console.error("AI 파싱 실패:", aiErr);
           if (aiErr.message === "NO_API_KEY") {
-            uploadStatus.innerHTML = `API 키 설정이 필요합니다. <a href="#" onclick="const k=prompt('OpenAI API Key를 입력하세요');if(k)localStorage.setItem('openai_api_key', k.trim());return false;" style="color:var(--primary);text-decoration:underline;">[키 입력하기]</a>`;
+            uploadStatus.textContent = 'API 키가 없어 분석을 취소합니다.';
             uploadStatus.style.color = 'var(--danger)';
             return; // 전체 루프 중단
           }
