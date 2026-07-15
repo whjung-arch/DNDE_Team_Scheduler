@@ -3846,12 +3846,9 @@ async function syncOneDriveQuotes() {
 
         if (!parsed) continue;
 
-        // Upload to Firebase Storage
-        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-        const storageRef = firebase.storage().ref();
-        const fileRef = storageRef.child(`quotes/${Date.now()}_${file.name}`);
-        const snapshot = await fileRef.put(blob);
-        const fbUrl = await snapshot.ref.getDownloadURL();
+        // Firebase Storage 업로드 생략! (CORS 에러 방지 및 저장소 절약)
+        // 원본 PDF는 이미 OneDrive에 안전하게 있으므로, 해당 OneDrive 링크를 그대로 사용합니다.
+        const fbUrl = file.webUrl || "";
 
         // Assign default assignee to currently logged in user if not found by AI
         let assigneeId = '';
