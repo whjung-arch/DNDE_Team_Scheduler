@@ -15,6 +15,18 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+function getNormalizedDateString(dateObj) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getOffsetDateString(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return getNormalizedDateString(d);
+}
 // --- 기본 컬러 팔레트 ---
 const COLOR_PALETTE = [
   '#6366f1', // Indigo
@@ -127,11 +139,7 @@ const getDemoReports = () => {
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, '0');
 
-  const getOffsetDateString = (offsetDays) => {
-    const d = new Date();
-    d.setDate(d.getDate() + offsetDays);
-    return getNormalizedDateString(d);
-  };
+
 
   return [
     {
@@ -224,8 +232,8 @@ const state = {
     invoiceStatus: 'all',
     invoiceMonth: 'all',
     quoteSearch: '',
-    quoteStart: '',
-    quoteEnd: ''
+    quoteStart: getOffsetDateString(-7),
+    quoteEnd: getOffsetDateString(0)
   },
   currentView: 'timeline',
   currentDate: new Date(),
@@ -430,6 +438,7 @@ function listenToFirebaseRealtime() {
     const quotes = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
+      data.id = doc.id;
       if (!data.assigneeName && data.assignee) {
         const m = state.members.find(member => member.id === data.assignee);
         if (m) data.assigneeName = m.name;
@@ -1987,6 +1996,12 @@ function renderQuoteView() {
   if (!tableBody) return;
   tableBody.innerHTML = '';
 
+  // Set filter inputs to initial state if not set
+  const quoteStartInput = document.getElementById('filter-quote-start-date');
+  const quoteEndInput = document.getElementById('filter-quote-end-date');
+  if (quoteStartInput && !quoteStartInput.value) quoteStartInput.value = state.filters.quoteStart;
+  if (quoteEndInput && !quoteEndInput.value) quoteEndInput.value = state.filters.quoteEnd;
+
   let filtered = [...state.quotes];
 
   if (state.filters.quoteSearch) {
@@ -2766,6 +2781,8 @@ function renderPagination(containerId, currentPage, totalPages, onPageChangeName
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
     </button>`;
 }
+
+
 
 function updateClientFilterDropdown() {
   const select = document.getElementById('filter-client');
