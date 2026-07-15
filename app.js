@@ -1,4 +1,4 @@
-﻿// ==========================================
+// ==========================================
 // 1. 파이어베이스 초기화 및 설정 (보내주신 비밀키 적용)
 // ==========================================
 const firebaseConfig = {
@@ -2002,7 +2002,7 @@ function renderQuoteView() {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${quote.date || ''}</td>
-        <td>${quote.client || ''}</td>
+        <td>${quote.client || ''} ${quote.clientRep ? `(${quote.clientRep})` : ''}</td>
         <td>${quote.item || ''}</td>
         <td style="text-align: right;">${new Intl.NumberFormat().format(quote.amount || 0)}원</td>
         <td style="text-align: center;">${quote.assigneeName || ''}</td>
@@ -2030,6 +2030,7 @@ function openQuoteModal(quoteId = null) {
   const dateInput = document.getElementById('quote-date');
   const assigneeSelect = document.getElementById('quote-assignee');
   const clientInput = document.getElementById('quote-client');
+  const clientRepInput = document.getElementById('quote-client-rep');
   const amountInput = document.getElementById('quote-amount');
   const itemInput = document.getElementById('quote-item');
   const pdfUrlInput = document.getElementById('quote-pdf-url');
@@ -2054,6 +2055,7 @@ function openQuoteModal(quoteId = null) {
       dateInput.value = q.date || '';
       assigneeSelect.value = q.assignee || '';
       clientInput.value = q.client || '';
+      clientRepInput.value = q.clientRep || '';
       amountInput.value = q.amount || '';
       itemInput.value = q.item || '';
       pdfUrlInput.value = q.pdfUrl || '';
@@ -2100,6 +2102,7 @@ function saveQuote(e) {
     date: document.getElementById('quote-date').value,
     assignee: document.getElementById('quote-assignee').value,
     client: document.getElementById('quote-client').value,
+    clientRep: document.getElementById('quote-client-rep').value,
     amount: Number(document.getElementById('quote-amount').value),
     item: document.getElementById('quote-item').value,
     pdfUrl: document.getElementById('quote-pdf-url').value,
@@ -2184,13 +2187,14 @@ async function analyzeWithAI(text, file) {
   const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(견적서) 텍스트에서 다음 항목을 정밀하게 추출해서 엄격한 JSON 형식으로만 응답해 줘.
 항목:
 {
-  "companyName": "거래처명 (주식회사, (주) 등은 제외하고 핵심 이름만)",
+  "companyName": "견적서의 '수신' (거래처명, 주식회사 등은 제외하고 핵심 이름만)",
+  "clientRep": "견적서의 '참조' (거래처 담당자명, 직급 포함)",
   "quoteDate": "견적일자: YYYY-MM-DD",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
   "supplyPrice": 공급가액(숫자),
   "vat": 부가세(숫자),
   "totalAmount": 총금액(숫자),
-  "assignee": "담당자명(이름만)"
+  "assignee": "견적서를 작성한 담당자명(우리 회사 직원 이름만)"
 }
 
 추출할 견적서 텍스트:
@@ -2227,6 +2231,7 @@ ${text}`;
 
     // 폼 채우기
     if (parsed.companyName) document.getElementById('quote-client').value = parsed.companyName;
+    if (parsed.clientRep) document.getElementById('quote-client-rep').value = parsed.clientRep;
     if (parsed.quoteDate) document.getElementById('quote-date').value = parsed.quoteDate;
     if (parsed.totalAmount) document.getElementById('quote-amount').value = parsed.totalAmount;
 
