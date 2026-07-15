@@ -3619,6 +3619,24 @@ let msalInstance;
 // Initialize MSAL only if loaded (in case script failed to load)
 if (typeof msal !== 'undefined') {
     msalInstance = new msal.PublicClientApplication(msalConfig);
+    
+    // 리디렉션 응답 처리
+    msalInstance.handleRedirectPromise().then((authResult) => {
+        if (authResult !== null) {
+            // 로그인 리디렉션 후 돌아왔을 때, 이전 작업이 동기화였다면 바로 실행
+            if (sessionStorage.getItem('pending_onedrive_sync') === 'true') {
+                sessionStorage.removeItem('pending_onedrive_sync');
+                // UI가 렌더링될 때까지 약간 대기 후 실행
+                setTimeout(() => {
+                    const quoteTabBtn = document.querySelector('.tab-btn[data-target="quote"]');
+                    if (quoteTabBtn) quoteTabBtn.click();
+                    syncOneDriveQuotes();
+                }, 1000);
+            }
+        }
+    }).catch(error => {
+        console.error("MSAL Redirect Error:", error);
+    });
 }
 
 const msalLoginRequest = {
@@ -3635,29 +3653,35 @@ async function syncOneDriveQuotes() {
     uploadStatus.textContent = 'OneDrive 인증을 진행 중입니다...';
     uploadStatus.style.color = 'var(--primary)';
 
+    let accessToken;
     try {
-        let authResult;
-        try {
-            // Check if already logged in silently
-            const accounts = msalInstance.getAllAccounts();
-            if (accounts.length > 0) {
-                msalLoginRequest.account = accounts[0];
-                authResult = await msalInstance.acquireTokenSilent(msalLoginRequest);
-            } else {
-                authResult = await msalInstance.loginPopup(msalLoginRequest);
-            }
-        } catch (error) {
-            // fallback to popup
-            if (error instanceof msal.InteractionRequiredAuthError || !authResult) {
-                authResult = await msalInstance.loginPopup(msalLoginRequest);
-            } else {
-                throw error;
-            }
+        // Check if already logged in silently
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+            msalLoginRequest.account = accounts[0];
+            const authResult = await msalInstance.acquireTokenSilent(msalLoginRequest);
+            accessToken = authResult.accessToken;
+        } else {
+            // No account found, use redirect
+            sessionStorage.setItem('pending_onedrive_sync', 'true');
+            msalInstance.loginRedirect(msalLoginRequest);
+            return; // redirect will navigate away
         }
+    } catch (error) {
+        if (error instanceof msal.InteractionRequiredAuthError) {
+            sessionStorage.setItem('pending_onedrive_sync', 'true');
+            msalInstance.loginRedirect(msalLoginRequest);
+            return;
+        } else {
+            uploadStatus.textContent = `인증 오류: ${error.message}`;
+            uploadStatus.style.color = 'var(--danger)';
+            throw error;
+        }
+    }
 
-        const accessToken = authResult.accessToken;
-        uploadStatus.textContent = 'OneDrive 파일 목록을 조회 중입니다...';
+    uploadStatus.textContent = 'OneDrive 파일 목록을 조회 중입니다...';
 
+    try {
         // Get files from '메일견적서' folder
         const folderName = encodeURIComponent('메일견적서');
         const response = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:/${folderName}:/children`, {
