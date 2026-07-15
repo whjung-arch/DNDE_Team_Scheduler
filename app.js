@@ -3597,33 +3597,46 @@ async function parseTextWithAI(text) {
 추출할 견적서 텍스트:
 ${text}`;
 
-  const response = await fetch(`https://api.openai.com/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
-        { role: "user", content: promptText }
-      ]
-    })
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초 타임아웃
 
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      localStorage.removeItem('openai_api_key');
-      throw new Error("유효하지 않은 API 키이거나 권한이 없습니다.");
+  try {
+    const response = await fetch(`https://api.openai.com/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
+          { role: "user", content: promptText }
+        ]
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('openai_api_key');
+        throw new Error("유효하지 않은 API 키이거나 권한이 없습니다.");
+      }
+      throw new Error(`OpenAI API Error: ${response.status}`);
     }
-    throw new Error(`OpenAI API Error: ${response.status}`);
-  }
 
-  const data = await response.json();
-  const responseText = data.choices[0].message.content;
-  return JSON.parse(responseText);
+    const data = await response.json();
+    const responseText = data.choices[0].message.content;
+    return JSON.parse(responseText);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error("API 응답 시간이 초과되었습니다 (60초).");
+    }
+    throw error;
+  }
 }
 
 // --- MSAL Configuration for OneDrive Sync ---
@@ -3743,7 +3756,7 @@ async function syncOneDriveQuotes() {
         const existing = state.quotes.find(q => q.oneDriveId === file.id);
         if (existing) continue;
 
-        uploadStatus.textContent = `'${file.name}' 분석 중...`;
+        uploadStatus.textContent = `'${file.name}' 분석 중... (최대 10~20초 소요될 수 있습니다)`;
 
         // Download file content as ArrayBuffer
         const downloadUrl = file['@microsoft.graph.downloadUrl'];
@@ -3831,6 +3844,8 @@ async function syncOneDriveQuotes() {
         syncedCount++;
       } catch (fileErr) {
         console.error(`'${file.name}' 처리 중 오류:`, fileErr);
+        uploadStatus.textContent = `'${file.name}' 처리 실패: ${fileErr.message}`;
+        await new Promise(r => setTimeout(r, 2000));
       }
     }
 
