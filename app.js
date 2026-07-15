@@ -3551,11 +3551,11 @@ function exportReportListToExcel() {
 
 // --- AI Text Parsing Helper ---
 async function parseTextWithAI(text) {
-  let apiKey = localStorage.getItem('openai_api_key');
+  let apiKey = localStorage.getItem('gemini_api_key');
   if (!apiKey) {
-    apiKey = prompt("OpenAI API Key (GPT)를 입력해주세요.\n(입력된 키는 로컬스토리지에 안전하게 보관됩니다.)");
+    apiKey = prompt("Gemini API Key를 입력해주세요.\n(입력된 키는 로컬스토리지에 안전하게 보관됩니다.)");
     if (apiKey) {
-      localStorage.setItem('openai_api_key', apiKey.trim());
+      localStorage.setItem('gemini_api_key', apiKey.trim());
     } else {
       throw new Error("API 키가 없습니다.");
     }
@@ -3577,32 +3577,31 @@ async function parseTextWithAI(text) {
 추출할 견적서 텍스트:
 ${text}`;
 
-  const response = await fetch(`https://api.openai.com/v1/chat/completions`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
-        { role: "user", content: promptText }
-      ]
+      contents: [{
+        parts: [{ text: promptText }]
+      }],
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
     })
   });
 
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      localStorage.removeItem('openai_api_key');
+    if (response.status === 400 || response.status === 403) {
+      localStorage.removeItem('gemini_api_key');
       throw new Error("유효하지 않은 API 키이거나 권한이 없습니다.");
     }
-    throw new Error(`OpenAI API Error: ${response.status}`);
+    throw new Error(`Gemini API Error: ${response.status}`);
   }
 
   const data = await response.json();
-  const responseText = data.choices[0].message.content;
+  const responseText = data.candidates[0].content.parts[0].text;
   return JSON.parse(responseText);
 }
 
@@ -3695,10 +3694,20 @@ async function syncOneDriveQuotes() {
         }
 
         const data = await response.json();
-        const files = data.value.filter(file => file.file && file.name.toLowerCase().endsWith('.pdf'));
+        let files = data.value.filter(file => file.file && file.name.toLowerCase().endsWith('.pdf'));
+
+        // 기간 필터 적용: 상단의 '월별 필터'가 설정되어 있으면 해당 월에 생성/수정된 파일만 가져옴
+        const monthFilter = document.getElementById('filter-quote-month')?.value;
+        if (monthFilter) {
+            files = files.filter(file => {
+                const fileDate = file.createdDateTime || file.lastModifiedDateTime;
+                if (!fileDate) return true;
+                return fileDate.startsWith(monthFilter);
+            });
+        }
 
         if (files.length === 0) {
-            uploadStatus.textContent = "새로 동기화할 PDF 견적서가 없습니다.";
+            uploadStatus.textContent = monthFilter ? `${monthFilter} 기간 내 동기화할 PDF 견적서가 없습니다.` : "새로 동기화할 PDF 견적서가 없습니다.";
             setTimeout(() => { uploadStatus.textContent = ''; }, 3000);
             return;
         }
@@ -3716,12 +3725,11 @@ async function syncOneDriveQuotes() {
                 uploadStatus.textContent = `'${file.name}' 분석 중...`;
 
                 // Download file content as ArrayBuffer
-                const downloadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`;
-                const fileRes = await fetch(downloadUrl, {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`
-                    }
-                });
+                const downloadUrl = file['@microsoft.graph.downloadUrl'];
+                if (!downloadUrl) {
+                    throw new Error("다운로드 URL을 찾을 수 없습니다.");
+                }
+                const fileRes = await fetch(downloadUrl);
                 if (!fileRes.ok) {
                     console.error(`File download failed: ${fileRes.status}`);
                     continue;
