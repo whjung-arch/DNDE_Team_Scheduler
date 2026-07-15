@@ -224,7 +224,8 @@ const state = {
     invoiceStatus: 'all',
     invoiceMonth: 'all',
     quoteSearch: '',
-    quoteMonth: ''
+    quoteStart: '',
+    quoteEnd: ''
   },
   currentView: 'timeline',
   currentDate: new Date(),
@@ -698,13 +699,29 @@ function setupEventListeners() {
     });
   }
 
-  const filterQuoteMonth = document.getElementById('filter-quote-month');
-  if (filterQuoteMonth) {
-    filterQuoteMonth.addEventListener('change', (e) => {
-      state.filters.quoteMonth = e.target.value;
+  const filterQuoteStart = document.getElementById('filter-quote-start');
+  const filterQuoteEnd = document.getElementById('filter-quote-end');
+
+  if (filterQuoteStart && filterQuoteEnd) {
+    const today = new Date();
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(today.getDate() - 7);
+
+    if (!filterQuoteStart.value) filterQuoteStart.value = oneWeekAgo.toISOString().split('T')[0];
+    if (!filterQuoteEnd.value) filterQuoteEnd.value = today.toISOString().split('T')[0];
+
+    state.filters.quoteStart = filterQuoteStart.value;
+    state.filters.quoteEnd = filterQuoteEnd.value;
+
+    const onDateChange = () => {
+      state.filters.quoteStart = filterQuoteStart.value;
+      state.filters.quoteEnd = filterQuoteEnd.value;
       state.pagination.quote.currentPage = 1;
       renderApp();
-    });
+    };
+
+    filterQuoteStart.addEventListener('change', onDateChange);
+    filterQuoteEnd.addEventListener('change', onDateChange);
   }
 
   const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
@@ -1977,8 +1994,11 @@ function renderQuoteView() {
     );
   }
 
-  if (state.filters.quoteMonth) {
-    filtered = filtered.filter(q => q.date && q.date.startsWith(state.filters.quoteMonth));
+  if (state.filters.quoteStart) {
+    filtered = filtered.filter(q => q.date && q.date >= state.filters.quoteStart);
+  }
+  if (state.filters.quoteEnd) {
+    filtered = filtered.filter(q => q.date && q.date <= state.filters.quoteEnd);
   }
 
   // 통계 계산
@@ -3571,7 +3591,7 @@ async function parseTextWithAI(text) {
   "supplyPrice": 공급가액(숫자),
   "vat": 부가세(숫자),
   "totalAmount": 총금액(숫자),
-  "assignee": "견적서를 작성한 담당자명(우리 회사 직원 이름만)"
+  "assignee": "견적서의 '발신자' 이름(견적서를 발송/작성한 우리 회사 직원 이름만)"
 }
 
 추출할 견적서 텍스트:
@@ -3753,6 +3773,8 @@ async function syncOneDriveQuotes() {
           parsed = await parseTextWithAI(fullText);
         } catch (aiErr) {
           console.error("AI 파싱 실패:", aiErr);
+          uploadStatus.textContent = `'${file.name}' 분석 실패: ${aiErr.message}`;
+          await new Promise(r => setTimeout(r, 2000));
           continue; // 에러나면 건너뛰기
         }
 
