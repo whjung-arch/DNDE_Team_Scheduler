@@ -1130,10 +1130,7 @@ function renderUrgentProjectsList() {
   const container = document.getElementById('urgent-projects-list');
   if (!container) return;
 
-  // renderStatsBar에서 저장된 데이터 사용 (없으면 직접 계산)
   let endingProjects = window._urgentEndingProjects || [];
-
-  // 데이터가 없을 경우 직접 계산
   if (!endingProjects.length) {
     const year = state.currentDate.getFullYear();
     const month = state.currentDate.getMonth();
@@ -1148,12 +1145,11 @@ function renderUrgentProjectsList() {
   if (endingProjects.length === 0) {
     container.innerHTML = `
       <div class="notice-empty">
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
           <polyline points="22 4 12 14.01 9 11.01"></polyline>
         </svg>
         <p>이달 마감 예정 프로젝트가 없습니다.</p>
-        <p style="font-size: 0.8rem;">모든 프로젝트가 순조롭게 진행 중입니다!</p>
       </div>
     `;
     return;
@@ -1161,91 +1157,78 @@ function renderUrgentProjectsList() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  // D-day 기준 정렬 (임박한 순)
   const sorted = [...endingProjects].sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
 
-  container.innerHTML = sorted.map(event => {
+  // 컬럼 헤더
+  container.innerHTML = `
+    <div style="display:grid; grid-template-columns:8px 1fr auto auto 80px; align-items:center; gap:0.75rem;
+                padding:0.5rem 1.25rem 0.4rem; border-bottom:2px solid var(--border-color);
+                font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">
+      <span></span>
+      <span>프로젝트명 / 고객사</span>
+      <span>담당</span>
+      <span style="text-align:center;">마감</span>
+      <span style="text-align:right;">진행률</span>
+    </div>
+    ${sorted.map(event => {
     let progress = 0;
     let projectName = event.title;
-    let assigneeName = event.assigneeName || '담당자 미지정';
-    let status = 'ongoing';
+    let assigneeName = event.assigneeName || '-';
     let clientName = event.client || '';
 
     if (event.id.startsWith('e_r_')) {
-      const reportId = event.id.replace('e_r_', '');
-      const report = state.reports.find(r => r.id === reportId);
+      const report = state.reports.find(r => r.id === event.id.replace('e_r_', ''));
       if (report) {
         progress = report.progress || 0;
         projectName = report.project || event.title;
         assigneeName = report.assigneeName || assigneeName;
-        status = report.status || 'ongoing';
         clientName = report.client || clientName;
       }
     }
 
     const memberObj = state.members.find(m => m.name === assigneeName);
-    const memberColor = memberObj ? memberObj.color : '#6366f1';
-    const initial = assigneeName.charAt(0);
+    const dotColor = memberObj ? memberObj.color : '#94a3b8';
 
     const endDate = new Date(event.endDate);
     endDate.setHours(0, 0, 0, 0);
-    const diffMs = endDate - today;
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil((endDate - today) / 86400000);
 
-    let dDayLabel, dDayColor, dDayBg;
-    if (diffDays < 0) {
-      dDayLabel = `D+${Math.abs(diffDays)}`;
-      dDayColor = '#ef4444'; dDayBg = 'rgba(239,68,68,0.12)';
-    } else if (diffDays === 0) {
-      dDayLabel = 'D-Day';
-      dDayColor = '#ef4444'; dDayBg = 'rgba(239,68,68,0.12)';
-    } else if (diffDays <= 3) {
-      dDayLabel = `D-${diffDays}`;
-      dDayColor = '#f97316'; dDayBg = 'rgba(249,115,22,0.12)';
-    } else if (diffDays <= 7) {
-      dDayLabel = `D-${diffDays}`;
-      dDayColor = '#f59e0b'; dDayBg = 'rgba(245,158,11,0.12)';
-    } else {
-      dDayLabel = `D-${diffDays}`;
-      dDayColor = '#6366f1'; dDayBg = 'rgba(99,102,241,0.12)';
-    }
+    let dLabel, dColor;
+    if (diffDays < 0) { dLabel = `D+${Math.abs(diffDays)}`; dColor = '#ef4444'; }
+    else if (diffDays === 0) { dLabel = 'D-Day'; dColor = '#ef4444'; }
+    else if (diffDays <= 3) { dLabel = `D-${diffDays}`; dColor = '#f97316'; }
+    else if (diffDays <= 7) { dLabel = `D-${diffDays}`; dColor = '#f59e0b'; }
+    else { dLabel = `D-${diffDays}`; dColor = '#6366f1'; }
 
-    const statusMap = { pending: { label: '대기', color: '#94a3b8' }, ongoing: { label: '진행중', color: '#6366f1' }, completed: { label: '완료', color: '#10b981' }, suspended: { label: '보류', color: '#f59e0b' } };
-    const statusInfo = statusMap[status] || statusMap.ongoing;
-
-    // 진행률 색상
-    const progressColor = progress >= 80 ? '#10b981' : progress >= 50 ? '#6366f1' : '#f59e0b';
+    const pColor = progress >= 80 ? '#10b981' : progress >= 50 ? '#6366f1' : '#f59e0b';
 
     return `
-      <div class="notice-item">
-        <div class="notice-item-header">
-          <div class="notice-item-avatar" style="background: linear-gradient(135deg, ${memberColor}, ${memberColor}cc);">${escapeHTML(initial)}</div>
-          <div style="flex:1; min-width:0;">
-            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-              <span class="notice-item-author">${escapeHTML(assigneeName)}</span>
-              <span style="font-size:0.75rem; color:${statusInfo.color}; background:${statusInfo.color}1a; padding:1px 7px; border-radius:10px; font-weight:600;">${statusInfo.label}</span>
-              ${clientName ? `<span style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(clientName)}</span>` : ''}
-            </div>
+        <div style="display:grid; grid-template-columns:8px 1fr auto auto 80px; align-items:center; gap:0.75rem;
+                    padding:0.65rem 1.25rem; border-bottom:1px solid var(--border-color);
+                    transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+          <!-- 담당자 컬러 도트 -->
+          <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};display:block;flex-shrink:0;"></span>
+          <!-- 프로젝트명 + 고객사 -->
+          <div style="min-width:0;">
+            <div style="font-size:0.875rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                 title="${escapeHTML(projectName)}">${escapeHTML(projectName)}</div>
+            ${clientName ? `<div style="font-size:0.75rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(clientName)}</div>` : ''}
           </div>
-          <span style="font-size:1rem; font-weight:800; color:${dDayColor}; background:${dDayBg}; padding:3px 10px; border-radius:8px; white-space:nowrap; flex-shrink:0;">${dDayLabel}</span>
-        </div>
-        <div class="notice-item-content" style="padding-left: calc(32px + 0.6rem);">
-          <div style="font-weight:600; font-size:0.925rem; margin-bottom:0.5rem; color:var(--text-primary); word-break:keep-all;">${escapeHTML(projectName)}</div>
-          <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.6rem;">
-            마감일: <strong>${window.formatShortDate(event.endDate)}</strong>
-          </div>
-          <!-- 진행률 바 -->
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div style="flex:1; background:var(--bg-hover); height:7px; border-radius:4px; overflow:hidden;">
-              <div style="width:${progress}%; background:linear-gradient(90deg, ${progressColor}, ${progressColor}cc); height:100%; border-radius:4px; transition:width 0.4s ease;"></div>
+          <!-- 담당자 -->
+          <span style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">${escapeHTML(assigneeName)}</span>
+          <!-- D-day -->
+          <span style="font-size:0.8rem;font-weight:700;color:${dColor};white-space:nowrap;text-align:center;">${dLabel}</span>
+          <!-- 진행률 바 + 숫자 -->
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="flex:1;background:var(--bg-hover);height:5px;border-radius:3px;overflow:hidden;">
+              <div style="width:${progress}%;background:${pColor};height:100%;border-radius:3px;"></div>
             </div>
-            <span style="font-size:0.8rem; font-weight:600; color:${progressColor}; min-width:32px; text-align:right;">${progress}%</span>
+            <span style="font-size:0.75rem;font-weight:600;color:${pColor};min-width:26px;text-align:right;">${progress}%</span>
           </div>
         </div>
-      </div>
-    `;
-  }).join('');
+      `;
+  }).join('')}
+  `;
 }
 
 // --- 일정/팀원 필터링 연산 ---
