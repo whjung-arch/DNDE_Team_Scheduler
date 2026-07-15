@@ -2137,7 +2137,7 @@ function deleteQuote() {
 
 async function parseQuotePDF(file) {
   const uploadStatus = document.getElementById('quote-pdf-upload-status');
-  uploadStatus.textContent = 'PDF 파싱 중...';
+  uploadStatus.textContent = 'PDF 파싱 중... (텍스트 추출)';
   uploadStatus.style.color = 'var(--primary)';
 
   try {
@@ -2153,60 +2153,106 @@ async function parseQuotePDF(file) {
         fullText += pageText + ' ';
       }
 
-      // 금액: (공급가액|합계금액|총액|견적금액)...\d{1,3}(,\d{3})*
-      // 다양한 키워드 및 '₩' 기호 등 고려
-      const amountRegex = /(?:총계|총액|합계|합계금액|총\s*견적금액|견적금액|견적\s*총액|공급가액)[\s:₩]*([\d,]+)/g;
-      let match;
-      let maxAmount = 0;
-      while ((match = amountRegex.exec(fullText)) !== null) {
-        const val = parseInt(match[1].replace(/,/g, ''), 10);
-        if (!isNaN(val) && val > maxAmount) {
-          maxAmount = val;
-        }
-      }
-      if (maxAmount > 0) {
-        document.getElementById('quote-amount').value = maxAmount;
-      }
-
-      // 날짜: 견적일, 일자 등 라벨과 함께 있거나 독립된 형태
-      const dateMatch = fullText.match(/(?:견적일|견적일자|일자|작성일|Date)?[\s:]*(\d{4})[\.\-\/년]\s*(\d{1,2})[\.\-\/월]\s*(\d{1,2})[일]?/);
-      if (dateMatch) {
-        const year = dateMatch[1];
-        const month = String(dateMatch[2]).padStart(2, '0');
-        const day = String(dateMatch[3]).padStart(2, '0');
-        document.getElementById('quote-date').value = `${year}-${month}-${day}`;
-      }
-
-      // 거래처: ~귀하, ~귀중, ~님 앞의 텍스트
-      const clientMatch = fullText.match(/([가-힣a-zA-Z0-9\(\)주\s]+?)(?:귀하|귀중|님|대표님)/);
-      if (clientMatch) {
-        document.getElementById('quote-client').value = clientMatch[1].replace(/\(주\)|주식회사/g, '').trim();
-      }
-
-      // 담당자: 담당자, 담당, 영업대표 등의 키워드 뒤 이름
-      const assigneeMatch = fullText.match(/(?:담당자|담당|영업대표|작성자|기안자)[\s:]*([가-힣]{2,4})/);
-      if (assigneeMatch) {
-        const name = assigneeMatch[1];
-        const member = state.members.find(m => m.name.includes(name) || name.includes(m.name));
-        if (member) {
-          document.getElementById('quote-assignee').value = member.id;
-        }
-      }
-
-      // 품목: 품명, 품목 등 키워드 뒤의 텍스트
-      const itemMatch = fullText.match(/(?:품명|품목|내역|항목)[\s:]*([가-힣a-zA-Z0-9\s]+?)(?:\s+(?:수량|단가|규격|공급가|금액|비고|합계))/);
-      if (itemMatch) {
-        document.getElementById('quote-item').value = itemMatch[1].trim();
-      }
-
-      uploadStatus.textContent = '파싱 완료! 내용을 확인해주세요. 파일 업로드 중...';
-
-      uploadQuotePDF(file);
+      // 텍스트 추출 완료 후 Gemini API 호출
+      await analyzeWithGemini(fullText, file);
     };
     fileReader.readAsArrayBuffer(file);
   } catch (err) {
     console.error(err);
     uploadStatus.textContent = 'PDF 파싱 중 오류가 발생했습니다.';
+    uploadStatus.style.color = 'var(--danger)';
+    uploadQuotePDF(file);
+  }
+}
+
+async function analyzeWithGemini(text, file) {
+  const uploadStatus = document.getElementById('quote-pdf-upload-status');
+  let apiKey = localStorage.getItem('gemini_api_key');
+  if (!apiKey) {
+    apiKey = prompt("Gemini API Key를 입력해주세요.\n(입력된 키는 로컬스토리지에 안전하게 보관됩니다.)");
+    if (apiKey) {
+      localStorage.setItem('gemini_api_key', apiKey.trim());
+    } else {
+      uploadStatus.textContent = 'API 키가 없어 AI 분석을 건너뛰고 파일만 업로드합니다.';
+      uploadQuotePDF(file);
+      return;
+    }
+  }
+
+  uploadStatus.textContent = 'AI가 견적서를 분석 중입니다...';
+
+  const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(견적서) 텍스트에서 다음 항목을 정밀하게 추출해서 엄격한 JSON 형식으로만 응답해 줘.
+항목:
+{
+  "companyName": "거래처명 (주식회사, (주) 등은 제외하고 핵심 이름만)",
+  "quoteDate": "견적일자: YYYY-MM-DD",
+  "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
+  "supplyPrice": 공급가액(숫자),
+  "vat": 부가세(숫자),
+  "totalAmount": 총금액(숫자),
+  "assignee": "담당자명(이름만)"
+}
+
+추출할 견적서 텍스트:
+${text}`;
+
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 400 || response.status === 403) {
+        localStorage.removeItem('gemini_api_key');
+        throw new Error("유효하지 않은 API 키이거나 권한이 없습니다.");
+      }
+      throw new Error(`Gemini API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const responseText = data.candidates[0].content.parts[0].text;
+    const parsed = JSON.parse(responseText);
+
+    // 폼 채우기
+    if (parsed.companyName) document.getElementById('quote-client').value = parsed.companyName;
+    if (parsed.quoteDate) document.getElementById('quote-date').value = parsed.quoteDate;
+    if (parsed.totalAmount) document.getElementById('quote-amount').value = parsed.totalAmount;
+
+    // 담당자 매핑
+    if (parsed.assignee) {
+      const member = state.members.find(m => m.name.includes(parsed.assignee) || parsed.assignee.includes(m.name));
+      if (member) {
+        document.getElementById('quote-assignee').value = member.id;
+      }
+    }
+
+    // 아이템 배열 처리 (단일 필드에 합치기)
+    if (parsed.items && Array.isArray(parsed.items) && parsed.items.length > 0) {
+      const firstItemName = parsed.items[0].name;
+      const extraCount = parsed.items.length - 1;
+      if (extraCount > 0) {
+        document.getElementById('quote-item').value = `${firstItemName} 외 ${extraCount}건`;
+      } else {
+        document.getElementById('quote-item').value = firstItemName;
+      }
+    }
+
+    uploadStatus.textContent = 'AI 분석 완료! 내용을 확인해주세요. 파일 업로드 중...';
+    uploadStatus.style.color = 'var(--primary)';
+    uploadQuotePDF(file);
+
+  } catch (err) {
+    console.error("Gemini Parse Error:", err);
+    uploadStatus.textContent = `AI 분석 중 오류 발생: ${err.message}`;
     uploadStatus.style.color = 'var(--danger)';
     uploadQuotePDF(file);
   }
