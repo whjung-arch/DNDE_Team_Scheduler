@@ -2153,8 +2153,8 @@ async function parseQuotePDF(file) {
         fullText += pageText + ' ';
       }
 
-      // 텍스트 추출 완료 후 Gemini API 호출
-      await analyzeWithGemini(fullText, file);
+      // 텍스트 추출 완료 후 GPT API 호출
+      await analyzeWithAI(fullText, file);
     };
     fileReader.readAsArrayBuffer(file);
   } catch (err) {
@@ -2165,13 +2165,13 @@ async function parseQuotePDF(file) {
   }
 }
 
-async function analyzeWithGemini(text, file) {
+async function analyzeWithAI(text, file) {
   const uploadStatus = document.getElementById('quote-pdf-upload-status');
-  let apiKey = localStorage.getItem('gemini_api_key');
+  let apiKey = localStorage.getItem('openai_api_key');
   if (!apiKey) {
-    apiKey = prompt("Gemini API Key를 입력해주세요.\n(입력된 키는 로컬스토리지에 안전하게 보관됩니다.)");
+    apiKey = prompt("OpenAI API Key (GPT)를 입력해주세요.\n(입력된 키는 로컬스토리지에 안전하게 보관됩니다.)");
     if (apiKey) {
-      localStorage.setItem('gemini_api_key', apiKey.trim());
+      localStorage.setItem('openai_api_key', apiKey.trim());
     } else {
       uploadStatus.textContent = 'API 키가 없어 AI 분석을 건너뛰고 파일만 업로드합니다.';
       uploadQuotePDF(file);
@@ -2197,30 +2197,32 @@ async function analyzeWithGemini(text, file) {
 ${text}`;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`, {
+    const response = await fetch(`https://api.openai.com/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
+        model: "gpt-4o-mini",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
+          { role: "user", content: promptText }
+        ]
       })
     });
 
     if (!response.ok) {
-      if (response.status === 400 || response.status === 403) {
-        localStorage.removeItem('gemini_api_key');
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('openai_api_key');
         throw new Error("유효하지 않은 API 키이거나 권한이 없습니다.");
       }
-      throw new Error(`Gemini API Error: ${response.status}`);
+      throw new Error(`OpenAI API Error: ${response.status}`);
     }
 
     const data = await response.json();
-    const responseText = data.candidates[0].content.parts[0].text;
+    const responseText = data.choices[0].message.content;
     const parsed = JSON.parse(responseText);
 
     // 폼 채우기
