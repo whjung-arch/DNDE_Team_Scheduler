@@ -2154,7 +2154,11 @@ function saveQuote(e) {
   };
 
   const m = state.members.find(mem => mem.id === quoteData.assignee);
-  if (m) quoteData.assigneeName = m.name;
+  if (m) {
+    quoteData.assigneeName = m.name;
+  } else {
+    quoteData.assigneeName = quoteData.assignee;
+  }
 
   if (id) {
     db.collection("quotes").doc(id).update(quoteData).then(() => {
@@ -2278,6 +2282,13 @@ ${text}`;
       const member = state.members.find(m => m.name.includes(parsed.assignee) || parsed.assignee.includes(m.name));
       if (member) {
         document.getElementById('quote-assignee').value = member.id;
+      } else {
+        const select = document.getElementById('quote-assignee');
+        const opt = document.createElement('option');
+        opt.value = parsed.assignee;
+        opt.textContent = parsed.assignee + ' (자동감지)';
+        select.appendChild(opt);
+        select.value = parsed.assignee;
       }
     }
 
@@ -3869,11 +3880,12 @@ async function syncOneDriveQuotes() {
 
         // Assign default assignee to currently logged in user if not found by AI
         let assigneeId = '';
-        if (parsed.assignee) {
-          const member = state.members.find(m => m.name.includes(parsed.assignee) || parsed.assignee.includes(m.name));
+        let rawAssignee = parsed.assignee || '';
+        if (rawAssignee) {
+          const member = state.members.find(m => m.name.includes(rawAssignee) || rawAssignee.includes(m.name));
           if (member) assigneeId = member.id;
         }
-        if (!assigneeId) {
+        if (!assigneeId && !rawAssignee) {
           const loggedInUser = sessionStorage.getItem('logged_in_user');
           if (loggedInUser) {
             const userPrefix = loggedInUser.split('@')[0];
@@ -3886,7 +3898,8 @@ async function syncOneDriveQuotes() {
 
         const quoteData = {
           date: parsed.quoteDate || new Date().toISOString().split('T')[0],
-          assignee: assigneeId,
+          assignee: assigneeId || rawAssignee || '',
+          assigneeName: assigneeId ? '' : rawAssignee,
           client: parsed.companyName || '미확인 거래처',
           clientRep: parsed.clientRep || '',
           amount: parsed.totalAmount || 0,
