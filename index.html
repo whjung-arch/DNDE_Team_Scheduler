@@ -11,8 +11,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script>
-      // pdf.js worker src 설정
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        // pdf.js worker src 설정
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     </script>
 </head>
 
@@ -337,7 +337,9 @@
                             <option value="all">전체 작성자</option>
                         </select>
                         <button class="btn-secondary" id="btn-export-report-excel">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                 <polyline points="14 2 14 8 20 8"></polyline>
                                 <line x1="8" y1="13" x2="16" y2="13"></line>
@@ -385,18 +387,28 @@
                 <div class="quote-actions-bar">
                     <h2 class="report-section-title">견적 관리 목록</h2>
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <input type="text" id="filter-quote-search" class="form-control" placeholder="거래처, 품목명 검색..." style="width: 200px; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
-                        <input type="month" id="filter-quote-month" class="form-control" style="width: 140px; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
-                        
+                        <input type="text" id="filter-quote-search" class="form-control" placeholder="거래처, 품목명 검색..."
+                            style="width: 200px; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
+                        <input type="month" id="filter-quote-month" class="form-control"
+                            style="width: 140px; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
+
                         <button class="btn-primary" id="btn-add-quote">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <line x1="12" y1="5" x2="12" y2="19"></line>
                                 <line x1="5" y1="12" x2="19" y2="12"></line>
                             </svg>
                             견적 등록 (수동)
                         </button>
                         <button class="btn-secondary" id="btn-upload-quote-pdf">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
                             PDF 견적서 업로드
                         </button>
                         <input type="file" id="quote-pdf-input" accept="application/pdf" style="display: none;">
@@ -404,10 +416,18 @@
                 </div>
 
                 <!-- 요약 카드 영역 (견적용) -->
-                <div class="stats-bar quote-stats-bar" style="display: grid; padding: 0 1.5rem 1rem 1.5rem; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); border-bottom: 1px solid var(--border-color); margin-bottom: 1rem;">
+                <div class="stats-bar quote-stats-bar"
+                    style="display: grid; padding: 0 1.5rem 1rem 1.5rem; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); border-bottom: 1px solid var(--border-color); margin-bottom: 1rem;">
                     <div class="stat-card">
                         <div class="stat-icon primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
                         </div>
                         <div class="stat-info">
                             <span class="stat-label">전체 견적 건수</span>
@@ -416,7 +436,12 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon secondary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="12" y1="1" x2="12" y2="23"></line>
+                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                            </svg>
                         </div>
                         <div class="stat-info">
                             <span class="stat-label">총 견적 금액 합계</span>
@@ -425,7 +450,14 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon tertiary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="12" y1="18" x2="12" y2="12"></line>
+                                <line x1="9" y1="15" x2="15" y2="15"></line>
+                            </svg>
                         </div>
                         <div class="stat-info">
                             <span class="stat-label">이번 달 신규 견적 수</span>
@@ -777,7 +809,11 @@
             <div class="modal-header">
                 <h3 class="modal-title" id="quote-modal-title">견적서 등록</h3>
                 <button class="btn-close" id="btn-close-quote-modal" aria-label="닫기">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
                 </button>
             </div>
             <div class="modal-body">
@@ -785,11 +821,17 @@
                     <input type="hidden" id="quote-id">
                     <input type="hidden" id="quote-pdf-url">
                     <input type="hidden" id="quote-pdf-name">
-                    
+
                     <div id="quote-pdf-drop-zone" class="pdf-drop-zone">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
                         <p>PDF 견적서를 이곳에 드래그하거나 클릭하여 업로드하세요.</p>
-                        <span id="quote-pdf-upload-status" style="display:block; margin-top:0.5rem; font-size:0.85rem; color:var(--primary);"></span>
+                        <span id="quote-pdf-upload-status"
+                            style="display:block; margin-top:0.5rem; font-size:0.85rem; color:var(--primary);"></span>
                     </div>
 
                     <div class="form-row">
@@ -804,7 +846,7 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label" for="quote-client">거래처/발주처명</label>
@@ -812,7 +854,8 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="quote-amount">금액 (원)</label>
-                            <input class="form-control" type="number" id="quote-amount" min="0" required placeholder="예: 15000000">
+                            <input class="form-control" type="number" id="quote-amount" min="0" required
+                                placeholder="예: 15000000">
                         </div>
                     </div>
 
@@ -823,7 +866,8 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" type="button" id="btn-delete-quote" style="display: none; margin-right: auto; color: var(--danger); border-color: rgba(239, 68, 68, 0.2);">삭제</button>
+                <button class="btn-secondary" type="button" id="btn-delete-quote"
+                    style="display: none; margin-right: auto; color: var(--danger); border-color: rgba(239, 68, 68, 0.2);">삭제</button>
                 <button class="btn-secondary" type="button" id="btn-cancel-quote-modal">취소</button>
                 <button class="btn-primary" type="submit" form="form-quote" id="btn-submit-quote">저장</button>
             </div>
@@ -1096,6 +1140,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
 
     <script src="app.js"></script>
 </body>
