@@ -268,10 +268,13 @@ function setupLogin() {
       if (appContainer) appContainer.style.display = 'flex';
 
       const showAdminActions = (user.email === 'whjung@dnde.co.kr');
+      const viewBtnQuote = document.getElementById('view-btn-quote');
+
       if (btnReset) btnReset.style.display = showAdminActions ? 'flex' : 'none';
       if (btnExport) btnExport.style.display = showAdminActions ? 'flex' : 'none';
       if (btnImport) btnImport.style.display = showAdminActions ? 'flex' : 'none';
       if (btnExportReportExcel) btnExportReportExcel.style.display = showAdminActions ? 'inline-flex' : 'none';
+      if (viewBtnQuote) viewBtnQuote.style.display = showAdminActions ? 'flex' : 'none';
 
       setupEventListeners();
       listenToFirebaseRealtime();
@@ -2197,14 +2200,9 @@ async function analyzeWithAI(text, file) {
   const uploadStatus = document.getElementById('quote-pdf-upload-status');
   let apiKey = localStorage.getItem('openai_api_key');
   if (!apiKey) {
-    apiKey = prompt("OpenAI API Key (GPT)를 입력해주세요.\n(입력된 키는 로컬스토리지에 안전하게 보관됩니다.)");
-    if (apiKey) {
-      localStorage.setItem('openai_api_key', apiKey.trim());
-    } else {
-      uploadStatus.textContent = 'API 키가 없어 AI 분석을 건너뛰고 파일만 업로드합니다.';
-      uploadQuotePDF(file);
-      return;
-    }
+    uploadStatus.innerHTML = `API 키가 없습니다. <a href="#" onclick="const k=prompt('OpenAI API Key를 입력하세요');if(k)localStorage.setItem('openai_api_key', k);return false;" style="color:var(--primary);text-decoration:underline;">[API 키 입력하기]</a>`;
+    uploadStatus.style.color = 'var(--danger)';
+    return;
   }
 
   uploadStatus.textContent = 'AI가 견적서를 분석 중입니다...';
@@ -3573,12 +3571,7 @@ function exportReportListToExcel() {
 async function parseTextWithAI(text) {
   let apiKey = localStorage.getItem('openai_api_key');
   if (!apiKey) {
-    apiKey = prompt("OpenAI API Key (GPT)를 입력해주세요.\n(입력된 키는 로컬스토리지에 안전하게 보관됩니다.)");
-    if (apiKey) {
-      localStorage.setItem('openai_api_key', apiKey.trim());
-    } else {
-      throw new Error("API 키가 없습니다.");
-    }
+    throw new Error("NO_API_KEY");
   }
 
   const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(견적서) 텍스트에서 다음 항목을 정밀하게 추출해서 엄격한 JSON 형식으로만 응답해 줘.
@@ -3787,6 +3780,11 @@ async function syncOneDriveQuotes() {
           parsed = await parseTextWithAI(fullText);
         } catch (aiErr) {
           console.error("AI 파싱 실패:", aiErr);
+          if (aiErr.message === "NO_API_KEY") {
+            uploadStatus.innerHTML = `API 키 설정이 필요합니다. <a href="#" onclick="const k=prompt('OpenAI API Key를 입력하세요');if(k)localStorage.setItem('openai_api_key', k.trim());return false;" style="color:var(--primary);text-decoration:underline;">[키 입력하기]</a>`;
+            uploadStatus.style.color = 'var(--danger)';
+            return; // 전체 루프 중단
+          }
           uploadStatus.textContent = `'${file.name}' 분석 실패: ${aiErr.message}`;
           await new Promise(r => setTimeout(r, 2000));
           continue; // 에러나면 건너뛰기
