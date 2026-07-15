@@ -774,6 +774,11 @@ function setupEventListeners() {
     });
   }
 
+  const btnSyncOnedrive = document.getElementById('btn-sync-onedrive');
+  if (btnSyncOnedrive) {
+    btnSyncOnedrive.addEventListener('click', syncOneDriveQuotes);
+  }
+
   const quotePdfDropZone = document.getElementById('quote-pdf-drop-zone');
   if (quotePdfDropZone) {
     quotePdfDropZone.addEventListener('click', () => quotePdfInput.click());
@@ -3542,4 +3547,237 @@ function exportReportListToExcel() {
   const dateSuffix = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
 
   XLSX.writeFile(wb, `주간보고_${dateSuffix}.xlsx`);
+}
+
+// --- AI Text Parsing Helper ---
+async function parseTextWithAI(text) {
+  let apiKey = localStorage.getItem('openai_api_key');
+  if (!apiKey) {
+    apiKey = prompt("OpenAI API Key (GPT)를 입력해주세요.\n(입력된 키는 로컬스토리지에 안전하게 보관됩니다.)");
+    if (apiKey) {
+      localStorage.setItem('openai_api_key', apiKey.trim());
+    } else {
+      throw new Error("API 키가 없습니다.");
+    }
+  }
+
+  const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(견적서) 텍스트에서 다음 항목을 정밀하게 추출해서 엄격한 JSON 형식으로만 응답해 줘.
+항목:
+{
+  "companyName": "견적서의 '수신' (거래처명, 주식회사 등은 제외하고 핵심 이름만)",
+  "clientRep": "견적서의 '참조' (거래처 담당자명, 직급 포함)",
+  "quoteDate": "견적일자: YYYY-MM-DD",
+  "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
+  "supplyPrice": 공급가액(숫자),
+  "vat": 부가세(숫자),
+  "totalAmount": 총금액(숫자),
+  "assignee": "견적서를 작성한 담당자명(우리 회사 직원 이름만)"
+}
+
+추출할 견적서 텍스트:
+${text}`;
+
+  const response = await fetch(`https://api.openai.com/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
+        { role: "user", content: promptText }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('openai_api_key');
+      throw new Error("유효하지 않은 API 키이거나 권한이 없습니다.");
+    }
+    throw new Error(`OpenAI API Error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const responseText = data.choices[0].message.content;
+  return JSON.parse(responseText);
+}
+
+// --- MSAL Configuration for OneDrive Sync ---
+const msalConfig = {
+    auth: {
+        clientId: "498abab9-ff33-4958-9bd2-33f0f1dbde91",
+        authority: "https://login.microsoftonline.com/common",
+        redirectUri: "https://whjung-arch.github.io/DNDE_Team_Scheduler/"
+    }
+};
+
+let msalInstance;
+// Initialize MSAL only if loaded (in case script failed to load)
+if (typeof msal !== 'undefined') {
+    msalInstance = new msal.PublicClientApplication(msalConfig);
+}
+
+const msalLoginRequest = {
+    scopes: ["Files.Read", "User.Read"]
+};
+
+async function syncOneDriveQuotes() {
+    if (!msalInstance) {
+        showToast("MSAL 라이브러리가 로드되지 않았습니다.", "error");
+        return;
+    }
+
+    const uploadStatus = document.getElementById('quote-pdf-upload-status');
+    uploadStatus.textContent = 'OneDrive 인증을 진행 중입니다...';
+    uploadStatus.style.color = 'var(--primary)';
+
+    try {
+        let authResult;
+        try {
+            // Check if already logged in silently
+            const accounts = msalInstance.getAllAccounts();
+            if (accounts.length > 0) {
+                msalLoginRequest.account = accounts[0];
+                authResult = await msalInstance.acquireTokenSilent(msalLoginRequest);
+            } else {
+                authResult = await msalInstance.loginPopup(msalLoginRequest);
+            }
+        } catch (error) {
+            // fallback to popup
+            if (error instanceof msal.InteractionRequiredAuthError || !authResult) {
+                authResult = await msalInstance.loginPopup(msalLoginRequest);
+            } else {
+                throw error;
+            }
+        }
+
+        const accessToken = authResult.accessToken;
+        uploadStatus.textContent = 'OneDrive 파일 목록을 조회 중입니다...';
+
+        // Get files from '메일견적서' folder
+        const response = await fetch("https://graph.microsoft.com/v1.0/me/drive/root:/메일견적서:/children", {
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Graph API 에러: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const files = data.value.filter(file => file.file && file.name.toLowerCase().endsWith('.pdf'));
+
+        if (files.length === 0) {
+            uploadStatus.textContent = "새로 동기화할 PDF 견적서가 없습니다.";
+            setTimeout(() => { uploadStatus.textContent = ''; }, 3000);
+            return;
+        }
+
+        uploadStatus.textContent = `총 ${files.length}개의 PDF를 확인 중...`;
+
+        let syncedCount = 0;
+
+        for (const file of files) {
+            // Check if oneDriveId exists
+            const existing = state.quotes.find(q => q.oneDriveId === file.id);
+            if (existing) continue;
+
+            uploadStatus.textContent = `'${file.name}' 분석 중...`;
+
+            // Download file content as ArrayBuffer
+            const downloadUrl = file['@microsoft.graph.downloadUrl'];
+            const fileRes = await fetch(downloadUrl);
+            const arrayBuffer = await fileRes.arrayBuffer();
+
+            // Extract text
+            const typedarray = new Uint8Array(arrayBuffer);
+            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + ' ';
+            }
+
+            // AI Parse
+            let parsed;
+            try {
+                parsed = await parseTextWithAI(fullText);
+            } catch (aiErr) {
+                console.error("AI 파싱 실패:", aiErr);
+                continue; // 에러나면 건너뛰기
+            }
+
+            if (!parsed) continue;
+
+            // Upload to Firebase Storage
+            const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+            const storageRef = firebase.storage().ref();
+            const fileRef = storageRef.child(`quotes/${Date.now()}_${file.name}`);
+            const snapshot = await fileRef.put(blob);
+            const fbUrl = await snapshot.ref.getDownloadURL();
+
+            // Assign default assignee to currently logged in user if not found by AI
+            let assigneeId = '';
+            if (parsed.assignee) {
+                const member = state.members.find(m => m.name.includes(parsed.assignee) || parsed.assignee.includes(m.name));
+                if (member) assigneeId = member.id;
+            }
+            if (!assigneeId) {
+                const loggedInUser = sessionStorage.getItem('logged_in_user');
+                if (loggedInUser) {
+                    const userPrefix = loggedInUser.split('@')[0];
+                    const nameMap = { 'hdlee': '이헌덕', 'ujkim': '김욱진', 'wtkang': '강원태', 'shmoon': '문승환', 'yslim': '임윤승', 'mgkim': '김민건', 'whjung': '정원혁' };
+                    const targetName = nameMap[userPrefix];
+                    const matchedMember = state.members.find(m => m.name === targetName);
+                    if (matchedMember) assigneeId = matchedMember.id;
+                }
+            }
+
+            const quoteData = {
+                date: parsed.quoteDate || new Date().toISOString().split('T')[0],
+                assignee: assigneeId,
+                client: parsed.companyName || '미확인 거래처',
+                clientRep: parsed.clientRep || '',
+                amount: parsed.totalAmount || 0,
+                item: '',
+                pdfUrl: fbUrl,
+                pdfName: file.name,
+                updatedAt: new Date().toISOString(),
+                oneDriveId: file.id
+            };
+
+            // Calculate item field
+            if (parsed.items && Array.isArray(parsed.items) && parsed.items.length > 0) {
+                const firstItemName = parsed.items[0].name;
+                const extraCount = parsed.items.length - 1;
+                quoteData.item = extraCount > 0 ? `${firstItemName} 외 ${extraCount}건` : firstItemName;
+            } else {
+                quoteData.item = "품목 내역 없음";
+            }
+
+            await db.collection('quotes').add(quoteData);
+            syncedCount++;
+        }
+
+        if (syncedCount > 0) {
+            uploadStatus.textContent = `${syncedCount}건의 견적서가 자동으로 등록되었습니다!`;
+            showToast(`${syncedCount}건의 견적서가 등록되었습니다.`);
+        } else {
+            uploadStatus.textContent = "새로운 견적서가 없습니다.";
+        }
+
+        setTimeout(() => { uploadStatus.textContent = ''; }, 3000);
+
+    } catch (error) {
+        console.error("OneDrive Sync Error:", error);
+        uploadStatus.textContent = `동기화 실패: ${error.message}`;
+        uploadStatus.style.color = 'var(--danger)';
+    }
 }
