@@ -2154,16 +2154,22 @@ async function parseQuotePDF(file) {
       }
 
       // 금액: (공급가액|합계금액|총액|견적금액)...\d{1,3}(,\d{3})*
-      const amountMatch = fullText.match(/(?:공급가액|합계금액|총액|견적금액|합계)[^\d]*([\d,]+)/);
-      if (amountMatch) {
-        const amount = parseInt(amountMatch[1].replace(/,/g, ''), 10);
-        if (!isNaN(amount) && amount > 0) {
-          document.getElementById('quote-amount').value = amount;
+      // 다양한 키워드 및 '₩' 기호 등 고려
+      const amountRegex = /(?:총계|총액|합계|합계금액|총\s*견적금액|견적금액|견적\s*총액|공급가액)[\s:₩]*([\d,]+)/g;
+      let match;
+      let maxAmount = 0;
+      while ((match = amountRegex.exec(fullText)) !== null) {
+        const val = parseInt(match[1].replace(/,/g, ''), 10);
+        if (!isNaN(val) && val > maxAmount) {
+          maxAmount = val;
         }
       }
+      if (maxAmount > 0) {
+        document.getElementById('quote-amount').value = maxAmount;
+      }
 
-      // 날짜: YYYY년 MM월 DD일 또는 YYYY-MM-DD
-      const dateMatch = fullText.match(/(\d{4})[년\-\.\/]\s*(\d{1,2})[월\-\.\/]\s*(\d{1,2})[일]?/);
+      // 날짜: 견적일, 일자 등 라벨과 함께 있거나 독립된 형태
+      const dateMatch = fullText.match(/(?:견적일|견적일자|일자|작성일|Date)?[\s:]*(\d{4})[\.\-\/년]\s*(\d{1,2})[\.\-\/월]\s*(\d{1,2})[일]?/);
       if (dateMatch) {
         const year = dateMatch[1];
         const month = String(dateMatch[2]).padStart(2, '0');
@@ -2171,10 +2177,26 @@ async function parseQuotePDF(file) {
         document.getElementById('quote-date').value = `${year}-${month}-${day}`;
       }
 
-      // 거래처
-      const clientMatch = fullText.match(/([가-힣a-zA-Z0-9\(\)주]+)\s*(귀하|님|대표님)/);
+      // 거래처: ~귀하, ~귀중, ~님 앞의 텍스트
+      const clientMatch = fullText.match(/([가-힣a-zA-Z0-9\(\)주\s]+?)(?:귀하|귀중|님|대표님)/);
       if (clientMatch) {
-        document.getElementById('quote-client').value = clientMatch[1].replace(/\(주\)/g, '').trim();
+        document.getElementById('quote-client').value = clientMatch[1].replace(/\(주\)|주식회사/g, '').trim();
+      }
+
+      // 담당자: 담당자, 담당, 영업대표 등의 키워드 뒤 이름
+      const assigneeMatch = fullText.match(/(?:담당자|담당|영업대표|작성자|기안자)[\s:]*([가-힣]{2,4})/);
+      if (assigneeMatch) {
+        const name = assigneeMatch[1];
+        const member = state.members.find(m => m.name.includes(name) || name.includes(m.name));
+        if (member) {
+          document.getElementById('quote-assignee').value = member.id;
+        }
+      }
+
+      // 품목: 품명, 품목 등 키워드 뒤의 텍스트
+      const itemMatch = fullText.match(/(?:품명|품목|내역|항목)[\s:]*([가-힣a-zA-Z0-9\s]+?)(?:\s+(?:수량|단가|규격|공급가|금액|비고|합계))/);
+      if (itemMatch) {
+        document.getElementById('quote-item').value = itemMatch[1].trim();
       }
 
       uploadStatus.textContent = '파싱 완료! 내용을 확인해주세요. 파일 업로드 중...';
