@@ -916,21 +916,31 @@ function setupEventListeners() {
       }
     });
   }
+
+  // 긴급 프로젝트 모달 닫기 리스너
+  const btnCloseUrgentProjects = document.getElementById('btn-close-urgent-projects-modal');
+  if (btnCloseUrgentProjects) btnCloseUrgentProjects.addEventListener('click', closeUrgentProjectsModal);
+
+  const urgentProjectsOverlay = document.getElementById('modal-urgent-projects');
+  if (urgentProjectsOverlay) {
+    urgentProjectsOverlay.addEventListener('click', (e) => {
+      if (e.target === urgentProjectsOverlay) closeUrgentProjectsModal();
+    });
+  }
 }
 
 // ==========================================
 // 공지사항 기능
 // ==========================================
 
-window.openNoticeModal = function openNoticeModal() {
-  const modal = document.getElementById('modal-notice');
-  if (!modal) return;
-
-  // 작성자 아바타 초기화 (현재 로그인 유저 기준)
+/**
+ * 현재 로그인 사용자의 이름을 state.members에서 직접 조회
+ * nameMap(이메일 prefix 매핑)은 기존 앱 패턴과 동일하게 유지
+ */
+function getLoggedInMemberName() {
   const loggedInUser = sessionStorage.getItem('logged_in_user') || '';
   const userPrefix = loggedInUser.split('@')[0];
   const nameMap = {
-    'whjung': '정우혁',
     'hdlee': '이헌덕',
     'ujkim': '김욱진',
     'wtkang': '강원태',
@@ -938,7 +948,21 @@ window.openNoticeModal = function openNoticeModal() {
     'yslim': '임윤승',
     'mgkim': '김민건'
   };
-  const authorName = nameMap[userPrefix] || userPrefix || '?';
+  // nameMap에 있는 경우 해당 이름 반환
+  if (nameMap[userPrefix]) return nameMap[userPrefix];
+  // nameMap에 없는 경우(관리자 등)은 state.members에서 기존 맵핑 이름 제외한 나머지 멤버
+  const knownNames = new Set(Object.values(nameMap));
+  const extraMember = state.members.find(m => !knownNames.has(m.name));
+  if (extraMember) return extraMember.name;
+  return userPrefix || '팔원';
+}
+
+window.openNoticeModal = function openNoticeModal() {
+  const modal = document.getElementById('modal-notice');
+  if (!modal) return;
+
+  // 작성자 아바타 초기화
+  const authorName = getLoggedInMemberName();
   const memberObj = state.members.find(m => m.name === authorName);
   const memberColor = memberObj ? memberObj.color : '#6366f1';
 
@@ -966,17 +990,7 @@ function renderNoticeList() {
   if (!container) return;
 
   const loggedInUser = sessionStorage.getItem('logged_in_user') || '';
-  const userPrefix = loggedInUser.split('@')[0];
-  const nameMap = {
-    'whjung': '정우혁',
-    'hdlee': '이헌덕',
-    'ujkim': '김욱진',
-    'wtkang': '강원태',
-    'shmoon': '문승환',
-    'yslim': '임윤승',
-    'mgkim': '김민건'
-  };
-  const currentAuthor = nameMap[userPrefix] || userPrefix || '';
+  const currentAuthor = getLoggedInMemberName();
 
   if (state.notices.length === 0) {
     container.innerHTML = `
@@ -1054,18 +1068,8 @@ window.submitNotice = function () {
     return;
   }
 
+  const authorName = getLoggedInMemberName();
   const loggedInUser = sessionStorage.getItem('logged_in_user') || '';
-  const userPrefix = loggedInUser.split('@')[0];
-  const nameMap = {
-    'whjung': '정우혁',
-    'hdlee': '이헌덕',
-    'ujkim': '김욱진',
-    'wtkang': '강원태',
-    'shmoon': '문승환',
-    'yslim': '임윤승',
-    'mgkim': '김민건'
-  };
-  const authorName = nameMap[userPrefix] || userPrefix || '알 수 없음';
 
   const btn = document.getElementById('btn-submit-notice');
   if (btn) { btn.disabled = true; btn.textContent = '등록 중...'; }
@@ -1098,6 +1102,151 @@ window.deleteNotice = function (noticeId) {
     showToast('삭제 중 오류가 발생했습니다.', 'danger');
   });
 };
+
+// ==========================================
+// 긴급(마감 임박) 프로젝트 모달 기능
+// ==========================================
+
+window.openUrgentProjectsModal = function () {
+  const modal = document.getElementById('modal-urgent-projects');
+  if (!modal) return;
+
+  // 모달 제목에 해당 월 표시
+  const year = state.currentDate.getFullYear();
+  const month = state.currentDate.getMonth() + 1;
+  const titleEl = document.getElementById('urgent-modal-title');
+  if (titleEl) titleEl.textContent = `${year}년 ${month}월 마감 프로젝트`;
+
+  renderUrgentProjectsList();
+  modal.classList.add('active');
+};
+
+function closeUrgentProjectsModal() {
+  const modal = document.getElementById('modal-urgent-projects');
+  if (modal) modal.classList.remove('active');
+}
+
+function renderUrgentProjectsList() {
+  const container = document.getElementById('urgent-projects-list');
+  if (!container) return;
+
+  // renderStatsBar에서 저장된 데이터 사용 (없으면 직접 계산)
+  let endingProjects = window._urgentEndingProjects || [];
+
+  // 데이터가 없을 경우 직접 계산
+  if (!endingProjects.length) {
+    const year = state.currentDate.getFullYear();
+    const month = state.currentDate.getMonth();
+    const filteredEvents = getFilteredEvents();
+    endingProjects = filteredEvents.filter(event => {
+      if (event.category !== 'project' || !event.endDate) return false;
+      const end = new Date(event.endDate);
+      return end.getFullYear() === year && end.getMonth() === month;
+    });
+  }
+
+  if (endingProjects.length === 0) {
+    container.innerHTML = `
+      <div class="notice-empty">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <p>이달 마감 예정 프로젝트가 없습니다.</p>
+        <p style="font-size: 0.8rem;">모든 프로젝트가 순조롭게 진행 중입니다!</p>
+      </div>
+    `;
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // D-day 기준 정렬 (임박한 순)
+  const sorted = [...endingProjects].sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+
+  container.innerHTML = sorted.map(event => {
+    let progress = 0;
+    let projectName = event.title;
+    let assigneeName = event.assigneeName || '담당자 미지정';
+    let status = 'ongoing';
+    let clientName = event.client || '';
+
+    if (event.id.startsWith('e_r_')) {
+      const reportId = event.id.replace('e_r_', '');
+      const report = state.reports.find(r => r.id === reportId);
+      if (report) {
+        progress = report.progress || 0;
+        projectName = report.project || event.title;
+        assigneeName = report.assigneeName || assigneeName;
+        status = report.status || 'ongoing';
+        clientName = report.client || clientName;
+      }
+    }
+
+    const memberObj = state.members.find(m => m.name === assigneeName);
+    const memberColor = memberObj ? memberObj.color : '#6366f1';
+    const initial = assigneeName.charAt(0);
+
+    const endDate = new Date(event.endDate);
+    endDate.setHours(0, 0, 0, 0);
+    const diffMs = endDate - today;
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    let dDayLabel, dDayColor, dDayBg;
+    if (diffDays < 0) {
+      dDayLabel = `D+${Math.abs(diffDays)}`;
+      dDayColor = '#ef4444'; dDayBg = 'rgba(239,68,68,0.12)';
+    } else if (diffDays === 0) {
+      dDayLabel = 'D-Day';
+      dDayColor = '#ef4444'; dDayBg = 'rgba(239,68,68,0.12)';
+    } else if (diffDays <= 3) {
+      dDayLabel = `D-${diffDays}`;
+      dDayColor = '#f97316'; dDayBg = 'rgba(249,115,22,0.12)';
+    } else if (diffDays <= 7) {
+      dDayLabel = `D-${diffDays}`;
+      dDayColor = '#f59e0b'; dDayBg = 'rgba(245,158,11,0.12)';
+    } else {
+      dDayLabel = `D-${diffDays}`;
+      dDayColor = '#6366f1'; dDayBg = 'rgba(99,102,241,0.12)';
+    }
+
+    const statusMap = { pending: { label: '대기', color: '#94a3b8' }, ongoing: { label: '진행중', color: '#6366f1' }, completed: { label: '완료', color: '#10b981' }, suspended: { label: '보류', color: '#f59e0b' } };
+    const statusInfo = statusMap[status] || statusMap.ongoing;
+
+    // 진행률 색상
+    const progressColor = progress >= 80 ? '#10b981' : progress >= 50 ? '#6366f1' : '#f59e0b';
+
+    return `
+      <div class="notice-item">
+        <div class="notice-item-header">
+          <div class="notice-item-avatar" style="background: linear-gradient(135deg, ${memberColor}, ${memberColor}cc);">${escapeHTML(initial)}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <span class="notice-item-author">${escapeHTML(assigneeName)}</span>
+              <span style="font-size:0.75rem; color:${statusInfo.color}; background:${statusInfo.color}1a; padding:1px 7px; border-radius:10px; font-weight:600;">${statusInfo.label}</span>
+              ${clientName ? `<span style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(clientName)}</span>` : ''}
+            </div>
+          </div>
+          <span style="font-size:1rem; font-weight:800; color:${dDayColor}; background:${dDayBg}; padding:3px 10px; border-radius:8px; white-space:nowrap; flex-shrink:0;">${dDayLabel}</span>
+        </div>
+        <div class="notice-item-content" style="padding-left: calc(32px + 0.6rem);">
+          <div style="font-weight:600; font-size:0.925rem; margin-bottom:0.5rem; color:var(--text-primary); word-break:keep-all;">${escapeHTML(projectName)}</div>
+          <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.6rem;">
+            마감일: <strong>${window.formatShortDate(event.endDate)}</strong>
+          </div>
+          <!-- 진행률 바 -->
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <div style="flex:1; background:var(--bg-hover); height:7px; border-radius:4px; overflow:hidden;">
+              <div style="width:${progress}%; background:linear-gradient(90deg, ${progressColor}, ${progressColor}cc); height:100%; border-radius:4px; transition:width 0.4s ease;"></div>
+            </div>
+            <span style="font-size:0.8rem; font-weight:600; color:${progressColor}; min-width:32px; text-align:right;">${progress}%</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
 
 // --- 일정/팀원 필터링 연산 ---
 function getFilteredEvents() {
@@ -1227,104 +1376,8 @@ function renderStatsBar() {
   });
   document.getElementById('stat-high-priority').textContent = endingProjects.length;
 
-  let statHoverTimeout;
-
-  const statCardHigh = document.getElementById('stat-card-high-priority');
-  if (statCardHigh) {
-    statCardHigh.onmouseenter = (e) => {
-      clearTimeout(statHoverTimeout);
-      if (endingProjects.length === 0) return;
-      let tooltip = document.getElementById('custom-stat-tooltip');
-      if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.id = 'custom-stat-tooltip';
-        tooltip.style.position = 'fixed';
-        tooltip.style.top = '50%';
-        tooltip.style.left = '50%';
-        tooltip.style.transform = 'translate(-50%, -50%)';
-        tooltip.style.zIndex = '9999';
-        tooltip.style.background = 'var(--bg-card)';
-        tooltip.style.color = 'var(--text-primary)';
-        tooltip.style.padding = '1.5rem';
-        tooltip.style.borderRadius = '12px';
-        tooltip.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
-        tooltip.style.border = '1px solid var(--border-color)';
-        tooltip.style.pointerEvents = 'auto';
-        tooltip.style.minWidth = '400px';
-        tooltip.style.maxWidth = '90vw';
-
-        tooltip.onmouseenter = () => clearTimeout(statHoverTimeout);
-        tooltip.onmouseleave = () => {
-          statHoverTimeout = setTimeout(() => {
-            tooltip.style.display = 'none';
-          }, 300);
-        };
-
-        document.body.appendChild(tooltip);
-      }
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const itemsHtml = endingProjects.map(event => {
-        let progress = 0;
-        let projectName = event.title;
-        let assigneeName = event.assigneeName || '담당자 미지정';
-
-        if (event.id.startsWith('e_r_')) {
-          const reportId = event.id.replace('e_r_', '');
-          const report = state.reports.find(r => r.id === reportId);
-          if (report) {
-            progress = report.progress || 0;
-            projectName = report.project || event.title;
-            assigneeName = report.assigneeName || assigneeName;
-          }
-        }
-
-        const endDate = new Date(event.endDate);
-        endDate.setHours(0, 0, 0, 0);
-        const diffTime = endDate - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        let remainingStr = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : `D+${Math.abs(diffDays)}`);
-
-        return `
-          <div style="margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
-            <div style="font-size: 0.95rem; margin-bottom: 0.3rem; display: flex; justify-content: space-between; align-items: flex-start;">
-              <strong style="word-break: keep-all;">${escapeHTML(projectName)}</strong>
-              <span style="font-size: 0.8rem; padding: 2px 6px; background: var(--bg-hover); border-radius: 4px; white-space: nowrap;">${escapeHTML(assigneeName)}</span>
-            </div>
-            <div style="font-size: 0.85rem; margin-bottom: 0.3rem;">남은 일정: <span style="font-weight:bold; color:var(--primary);">${remainingStr}</span> <span style="color:var(--text-muted);">(${window.formatShortDate(event.endDate)})</span></div>
-            <div style="font-size: 0.85rem;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                <span>진행률:</span> <span>${progress}%</span>
-              </div>
-              <div style="width: 100%; background: var(--bg-hover); height: 6px; border-radius: 3px; overflow: hidden;">
-                <div style="width: ${progress}%; background: var(--primary); height: 100%;"></div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      tooltip.innerHTML = `
-        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 1rem; color: var(--danger); display: flex; align-items: center; gap: 0.35rem;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-          긴급 중요 일정 (이달 마감)
-        </div>
-        <div style="max-height: 400px; overflow-y: auto; padding-right: 8px;">
-          ${itemsHtml}
-        </div>
-      `;
-      tooltip.style.display = 'block';
-    };
-
-    statCardHigh.onmouseleave = () => {
-      statHoverTimeout = setTimeout(() => {
-        const tooltip = document.getElementById('custom-stat-tooltip');
-        if (tooltip) tooltip.style.display = 'none';
-      }, 300);
-    };
-  }
+  // 긴급 데이터를 window에 저장해 모달에서 사용
+  window._urgentEndingProjects = endingProjects;
 }
 
 // --- 사이드바 팀원 리스트 렌더링 ---
