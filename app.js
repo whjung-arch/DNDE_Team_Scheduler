@@ -216,6 +216,7 @@ const state = {
   events: [],
   reports: [],
   quotes: [],
+  notices: [],
   filters: {
     category: 'all',
     priority: 'all',
@@ -340,7 +341,7 @@ function listenToFirebaseRealtime() {
 
   function checkAndRender() {
     loadedCollections++;
-    if (loadedCollections >= 4) {
+    if (loadedCollections >= 5) {
       // 테마는 UI 설정이므로 로컬 유지
       state.theme = localStorage.getItem('ts_theme') || 'light';
       document.documentElement.setAttribute('data-theme', state.theme);
@@ -387,7 +388,7 @@ function listenToFirebaseRealtime() {
     const members = [];
     snapshot.forEach((doc) => members.push(doc.data()));
     state.members = members;
-    if (loadedCollections < 4) checkAndRender(); else renderApp();
+    if (loadedCollections < 5) checkAndRender(); else renderApp();
   });
 
   // B. 일정 데이터 실시간 감지
@@ -402,7 +403,7 @@ function listenToFirebaseRealtime() {
       events.push(data);
     });
     state.events = events;
-    if (loadedCollections < 4) checkAndRender(); else renderApp();
+    if (loadedCollections < 5) checkAndRender(); else renderApp();
   });
 
   // C. 프로젝트/주간보고 데이터 실시간 감지
@@ -430,7 +431,7 @@ function listenToFirebaseRealtime() {
       reports.push(data);
     });
     state.reports = reports;
-    if (loadedCollections < 4) checkAndRender(); else renderApp();
+    if (loadedCollections < 5) checkAndRender(); else renderApp();
   });
 
   // D. 견적 데이터 실시간 감지
@@ -448,7 +449,24 @@ function listenToFirebaseRealtime() {
     // 최신 날짜순 정렬 (기본)
     quotes.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     state.quotes = quotes;
-    if (loadedCollections < 4) checkAndRender(); else renderApp();
+    if (loadedCollections < 5) checkAndRender(); else renderApp();
+  });
+
+  // E. 공지사항 데이터 실시간 감지
+  db.collection("notices").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    const notices = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      data.id = doc.id;
+      notices.push(data);
+    });
+    state.notices = notices;
+    if (loadedCollections < 5) checkAndRender(); else {
+      renderApp();
+      if (document.getElementById('modal-notice') && document.getElementById('modal-notice').classList.contains('active')) {
+        renderNoticeList();
+      }
+    }
   });
 }
 
@@ -876,7 +894,210 @@ function setupEventListeners() {
 
   document.getElementById('btn-reset').addEventListener('click', resetData);
 
+  // 공지사항 모달 닫기 리스너
+  const btnCloseNotice = document.getElementById('btn-close-notice-modal');
+  if (btnCloseNotice) btnCloseNotice.addEventListener('click', closeNoticeModal);
+
+  // 공지 모달 외부 클릭 시 닫기
+  const noticeModalOverlay = document.getElementById('modal-notice');
+  if (noticeModalOverlay) {
+    noticeModalOverlay.addEventListener('click', (e) => {
+      if (e.target === noticeModalOverlay) closeNoticeModal();
+    });
+  }
+
+  // 공지 textarea Ctrl+Enter 제출
+  const noticeText = document.getElementById('notice-compose-text');
+  if (noticeText) {
+    noticeText.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        submitNotice();
+      }
+    });
+  }
 }
+
+// ==========================================
+// 공지사항 기능
+// ==========================================
+
+window.openNoticeModal = function openNoticeModal() {
+  const modal = document.getElementById('modal-notice');
+  if (!modal) return;
+
+  // 작성자 아바타 초기화 (현재 로그인 유저 기준)
+  const loggedInUser = sessionStorage.getItem('logged_in_user') || '';
+  const userPrefix = loggedInUser.split('@')[0];
+  const nameMap = {
+    'whjung': '정우혁',
+    'hdlee': '이헌덕',
+    'ujkim': '김욱진',
+    'wtkang': '강원태',
+    'shmoon': '문승환',
+    'yslim': '임윤승',
+    'mgkim': '김민건'
+  };
+  const authorName = nameMap[userPrefix] || userPrefix || '?';
+  const memberObj = state.members.find(m => m.name === authorName);
+  const memberColor = memberObj ? memberObj.color : '#6366f1';
+
+  const avatarEl = document.getElementById('notice-compose-avatar');
+  if (avatarEl) {
+    avatarEl.textContent = authorName.charAt(0);
+    avatarEl.style.background = `linear-gradient(135deg, ${memberColor}, ${memberColor}cc)`;
+  }
+
+  // textarea 초기화
+  const textarea = document.getElementById('notice-compose-text');
+  if (textarea) textarea.value = '';
+
+  renderNoticeList();
+  modal.classList.add('active');
+}
+
+function closeNoticeModal() {
+  const modal = document.getElementById('modal-notice');
+  if (modal) modal.classList.remove('active');
+}
+
+function renderNoticeList() {
+  const container = document.getElementById('notice-list-container');
+  if (!container) return;
+
+  const loggedInUser = sessionStorage.getItem('logged_in_user') || '';
+  const userPrefix = loggedInUser.split('@')[0];
+  const nameMap = {
+    'whjung': '정우혁',
+    'hdlee': '이헌덕',
+    'ujkim': '김욱진',
+    'wtkang': '강원태',
+    'shmoon': '문승환',
+    'yslim': '임윤승',
+    'mgkim': '김민건'
+  };
+  const currentAuthor = nameMap[userPrefix] || userPrefix || '';
+
+  if (state.notices.length === 0) {
+    container.innerHTML = `
+      <div class="notice-empty">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <p>아직 공지사항이 없습니다.</p>
+        <p style="font-size: 0.8rem;">첫 번째 공지를 작성해보세요!</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = state.notices.map(notice => {
+    const memberObj = state.members.find(m => m.name === notice.authorName);
+    const avatarColor = memberObj ? memberObj.color : '#6366f1';
+    const initial = (notice.authorName || '?').charAt(0);
+    const timeStr = formatNoticeTime(notice.createdAt);
+    const isOwner = notice.authorName === currentAuthor || loggedInUser === 'whjung@dnde.co.kr';
+
+    return `
+      <div class="notice-item" id="notice-item-${notice.id}">
+        <div class="notice-item-header">
+          <div class="notice-item-avatar" style="background: linear-gradient(135deg, ${avatarColor}, ${avatarColor}cc);">${escapeHTML(initial)}</div>
+          <span class="notice-item-author">${escapeHTML(notice.authorName || '알 수 없음')}</span>
+          <span class="notice-item-time">${timeStr}</span>
+        </div>
+        <div class="notice-item-content">${escapeHTML(notice.content || '')}</div>
+        ${isOwner ? `
+          <button class="notice-item-delete" title="삭제" onclick="deleteNotice('${notice.id}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function formatNoticeTime(ts) {
+  if (!ts) return '';
+  let date;
+  if (ts && typeof ts.toDate === 'function') {
+    date = ts.toDate();
+  } else if (ts && ts.seconds) {
+    date = new Date(ts.seconds * 1000);
+  } else {
+    date = new Date(ts);
+  }
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffMin < 1) return '방금 전';
+  if (diffMin < 60) return `${diffMin}분 전`;
+  if (diffHr < 24) return `${diffHr}시간 전`;
+  if (diffDay < 7) return `${diffDay}일 전`;
+
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+}
+
+window.submitNotice = function () {
+  const textarea = document.getElementById('notice-compose-text');
+  const content = textarea ? textarea.value.trim() : '';
+  if (!content) {
+    showToast('공지 내용을 입력하세요.', 'danger');
+    return;
+  }
+
+  const loggedInUser = sessionStorage.getItem('logged_in_user') || '';
+  const userPrefix = loggedInUser.split('@')[0];
+  const nameMap = {
+    'whjung': '정우혁',
+    'hdlee': '이헌덕',
+    'ujkim': '김욱진',
+    'wtkang': '강원태',
+    'shmoon': '문승환',
+    'yslim': '임윤승',
+    'mgkim': '김민건'
+  };
+  const authorName = nameMap[userPrefix] || userPrefix || '알 수 없음';
+
+  const btn = document.getElementById('btn-submit-notice');
+  if (btn) { btn.disabled = true; btn.textContent = '등록 중...'; }
+
+  db.collection('notices').add({
+    content,
+    authorName,
+    authorEmail: loggedInUser,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => {
+    if (textarea) textarea.value = '';
+    showToast('공지사항이 등록되었습니다.');
+  }).catch(err => {
+    console.error('공지 등록 오류:', err);
+    showToast('공지 등록 중 오류가 발생했습니다.', 'danger');
+  }).finally(() => {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>등록`;
+    }
+  });
+};
+
+window.deleteNotice = function (noticeId) {
+  if (!confirm('이 공지사항을 삭제하시겠습니까?')) return;
+  db.collection('notices').doc(noticeId).delete().then(() => {
+    showToast('공지사항이 삭제되었습니다.');
+  }).catch(err => {
+    console.error('공지 삭제 오류:', err);
+    showToast('삭제 중 오류가 발생했습니다.', 'danger');
+  });
+};
 
 // --- 일정/팀원 필터링 연산 ---
 function getFilteredEvents() {
@@ -992,7 +1213,12 @@ function renderStatsBar() {
       (start <= new Date(year, month, 1) && end >= new Date(year, month + 1, 0));
   });
   document.getElementById('stat-total-events').textContent = thisMonthEvents.length;
-  document.getElementById('stat-total-members').textContent = state.members.length;
+  // 공지사항 개수 업데이트
+  const noticeCount = state.notices.length;
+  const noticeCountEl = document.getElementById('stat-notice-count');
+  if (noticeCountEl) noticeCountEl.textContent = noticeCount;
+  const noticeBadge = document.getElementById('notice-new-badge');
+  if (noticeBadge) noticeBadge.style.display = noticeCount > 0 ? 'inline-block' : 'none';
 
   const endingProjects = filteredEvents.filter(event => {
     if (event.category !== 'project' || !event.endDate) return false;
