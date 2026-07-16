@@ -1545,9 +1545,12 @@ function renderTimelineView() {
     const profile = document.createElement('div');
     profile.className = 'timeline-row-member';
 
-    const activeProjects = state.reports.filter(r => r.assignee === member.id && !r.finalCompleted).map(r => r.project);
-    const uniqueProjects = [...new Set(activeProjects)];
-    const projectsStr = uniqueProjects.length > 0 ? `참여 프로젝트: ${uniqueProjects.join(', ')}` : '참여 프로젝트 없음';
+    const activeReports = state.reports.filter(r => r.assignee === member.id && !r.finalCompleted);
+    let projectsStr = '보고 내용 없음';
+    if (activeReports.length > 0) {
+      const remarksList = activeReports.map(r => r.remarks ? `[${r.project}] ${r.remarks}` : `[${r.project}] 내용 없음`);
+      projectsStr = remarksList.join(' / ');
+    }
 
     profile.innerHTML = `
       <span class="name" style="color: ${member.color};">${escapeHTML(member.name)}</span>
@@ -2184,7 +2187,46 @@ window.updateReportInline = function (id, field, value) {
   }
 
   window._inlineUpdateTimers[timerKey] = setTimeout(() => {
-    db.collection("reports").doc(id).update(updateData).then(() => {
+    const batch = db.batch();
+    const reportRef = db.collection("reports").doc(id);
+
+    // report의 assigneeName 업데이트를 위해 updateData 보강
+    if (field === 'assignee') {
+      const memberObj = state.members.find(m => m.id === value);
+      if (memberObj) {
+        updateData.assigneeName = memberObj.name;
+      }
+    }
+
+    batch.update(reportRef, updateData);
+
+    // 타임라인 연동 일정(event) 업데이트
+    const eventId = `e_r_${id}`;
+    const eventUpdateData = {};
+    if (field === 'assignee') {
+      eventUpdateData.assignee = value;
+      if (updateData.assigneeName) {
+        eventUpdateData.assigneeName = updateData.assigneeName;
+      }
+    } else if (field === 'project') {
+      const client = existing.client || '';
+      eventUpdateData.title = `[${client}] ${value}`;
+    } else if (field === 'client') {
+      const project = existing.project || '';
+      eventUpdateData.title = `[${value}] ${project}`;
+      eventUpdateData.client = value;
+      eventUpdateData.description = `프로젝트 연동 일정 (${value})`;
+    } else if (field === 'startDate') {
+      eventUpdateData.startDate = value;
+    } else if (field === 'endDate') {
+      eventUpdateData.endDate = value;
+    }
+
+    if (Object.keys(eventUpdateData).length > 0 && !existing.finalCompleted) {
+      batch.set(db.collection("events").doc(eventId), eventUpdateData, { merge: true });
+    }
+
+    batch.commit().then(() => {
       // Data syncs automatically
     }).catch(err => {
       console.error("Error updating report inline:", err);
