@@ -2201,28 +2201,25 @@ window.updateReportInline = function (id, field, value) {
     batch.update(reportRef, updateData);
 
     // 타임라인 연동 일정(event) 업데이트
+    // 기존 리포트 데이터와 이번 변경사항을 합쳐 최신 상태 생성
+    const latestReport = { ...existing, ...updateData };
     const eventId = `e_r_${id}`;
-    const eventUpdateData = {};
-    if (field === 'assignee') {
-      eventUpdateData.assignee = value;
-      if (updateData.assigneeName) {
-        eventUpdateData.assigneeName = updateData.assigneeName;
-      }
-    } else if (field === 'project') {
-      const client = existing.client || '';
-      eventUpdateData.title = `[${client}] ${value}`;
-    } else if (field === 'client') {
-      const project = existing.project || '';
-      eventUpdateData.title = `[${value}] ${project}`;
-      eventUpdateData.client = value;
-      eventUpdateData.description = `프로젝트 연동 일정 (${value})`;
-    } else if (field === 'startDate') {
-      eventUpdateData.startDate = value;
-    } else if (field === 'endDate') {
-      eventUpdateData.endDate = value;
-    }
 
-    if (Object.keys(eventUpdateData).length > 0 && !existing.finalCompleted) {
+    const eventUpdateData = {
+      title: `[${latestReport.client || ''}] ${latestReport.project || ''}`,
+      startDate: latestReport.startDate || '',
+      startTime: '09:00',
+      endDate: latestReport.endDate || '',
+      endTime: '18:00',
+      assignee: latestReport.assignee,
+      assigneeName: latestReport.assigneeName,
+      category: 'project',
+      priority: 'medium',
+      client: latestReport.client || '',
+      description: `프로젝트 연동 일정 (${latestReport.client || ''})`
+    };
+
+    if (!latestReport.finalCompleted) {
       batch.set(db.collection("events").doc(eventId), eventUpdateData, { merge: true });
     }
 
