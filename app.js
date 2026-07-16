@@ -2032,13 +2032,14 @@ function renderReportView() {
       </td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
         <div style="display: flex; align-items: center; justify-content: center;">
-          <div class="progress-bar-container" style="flex-shrink: 0;"><div class="progress-bar-fill" style="width: ${report.progress}%;"></div></div>
+          <div class="progress-bar-container" style="flex-shrink: 0; cursor: ew-resize;" onmousedown="startProgressDrag(event, '${report.id}')"><div class="progress-bar-fill" style="width: ${report.progress}%; pointer-events: none;"></div></div>
           <input type="number" 
                  autocomplete="off" 
                  min="0" max="100" 
                  class="inline-edit-input ${report.progressModified ? 'modified-text' : ''}" 
                  style="width: 50px; text-align: center;" 
                  value="${report.progress}" 
+                 onkeydown="return false;" onpaste="return false;"
                  onfocus="this.setAttribute('readonly', 'readonly'); setTimeout(() => this.removeAttribute('readonly'), 50);"
                  onchange="updateReportInline('${report.id}', 'progress', this.value)">
         </div>
@@ -2078,6 +2079,43 @@ window.formatShortDate = function (dateStr) {
     return `${parts[0].slice(2)}/${parts[1]}/${parts[2]}`;
   }
   return dateStr;
+};
+
+window.startProgressDrag = function (e, id) {
+  e.preventDefault();
+  const container = e.currentTarget;
+
+  const updateProgress = (event) => {
+    const rect = container.getBoundingClientRect();
+    let x = event.clientX - rect.left;
+    let percentage = Math.round((x / rect.width) * 100);
+    if (percentage < 0) percentage = 0;
+    if (percentage > 100) percentage = 100;
+
+    const inputEl = container.nextElementSibling;
+    if (inputEl && inputEl.type === 'number') {
+      inputEl.value = percentage;
+
+      const fill = container.querySelector('.progress-bar-fill');
+      if (fill) fill.style.width = percentage + '%';
+
+      window.updateReportInline(id, 'progress', percentage);
+    }
+  };
+
+  updateProgress(e);
+
+  const onMouseMove = (event) => {
+    updateProgress(event);
+  };
+
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
 };
 
 window._inlineUpdateTimers = window._inlineUpdateTimers || {};
