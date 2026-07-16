@@ -1058,8 +1058,11 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label" for="report-progress">진척률 (%)</label>
-                            <input class="form-control" type="number" name="progress_modal" autocomplete="one-time-code" data-lpignore="true" data-form-type="other" id="report-progress" min="0" max="100" required
-                                placeholder="예: 75">
+                            <input class="form-control" type="number" 
+                                autocomplete="off" 
+                                id="report-progress" min="0" max="100" required
+                                placeholder="예: 75"
+                                onfocus="this.setAttribute('readonly', 'readonly'); setTimeout(() => this.removeAttribute('readonly'), 50);">
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="report-status">진행 상태</label>
