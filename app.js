@@ -2031,17 +2031,19 @@ function renderReportView() {
         <input type="text" class="inline-edit-input" style="text-align: right; width: 80px; margin: 0 auto; display: block;" value="${Number(report.amount || 0).toLocaleString()}" onfocus="this.value='${report.amount || 0}'" onblur="this.value=Number(this.value).toLocaleString()" onchange="updateReportInline('${report.id}', 'amount', this.value.replace(/,/g, ''))">
       </td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
-        <div style="display: flex; align-items: center; justify-content: center;">
-          <div class="progress-bar-container" style="flex-shrink: 0; cursor: ew-resize;" onmousedown="startProgressDrag(event, '${report.id}')"><div class="progress-bar-fill" style="width: ${report.progress}%; pointer-events: none;"></div></div>
-          <input type="number" 
-                 autocomplete="off" 
-                 min="0" max="100" 
-                 class="inline-edit-input ${report.progressModified ? 'modified-text' : ''}" 
-                 style="width: 50px; text-align: center;" 
-                 value="${report.progress}" 
-                 onkeydown="return false;" onpaste="return false;"
-                 onfocus="this.setAttribute('readonly', 'readonly'); setTimeout(() => this.removeAttribute('readonly'), 50);"
-                 onchange="updateReportInline('${report.id}', 'progress', this.value)">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <div class="progress-bar-container" style="flex-shrink: 0; cursor: ew-resize;" onmousedown="startProgressDrag(event, '${report.id}')"><div class="progress-bar-fill" style="width: ${report.progress}%;"></div></div>
+          <div style="display: flex; align-items: center; justify-content: center; width: 45px;">
+            <span id="progress_text_${report.id}" class="${report.progressModified ? 'modified-text' : ''}" style="width: 25px; text-align: right; font-weight: 500; font-size: 0.9rem;">${report.progress}</span>
+            <div style="display: flex; flex-direction: column; margin-left: 4px; gap: 1px;">
+              <button class="progress-btn" style="background: none; border: none; padding: 0; cursor: pointer; color: var(--text-secondary); line-height: 1; display: flex; align-items: center;" onclick="changeProgress('${report.id}', 1)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l6 6H6z"/></svg>
+              </button>
+              <button class="progress-btn" style="background: none; border: none; padding: 0; cursor: pointer; color: var(--text-secondary); line-height: 1; display: flex; align-items: center;" onclick="changeProgress('${report.id}', -1)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l-6-6h12z"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
       </td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
@@ -2118,6 +2120,25 @@ window.startProgressDrag = function (e, id) {
   document.addEventListener('mouseup', onMouseUp);
 };
 
+window.changeProgress = function (id, delta) {
+  const textEl = document.getElementById('progress_text_' + id);
+  if (!textEl) return;
+  let val = parseInt(textEl.textContent, 10);
+  if (isNaN(val)) val = 0;
+  val += delta;
+  if (val < 0) val = 0;
+  if (val > 100) val = 100;
+
+  textEl.textContent = val;
+  const row = textEl.closest('td');
+  if (row) {
+    const fill = row.querySelector('.progress-bar-fill');
+    if (fill) fill.style.width = val + '%';
+  }
+
+  window.updateReportInline(id, 'progress', val);
+};
+
 window._inlineUpdateTimers = window._inlineUpdateTimers || {};
 
 window.updateReportInline = function (id, field, value) {
@@ -2131,14 +2152,10 @@ window.updateReportInline = function (id, field, value) {
   if (field === 'progress' && existing.progress !== value) {
     updateData.progressModified = true;
 
-    // 빠른 UI 반영: progress-bar-fill 즉각 업데이트
-    const inputEl = document.querySelector(`input[onchange*="${id}"][onchange*="progress"]`);
-    if (inputEl) {
-      const container = inputEl.previousElementSibling;
-      if (container && container.classList.contains('progress-bar-container')) {
-        const fill = container.querySelector('.progress-bar-fill');
-        if (fill) fill.style.width = value + '%';
-      }
+    // 빠른 UI 반영 (progress-bar-fill 즉각 업데이트는 changeProgress/startProgressDrag에서 처리하므로 여기서는 스킵 가능하지만 텍스트 색상 변경 등을 위해 둠)
+    const textEl = document.getElementById(`progress_text_${id}`);
+    if (textEl && !textEl.classList.contains('modified-text')) {
+      textEl.classList.add('modified-text');
     }
   }
   if (field === 'remarks' && existing.remarks !== value) {
