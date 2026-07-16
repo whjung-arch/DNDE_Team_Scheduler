@@ -2073,6 +2073,8 @@ window.formatShortDate = function (dateStr) {
   return dateStr;
 };
 
+window._inlineUpdateTimers = window._inlineUpdateTimers || {};
+
 window.updateReportInline = function (id, field, value) {
   const existing = state.reports.find(r => r.id === id);
   if (!existing) return;
@@ -2083,6 +2085,16 @@ window.updateReportInline = function (id, field, value) {
 
   if (field === 'progress' && existing.progress !== value) {
     updateData.progressModified = true;
+
+    // 빠른 UI 반영: progress-bar-fill 즉각 업데이트
+    const inputEl = document.querySelector(`input[onchange*="${id}"][onchange*="progress"]`);
+    if (inputEl) {
+      const container = inputEl.previousElementSibling;
+      if (container && container.classList.contains('progress-bar-container')) {
+        const fill = container.querySelector('.progress-bar-fill');
+        if (fill) fill.style.width = value + '%';
+      }
+    }
   }
   if (field === 'remarks' && existing.remarks !== value) {
     updateData.remarksModified = true;
@@ -2091,12 +2103,20 @@ window.updateReportInline = function (id, field, value) {
     updateData.endDateModifiedAt = getNormalizedDateString(new Date());
   }
 
-  db.collection("reports").doc(id).update(updateData).then(() => {
-    // Data syncs automatically
-  }).catch(err => {
-    console.error("Error updating report inline:", err);
-    showToast('수정 중 오류가 발생했습니다.');
-  });
+  // 디바운스 처리 (500ms 내 연속 입력 시 마지막 1번만 서버 저장)
+  const timerKey = `${id}_${field}`;
+  if (window._inlineUpdateTimers[timerKey]) {
+    clearTimeout(window._inlineUpdateTimers[timerKey]);
+  }
+
+  window._inlineUpdateTimers[timerKey] = setTimeout(() => {
+    db.collection("reports").doc(id).update(updateData).then(() => {
+      // Data syncs automatically
+    }).catch(err => {
+      console.error("Error updating report inline:", err);
+      showToast('수정 중 오류가 발생했습니다.');
+    });
+  }, 400);
 };
 
 // --- 주간 업무보고 모달 ---
@@ -2200,20 +2220,20 @@ function handleReportSubmit(e) {
 
   const targetReport = {
     id, assignee, assigneeName, project, client, amount, startDate, endDate, progress, status, remarks,
-    invoiceStatus: prevReport ? (prevReport.invoiceStatus || 'unissued') : 'unissued',
-    invoiceDate: prevReport ? (prevReport.invoiceDate || '') : '',
-    invoiceRemarks: prevReport ? (prevReport.invoiceRemarks || '') : '',
-    invoices: prevReport ? (prevReport.invoices || Array.from({ length: 5 }, () => ({ status: 'unissued', amount: 0, date: '' }))) : Array.from({ length: 5 }, () => ({ status: 'unissued', amount: 0, date: '' })),
-    progressModified: isProgressChanged ? true : (prevReport ? prevReport.progressModified : false),
-    remarksModified: isRemarksChanged ? true : (prevReport ? prevReport.remarksModified : false),
-    endDateModifiedAt: isEndDateChanged ? getNormalizedDateString(new Date()) : (prevReport ? prevReport.endDateModifiedAt : null),
-    finalCompleted: prevReport ? (prevReport.finalCompleted || false) : false,
-    createdAt: prevReport ? (prevReport.createdAt || getNormalizedDateString(new Date())) : getNormalizedDateString(new Date())
+    invoiceStatus: prevReport?.invoiceStatus || 'unissued',
+    invoiceDate: prevReport?.invoiceDate || '',
+    invoiceRemarks: prevReport?.invoiceRemarks || '',
+    invoices: prevReport?.invoices || Array.from({ length: 5 }, () => ({ status: 'unissued', amount: 0, date: '' })),
+    progressModified: isProgressChanged ? true : (prevReport?.progressModified || false),
+    remarksModified: isRemarksChanged ? true : (prevReport?.remarksModified || false),
+    endDateModifiedAt: isEndDateChanged ? getNormalizedDateString(new Date()) : (prevReport?.endDateModifiedAt || null),
+    finalCompleted: prevReport?.finalCompleted || false,
+    createdAt: prevReport?.createdAt || getNormalizedDateString(new Date())
   };
 
   // 파이어베이스 트랜잭션형 배치를 이용해 간트차트 일정과 동시에 서버에 저장
   const batch = db.batch();
-  batch.set(db.collection("reports").doc(id), targetReport);
+  batch.set(db.collection("reports").doc(id), targetReport, { merge: true });
 
   // 연동 캘린더 일정 계산 배치 연계
   const eventId = 'e_r_' + id;
@@ -2224,7 +2244,7 @@ function handleReportSubmit(e) {
       endDate: targetReport.endDate, endTime: '18:00', assignee: targetReport.assignee, assigneeName: targetReport.assigneeName,
       category: 'project', priority: 'medium', client: targetReport.client, description: `프로젝트 연동 일정 (${targetReport.client})`
     };
-    batch.set(db.collection("events").doc(eventId), eventData);
+    batch.set(db.collection("events").doc(eventId), eventData, { merge: true });
   } else {
     batch.delete(db.collection("events").doc(eventId));
   }
@@ -2232,6 +2252,9 @@ function handleReportSubmit(e) {
   batch.commit().then(() => {
     showToast('프로젝트 내역 및 연동 스케줄이 실시간 동기화되었습니다.');
     closeReportModal();
+  }).catch(err => {
+    console.error("Error saving report:", err);
+    alert('저장 중 오류가 발생했습니다.');
   });
 }
 
