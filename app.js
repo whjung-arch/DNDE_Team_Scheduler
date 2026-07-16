@@ -2094,15 +2094,14 @@ window.startProgressDrag = function (e, id) {
     if (percentage < 0) percentage = 0;
     if (percentage > 100) percentage = 100;
 
-    const inputEl = container.nextElementSibling;
-    if (inputEl && inputEl.type === 'number') {
-      inputEl.value = percentage;
-
-      const fill = container.querySelector('.progress-bar-fill');
-      if (fill) fill.style.width = percentage + '%';
-
-      window.updateReportInline(id, 'progress', percentage);
+    const textEl = document.getElementById('progress_text_' + id);
+    if (textEl) {
+      textEl.textContent = percentage;
     }
+    const fill = container.querySelector('.progress-bar-fill');
+    if (fill) fill.style.width = percentage + '%';
+
+    window.updateReportInline(id, 'progress', percentage);
   };
 
   updateProgress(e);
