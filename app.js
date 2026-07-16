@@ -2086,33 +2086,46 @@ window.formatShortDate = function (dateStr) {
 window.startProgressDrag = function (e, id) {
   e.preventDefault();
   const container = e.currentTarget;
+  const rect = container.getBoundingClientRect(); // 처음에 한 번만 측정하여 리렌더링 시 너비가 0이 되는 버그 방지
+  let currentPercentage = 0;
 
-  const updateProgress = (event) => {
-    const rect = container.getBoundingClientRect();
+  const updateProgressUI = (event) => {
+    if (rect.width === 0) return;
     let x = event.clientX - rect.left;
     let percentage = Math.round((x / rect.width) * 100);
+
+    // 10% 단위로 맞춤
+    percentage = Math.round(percentage / 10) * 10;
+
     if (percentage < 0) percentage = 0;
     if (percentage > 100) percentage = 100;
 
+    currentPercentage = percentage;
+
+    // 리렌더링으로 인해 요소가 교체되었을 수 있으므로 ID로 매번 최신 요소를 찾음
     const textEl = document.getElementById('progress_text_' + id);
     if (textEl) {
       textEl.textContent = percentage;
+      const activeRow = textEl.closest('td');
+      if (activeRow) {
+        const fill = activeRow.querySelector('.progress-bar-fill');
+        if (fill) fill.style.width = percentage + '%';
+      }
     }
-    const fill = container.querySelector('.progress-bar-fill');
-    if (fill) fill.style.width = percentage + '%';
-
-    window.updateReportInline(id, 'progress', percentage);
   };
 
-  updateProgress(e);
+  updateProgressUI(e);
 
   const onMouseMove = (event) => {
-    updateProgress(event);
+    updateProgressUI(event);
   };
 
   const onMouseUp = () => {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
+
+    // 마우스를 뗄 때만 DB 업데이트 호출 (드래그 중 깜빡임/리렌더링 원천 차단)
+    window.updateReportInline(id, 'progress', currentPercentage);
   };
 
   document.addEventListener('mousemove', onMouseMove);
