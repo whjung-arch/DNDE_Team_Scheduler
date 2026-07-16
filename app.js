@@ -373,6 +373,9 @@ function listenToFirebaseRealtime() {
       } else {
         // 멤버가 있다면 필터 활성화
         if (state.filters.memberIds.length === 0) {
+          // 모든 계정에서 기본적으로 모든 팀원의 일정을 볼 수 있도록 전체 선택 상태로 초기화 (타임라인 전체 표시)
+          state.filters.memberIds = state.members.map(m => m.id);
+
           const loggedInUser = sessionStorage.getItem('logged_in_user');
           if (loggedInUser) {
             const userPrefix = loggedInUser.split('@')[0];
@@ -384,19 +387,16 @@ function listenToFirebaseRealtime() {
               'yslim': '임윤승',
               'mgkim': '김민건'
             };
-            if (userPrefix === 'whjung' || !nameMap[userPrefix]) {
-              state.filters.memberIds = state.members.map(m => m.id);
-            } else {
+            // whjung 계정이 아닌 일반 계정은 주간업무/계산서/완료현황 작성자 필터를 본인으로 초기 설정
+            if (userPrefix !== 'whjung' && nameMap[userPrefix]) {
               const targetName = nameMap[userPrefix];
               const matchedMember = state.members.find(m => m.name === targetName);
               if (matchedMember) {
-                state.filters.memberIds = [matchedMember.id];
-              } else {
-                state.filters.memberIds = state.members.map(m => m.id);
+                state.filters.reportAssignee = matchedMember.id;
+                state.filters.invoiceAssignee = matchedMember.id;
+                state.filters.completedAssignee = matchedMember.id;
               }
             }
-          } else {
-            state.filters.memberIds = state.members.map(m => m.id);
           }
         }
         renderApp();
