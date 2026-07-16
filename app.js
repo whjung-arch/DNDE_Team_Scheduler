@@ -2033,7 +2033,7 @@ function renderReportView() {
       <td style="width: 1%; white-space: nowrap; text-align: center;">
         <div style="display: flex; align-items: center; justify-content: center;">
           <div class="progress-bar-container" style="flex-shrink: 0;"><div class="progress-bar-fill" style="width: ${report.progress}%;"></div></div>
-          <input type="number" autocomplete="off" min="0" max="100" class="inline-edit-input ${report.progressModified ? 'modified-text' : ''}" style="width: 50px; text-align: center;" value="${report.progress}" onchange="updateReportInline('${report.id}', 'progress', this.value)">
+          <input type="number" name="progress_val_${report.id}" autocomplete="one-time-code" data-lpignore="true" data-form-type="other" min="0" max="100" class="inline-edit-input ${report.progressModified ? 'modified-text' : ''}" style="width: 50px; text-align: center;" value="${report.progress}" onchange="updateReportInline('${report.id}', 'progress', this.value)">
         </div>
       </td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
