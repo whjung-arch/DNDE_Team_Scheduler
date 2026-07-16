@@ -373,8 +373,31 @@ function listenToFirebaseRealtime() {
       } else {
         // 멤버가 있다면 필터 활성화
         if (state.filters.memberIds.length === 0) {
-          // 모든 계정에서 기본적으로 모든 팀원의 일정을 볼 수 있도록 전체 선택 상태로 초기화
-          state.filters.memberIds = state.members.map(m => m.id);
+          const loggedInUser = sessionStorage.getItem('logged_in_user');
+          if (loggedInUser) {
+            const userPrefix = loggedInUser.split('@')[0];
+            const nameMap = {
+              'hdlee': '이헌덕',
+              'ujkim': '김욱진',
+              'wtkang': '강원태',
+              'shmoon': '문승환',
+              'yslim': '임윤승',
+              'mgkim': '김민건'
+            };
+            if (userPrefix === 'whjung' || !nameMap[userPrefix]) {
+              state.filters.memberIds = state.members.map(m => m.id);
+            } else {
+              const targetName = nameMap[userPrefix];
+              const matchedMember = state.members.find(m => m.name === targetName);
+              if (matchedMember) {
+                state.filters.memberIds = [matchedMember.id];
+              } else {
+                state.filters.memberIds = state.members.map(m => m.id);
+              }
+            }
+          } else {
+            state.filters.memberIds = state.members.map(m => m.id);
+          }
         }
         renderApp();
       }
@@ -1230,12 +1253,12 @@ function renderUrgentProjectsList() {
 }
 
 // --- 일정/팀원 필터링 연산 ---
-function getFilteredEvents() {
+function getFilteredEvents(ignoreMemberFilter = false) {
   return state.events.filter(event => {
     if (state.filters.category !== 'all' && event.category !== state.filters.category) return false;
     if (state.filters.priority !== 'all' && event.priority !== state.filters.priority) return false;
     const isAssigneeExist = state.members.some(m => m.id === event.assignee);
-    if (isAssigneeExist && !state.filters.memberIds.includes(event.assignee)) return false;
+    if (!ignoreMemberFilter && isAssigneeExist && !state.filters.memberIds.includes(event.assignee)) return false;
     if (state.filters.startDate && event.endDate < state.filters.startDate) return false;
     if (state.filters.endDate && event.startDate > state.filters.endDate) return false;
     if (state.filters.client !== 'all') {
@@ -1471,7 +1494,8 @@ function renderTimelineView() {
   const rowsContainer = document.getElementById('timeline-rows-container');
   rowsContainer.innerHTML = '';
 
-  const rawFilteredEvents = getFilteredEvents();
+  // 타임라인은 체크박스 필터(memberIds)를 무시하고 모든 팀원의 일정을 보여줌
+  const rawFilteredEvents = getFilteredEvents(true);
   const filteredEvents = rawFilteredEvents.filter(event => !event.id || !event.id.toString().startsWith('e_r_'));
 
   const activeMembers = [...state.members];
@@ -1972,12 +1996,8 @@ function renderReportView() {
     });
   }
 
-  const currentUserMemberId = getCurrentUserMemberId();
   const filteredReports = state.reports.filter(report => {
     if (report.finalCompleted) return false;
-    if (currentUserMemberId && currentUserMemberId !== 'admin') {
-      if (report.assignee !== currentUserMemberId) return false;
-    }
     const isAssigneeExist = state.members.some(m => m.id === report.assignee);
     if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
     if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
@@ -2812,12 +2832,8 @@ function renderInvoiceView() {
   let sumUnissued = 0;
   const invoiceReports = [];
 
-  const currentUserMemberId = getCurrentUserMemberId();
   state.reports.forEach(report => {
     if (report.status !== 'completed' && report.status !== 'ongoing') return;
-    if (currentUserMemberId && currentUserMemberId !== 'admin') {
-      if (report.assignee !== currentUserMemberId) return;
-    }
     const isAssigneeExist = state.members.some(m => m.id === report.assignee);
     if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return;
     if (state.filters.startDate && report.endDate < state.filters.startDate) return;
@@ -3158,12 +3174,8 @@ function renderCompletedProjectsView() {
     });
   }
 
-  const currentUserMemberId = getCurrentUserMemberId();
   const filteredReports = state.reports.filter(report => {
     if (!report.finalCompleted) return false;
-    if (currentUserMemberId && currentUserMemberId !== 'admin') {
-      if (report.assignee !== currentUserMemberId) return false;
-    }
     const isAssigneeExist = state.members.some(m => m.id === report.assignee);
     if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
     if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
