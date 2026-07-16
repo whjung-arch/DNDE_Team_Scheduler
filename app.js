@@ -1473,7 +1473,8 @@ function renderTimelineView() {
   const rowsContainer = document.getElementById('timeline-rows-container');
   rowsContainer.innerHTML = '';
 
-  const filteredEvents = getFilteredEvents().filter(event => event.category === 'project');
+  const rawFilteredEvents = getFilteredEvents();
+  const filteredEvents = rawFilteredEvents.filter(event => !event.id || !event.id.toString().startsWith('e_r_'));
 
   const activeMembers = [...state.members];
   const activeMemberIds = state.members.map(m => m.id);
@@ -1533,6 +1534,31 @@ function renderTimelineView() {
         const startD = event.startDate < monthStartStr ? 1 : parseInt(event.startDate.split('-')[2], 10);
         const endD = event.endDate > monthEndStr ? daysInMonth : parseInt(event.endDate.split('-')[2], 10);
         memberEvents.push({ ...event, clampedStartCol: startD, clampedEndCol: endD });
+      });
+
+      state.reports.forEach(report => {
+        if (report.assignee !== member.id || report.finalCompleted) return;
+        if (state.filters.client !== 'all' && report.client !== state.filters.client) return;
+        if (!report.startDate || !report.endDate) return;
+        if (report.endDate < monthStartStr || report.startDate > monthEndStr) return;
+
+        const startD = report.startDate < monthStartStr ? 1 : parseInt(report.startDate.split('-')[2], 10);
+        const endD = report.endDate > monthEndStr ? daysInMonth : parseInt(report.endDate.split('-')[2], 10);
+
+        memberEvents.push({
+          id: `e_r_${report.id}`,
+          title: `[${report.client || ''}] ${report.project || ''}`,
+          startDate: report.startDate,
+          endDate: report.endDate,
+          assignee: report.assignee,
+          assigneeName: report.assigneeName,
+          category: 'project',
+          priority: 'medium',
+          client: report.client,
+          description: `프로젝트 연동 일정 (${report.client || ''})`,
+          clampedStartCol: startD,
+          clampedEndCol: endD
+        });
       });
     }
 
