@@ -352,31 +352,8 @@ function listenToFirebaseRealtime() {
       } else {
         // 멤버가 있다면 필터 활성화
         if (state.filters.memberIds.length === 0) {
-          const loggedInUser = sessionStorage.getItem('logged_in_user');
-          if (loggedInUser) {
-            const userPrefix = loggedInUser.split('@')[0];
-            const nameMap = {
-              'hdlee': '이헌덕',
-              'ujkim': '김욱진',
-              'wtkang': '강원태',
-              'shmoon': '문승환',
-              'yslim': '임윤승',
-              'mgkim': '김민건'
-            };
-            if (userPrefix === 'whjung' || !nameMap[userPrefix]) {
-              state.filters.memberIds = state.members.map(m => m.id);
-            } else {
-              const targetName = nameMap[userPrefix];
-              const matchedMember = state.members.find(m => m.name === targetName);
-              if (matchedMember) {
-                state.filters.memberIds = [matchedMember.id];
-              } else {
-                state.filters.memberIds = state.members.map(m => m.id);
-              }
-            }
-          } else {
-            state.filters.memberIds = state.members.map(m => m.id);
-          }
+          // 모든 계정에서 기본적으로 모든 팀원의 일정을 볼 수 있도록 전체 선택 상태로 초기화
+          state.filters.memberIds = state.members.map(m => m.id);
         }
         renderApp();
       }
