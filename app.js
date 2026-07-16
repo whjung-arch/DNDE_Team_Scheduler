@@ -2285,12 +2285,19 @@ function renderQuoteView() {
   const totalCount = filtered.length;
   const totalAmount = filtered.reduce((acc, q) => acc + (Number(q.amount) || 0), 0);
 
-  const currentMonthStr = `${state.currentDate.getFullYear()}-${String(state.currentDate.getMonth() + 1).padStart(2, '0')}`;
-  const newQuotesThisMonth = state.quotes.filter(q => q.date && q.date.startsWith(currentMonthStr)).length;
+  // 이번 주 월요일 계산
+  const today = new Date();
+  const day = today.getDay();
+  const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(today.setDate(diff));
+  const mondayStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+
+  const newQuotesThisWeek = state.quotes.filter(q => q.date && q.date >= mondayStr).length;
 
   document.getElementById('stat-total-quotes').textContent = totalCount + '건';
   document.getElementById('stat-total-quote-amount').textContent = new Intl.NumberFormat().format(totalAmount) + '원';
-  document.getElementById('stat-new-quotes-month').textContent = newQuotesThisMonth + '건';
+  const weekStatEl = document.getElementById('stat-new-quotes-week');
+  if (weekStatEl) weekStatEl.textContent = newQuotesThisWeek + '건';
 
   // 페이징
   const { currentPage, pageSize } = state.pagination.quote;
