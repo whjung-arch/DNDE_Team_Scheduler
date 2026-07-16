@@ -27,6 +27,27 @@ function getOffsetDateString(offsetDays) {
   d.setDate(d.getDate() + offsetDays);
   return getNormalizedDateString(d);
 }
+
+function getCurrentUserMemberId() {
+  const loggedInUser = sessionStorage.getItem('logged_in_user');
+  if (!loggedInUser) return null;
+  if (loggedInUser === 'whjung@dnde.co.kr') return 'admin';
+  const userPrefix = loggedInUser.split('@')[0];
+  const nameMap = {
+    'hdlee': '이헌덕',
+    'ujkim': '김욱진',
+    'wtkang': '강원태',
+    'shmoon': '문승환',
+    'yslim': '임윤승',
+    'mgkim': '김민건',
+    'whjung': '정원혁'
+  };
+  const targetName = nameMap[userPrefix];
+  if (!targetName) return null;
+  const matchedMember = state.members.find(m => m.name === targetName);
+  return matchedMember ? matchedMember.id : null;
+}
+
 // --- 기본 컬러 팔레트 ---
 const COLOR_PALETTE = [
   '#6366f1', // Indigo
@@ -1951,8 +1972,12 @@ function renderReportView() {
     });
   }
 
+  const currentUserMemberId = getCurrentUserMemberId();
   const filteredReports = state.reports.filter(report => {
     if (report.finalCompleted) return false;
+    if (currentUserMemberId && currentUserMemberId !== 'admin') {
+      if (report.assignee !== currentUserMemberId) return false;
+    }
     const isAssigneeExist = state.members.some(m => m.id === report.assignee);
     if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
     if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
@@ -2787,8 +2812,12 @@ function renderInvoiceView() {
   let sumUnissued = 0;
   const invoiceReports = [];
 
+  const currentUserMemberId = getCurrentUserMemberId();
   state.reports.forEach(report => {
     if (report.status !== 'completed' && report.status !== 'ongoing') return;
+    if (currentUserMemberId && currentUserMemberId !== 'admin') {
+      if (report.assignee !== currentUserMemberId) return;
+    }
     const isAssigneeExist = state.members.some(m => m.id === report.assignee);
     if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return;
     if (state.filters.startDate && report.endDate < state.filters.startDate) return;
@@ -3129,8 +3158,12 @@ function renderCompletedProjectsView() {
     });
   }
 
+  const currentUserMemberId = getCurrentUserMemberId();
   const filteredReports = state.reports.filter(report => {
     if (!report.finalCompleted) return false;
+    if (currentUserMemberId && currentUserMemberId !== 'admin') {
+      if (report.assignee !== currentUserMemberId) return false;
+    }
     const isAssigneeExist = state.members.some(m => m.id === report.assignee);
     if (isAssigneeExist && !state.filters.memberIds.includes(report.assignee)) return false;
     if (state.filters.startDate && report.endDate < state.filters.startDate) return false;
