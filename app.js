@@ -237,7 +237,6 @@ const state = {
   events: [],
   reports: [],
   quotes: [],
-  contracts: [],
   notices: [],
   filters: {
     category: 'all',
@@ -256,10 +255,7 @@ const state = {
     invoiceMonth: 'all',
     quoteSearch: '',
     quoteStart: getOffsetDateString(-7),
-    quoteEnd: getOffsetDateString(0),
-    contractSearch: '',
-    contractStart: getOffsetDateString(-30),
-    contractEnd: getOffsetDateString(0)
+    quoteEnd: getOffsetDateString(0)
   },
   currentView: 'timeline',
   currentDate: new Date(),
@@ -269,8 +265,7 @@ const state = {
     report: { currentPage: 1, pageSize: 10 },
     invoice: { currentPage: 1, pageSize: 10 },
     completed: { currentPage: 1, pageSize: 10 },
-    quote: { currentPage: 1, pageSize: 10 },
-    contract: { currentPage: 1, pageSize: 10 }
+    quote: { currentPage: 1, pageSize: 10 }
   }
 };
 const expandedInvoiceIds = new Set();
@@ -310,9 +305,6 @@ function setupLogin() {
       if (btnImport) btnImport.style.display = showAdminActions ? 'flex' : 'none';
       if (btnExportReportExcel) btnExportReportExcel.style.display = showAdminActions ? 'inline-flex' : 'none';
       if (viewBtnQuote) viewBtnQuote.style.display = showAdminActions ? 'flex' : 'none';
-
-      const viewBtnContract = document.getElementById('view-btn-contract');
-      if (viewBtnContract) viewBtnContract.style.display = showAdminActions ? 'flex' : 'none';
 
       setupEventListeners();
       listenToFirebaseRealtime();
@@ -370,7 +362,7 @@ function listenToFirebaseRealtime() {
 
   function checkAndRender() {
     loadedCollections++;
-    if (loadedCollections >= 6) {
+    if (loadedCollections >= 5) {
       // 테마는 UI 설정이므로 로컬 유지
       state.theme = localStorage.getItem('ts_theme') || 'light';
       document.documentElement.setAttribute('data-theme', state.theme);
@@ -381,9 +373,6 @@ function listenToFirebaseRealtime() {
       } else {
         // 멤버가 있다면 필터 활성화
         if (state.filters.memberIds.length === 0) {
-          // 모든 계정에서 기본적으로 모든 팀원의 일정을 볼 수 있도록 전체 선택 상태로 초기화 (타임라인 전체 표시)
-          state.filters.memberIds = state.members.map(m => m.id);
-
           const loggedInUser = sessionStorage.getItem('logged_in_user');
           if (loggedInUser) {
             const userPrefix = loggedInUser.split('@')[0];
@@ -395,16 +384,19 @@ function listenToFirebaseRealtime() {
               'yslim': '임윤승',
               'mgkim': '김민건'
             };
-            // whjung 계정이 아닌 일반 계정은 주간업무/계산서/완료현황 작성자 필터를 본인으로 초기 설정
-            if (userPrefix !== 'whjung' && nameMap[userPrefix]) {
+            if (userPrefix === 'whjung' || !nameMap[userPrefix]) {
+              state.filters.memberIds = state.members.map(m => m.id);
+            } else {
               const targetName = nameMap[userPrefix];
               const matchedMember = state.members.find(m => m.name === targetName);
               if (matchedMember) {
-                state.filters.reportAssignee = matchedMember.id;
-                state.filters.invoiceAssignee = matchedMember.id;
-                state.filters.completedAssignee = matchedMember.id;
+                state.filters.memberIds = [matchedMember.id];
+              } else {
+                state.filters.memberIds = state.members.map(m => m.id);
               }
             }
+          } else {
+            state.filters.memberIds = state.members.map(m => m.id);
           }
         }
         renderApp();
@@ -417,7 +409,7 @@ function listenToFirebaseRealtime() {
     const members = [];
     snapshot.forEach((doc) => members.push(doc.data()));
     state.members = members;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
+    if (loadedCollections < 5) checkAndRender(); else renderApp();
   });
 
   // B. 일정 데이터 실시간 감지
@@ -432,7 +424,7 @@ function listenToFirebaseRealtime() {
       events.push(data);
     });
     state.events = events;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
+    if (loadedCollections < 5) checkAndRender(); else renderApp();
   });
 
   // C. 프로젝트/주간보고 데이터 실시간 감지
@@ -460,7 +452,7 @@ function listenToFirebaseRealtime() {
       reports.push(data);
     });
     state.reports = reports;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
+    if (loadedCollections < 5) checkAndRender(); else renderApp();
   });
 
   // D. 견적 데이터 실시간 감지
@@ -478,21 +470,7 @@ function listenToFirebaseRealtime() {
     // 최신 날짜순 정렬 (기본)
     quotes.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     state.quotes = quotes;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
-  });
-
-  // D-2. 계약 데이터 실시간 감지
-  db.collection("contracts").onSnapshot((snapshot) => {
-    const contracts = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      data.id = doc.id;
-      contracts.push(data);
-    });
-    // 최신 날짜순 정렬 (기본)
-    contracts.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-    state.contracts = contracts;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
+    if (loadedCollections < 5) checkAndRender(); else renderApp();
   });
 
   // E. 공지사항 데이터 실시간 감지
@@ -504,7 +482,7 @@ function listenToFirebaseRealtime() {
       notices.push(data);
     });
     state.notices = notices;
-    if (loadedCollections < 6) checkAndRender(); else {
+    if (loadedCollections < 5) checkAndRender(); else {
       renderApp();
       if (document.getElementById('modal-notice') && document.getElementById('modal-notice').classList.contains('active')) {
         renderNoticeList();
@@ -601,12 +579,6 @@ function setupEventListeners() {
   document.getElementById('view-btn-timeline').addEventListener('click', () => switchView('timeline'));
   document.getElementById('view-btn-report').addEventListener('click', () => switchView('report'));
   document.getElementById('view-btn-quote').addEventListener('click', () => switchView('quote'));
-
-  const btnContractTab = document.getElementById('view-btn-contract');
-  if (btnContractTab) {
-    btnContractTab.addEventListener('click', () => switchView('contract'));
-  }
-
   document.getElementById('view-btn-invoice').addEventListener('click', () => switchView('invoice'));
   document.getElementById('view-btn-completed').addEventListener('click', () => switchView('completed'));
 
@@ -803,32 +775,6 @@ function setupEventListeners() {
     filterQuoteEnd.addEventListener('change', onDateChange);
   }
 
-  // Contract Filters
-  const filterContractStart = document.getElementById('filter-contract-start');
-  const filterContractEnd = document.getElementById('filter-contract-end');
-
-  if (filterContractStart && filterContractEnd) {
-    const today = new Date();
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setDate(today.getDate() - 30);
-
-    if (!filterContractStart.value) filterContractStart.value = oneMonthAgo.toISOString().split('T')[0];
-    if (!filterContractEnd.value) filterContractEnd.value = today.toISOString().split('T')[0];
-
-    state.filters.contractStart = filterContractStart.value;
-    state.filters.contractEnd = filterContractEnd.value;
-
-    const onContractDateChange = () => {
-      state.filters.contractStart = filterContractStart.value;
-      state.filters.contractEnd = filterContractEnd.value;
-      state.pagination.contract.currentPage = 1;
-      renderApp();
-    };
-
-    filterContractStart.addEventListener('change', onContractDateChange);
-    filterContractEnd.addEventListener('change', onContractDateChange);
-  }
-
   const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
   if (sidebarCollapseBtn) {
     sidebarCollapseBtn.addEventListener('click', () => {
@@ -936,64 +882,6 @@ function setupEventListeners() {
 
   const btnDeleteQuote = document.getElementById('btn-delete-quote');
   if (btnDeleteQuote) btnDeleteQuote.addEventListener('click', deleteQuote);
-
-  // 계약서 관리 리스너
-  const btnAddContract = document.getElementById('btn-add-contract');
-  if (btnAddContract) btnAddContract.addEventListener('click', () => openContractModal());
-
-  const btnUploadContractPdf = document.getElementById('btn-upload-contract-pdf');
-  const contractPdfInput = document.getElementById('contract-pdf-input');
-  if (btnUploadContractPdf && contractPdfInput) {
-    btnUploadContractPdf.addEventListener('click', () => contractPdfInput.click());
-    contractPdfInput.addEventListener('change', (e) => {
-      if (e.target.files && e.target.files[0]) {
-        openContractModal();
-        parseContractPDF(e.target.files[0]);
-        e.target.value = '';
-      }
-    });
-  }
-
-  const btnSyncContractOnedrive = document.getElementById('btn-sync-contract-onedrive');
-  if (btnSyncContractOnedrive) {
-    btnSyncContractOnedrive.addEventListener('click', syncOneDriveContracts);
-  }
-
-  const contractPdfDropZone = document.getElementById('contract-pdf-drop-zone');
-  if (contractPdfDropZone) {
-    contractPdfDropZone.addEventListener('click', () => contractPdfInput.click());
-    contractPdfDropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      contractPdfDropZone.classList.add('dragover');
-    });
-    contractPdfDropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      contractPdfDropZone.classList.remove('dragover');
-    });
-    contractPdfDropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      contractPdfDropZone.classList.remove('dragover');
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        if (e.dataTransfer.files[0].type === 'application/pdf') {
-          parseContractPDF(e.dataTransfer.files[0]);
-        } else {
-          showToast('PDF 파일만 업로드 가능합니다.', 'danger');
-        }
-      }
-    });
-  }
-
-  const btnCloseContractModal = document.getElementById('btn-close-contract-modal');
-  if (btnCloseContractModal) btnCloseContractModal.addEventListener('click', closeContractModal);
-
-  const btnCancelContractModal = document.getElementById('btn-cancel-contract-modal');
-  if (btnCancelContractModal) btnCancelContractModal.addEventListener('click', closeContractModal);
-
-  const formContract = document.getElementById('form-contract');
-  if (formContract) formContract.addEventListener('submit', saveContract);
-
-  const btnDeleteContract = document.getElementById('btn-delete-contract');
-  if (btnDeleteContract) btnDeleteContract.addEventListener('click', deleteContract);
 
   const sidebar = document.getElementById('sidebar');
   const sidebarToggle = document.getElementById('sidebar-toggle-btn');
@@ -1404,7 +1292,6 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'flex';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderTimelineView();
@@ -1413,7 +1300,6 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'flex';
     document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderReportView();
@@ -1422,25 +1308,14 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'flex';
-    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderQuoteView();
-  } else if (state.currentView === 'contract') {
-    calNav.style.display = 'none';
-    document.getElementById('timeline-view-wrapper').style.display = 'none';
-    document.getElementById('report-view-wrapper').style.display = 'none';
-    document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'flex';
-    document.getElementById('invoice-view-wrapper').style.display = 'none';
-    document.getElementById('completed-projects-view-wrapper').style.display = 'none';
-    renderContractView();
   } else if (state.currentView === 'invoice') {
     calNav.style.display = 'none';
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'flex';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderInvoiceView();
@@ -1449,7 +1324,6 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'flex';
     renderCompletedProjectsView();
@@ -1865,24 +1739,19 @@ function switchView(view) {
   document.getElementById('view-btn-timeline').classList.toggle('active', view === 'timeline');
   document.getElementById('view-btn-report').classList.toggle('active', view === 'report');
   document.getElementById('view-btn-quote').classList.toggle('active', view === 'quote');
-
-  const viewBtnContract = document.getElementById('view-btn-contract');
-  if (viewBtnContract) viewBtnContract.classList.toggle('active', view === 'contract');
-
   document.getElementById('view-btn-invoice').classList.toggle('active', view === 'invoice');
   document.getElementById('view-btn-completed').classList.toggle('active', view === 'completed');
 
   if (view === 'timeline') document.getElementById('main-view-title').textContent = '스케줄 타임라인';
   else if (view === 'report') document.getElementById('main-view-title').textContent = '주간업무 보고';
   else if (view === 'quote') document.getElementById('main-view-title').textContent = '견적 관리';
-  else if (view === 'contract') document.getElementById('main-view-title').textContent = '계약서/발주서 관리';
   else if (view === 'invoice') document.getElementById('main-view-title').textContent = '세금계산서 발행현황';
   else if (view === 'completed') document.getElementById('main-view-title').textContent = '프로젝트 완료 현황';
 
   // 메인 스탯 바 숨김/표시 처리
   const statsBar = document.querySelector('.stats-bar:not(.quote-stats-bar)');
   if (statsBar) {
-    if (view === 'invoice' || view === 'completed' || view === 'quote' || view === 'contract') {
+    if (view === 'invoice' || view === 'completed' || view === 'quote') {
       statsBar.style.display = 'none';
     } else {
       statsBar.style.display = 'grid';
@@ -2929,467 +2798,6 @@ function uploadQuotePDF(file) {
 }
 
 // --- 세금계산서 발행 관리 뷰 렌더링 ---
-
-// --- 계약서 관리 ---
-
-function renderContractView() {
-  const tbody = document.getElementById('contract-table-body');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-
-  const { contractSearch, contractStart, contractEnd } = state.filters;
-  let filtered = state.contracts;
-
-  if (contractSearch) {
-    const s = contractSearch.toLowerCase();
-    filtered = filtered.filter(c =>
-      (c.client && c.client.toLowerCase().includes(s)) ||
-      (c.summary && c.summary.toLowerCase().includes(s)) ||
-      (c.docType && c.docType.toLowerCase().includes(s))
-    );
-  }
-
-  if (contractStart) {
-    filtered = filtered.filter(c => c.date >= contractStart);
-  }
-  if (contractEnd) {
-    filtered = filtered.filter(c => c.date <= contractEnd);
-  }
-
-  const totalAmount = filtered.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
-
-  const statTotal = document.getElementById('stat-total-contracts');
-  const statAmount = document.getElementById('stat-total-contract-amount');
-
-  if (statTotal) statTotal.textContent = filtered.length + '건';
-  if (statAmount) statAmount.textContent = totalAmount.toLocaleString() + '원';
-
-  const { currentPage, pageSize } = state.pagination.contract;
-  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
-  if (currentPage > totalPages) state.pagination.contract.currentPage = totalPages;
-
-  const startIndex = (state.pagination.contract.currentPage - 1) * pageSize;
-  const pageData = filtered.slice(startIndex, startIndex + pageSize);
-
-  if (pageData.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem;">조건에 맞는 계약서가 없습니다.</td></tr>';
-  } else {
-    pageData.forEach(c => {
-      const tr = document.createElement('tr');
-      const formattedAmount = Number(c.amount || 0).toLocaleString();
-      let statusColor = 'var(--text-primary)';
-      if (c.status === '검토중') statusColor = 'var(--warning)';
-      else if (c.status === '발주완료') statusColor = 'var(--success)';
-      else if (c.status === '날인완료') statusColor = 'var(--primary)';
-
-      tr.innerHTML = `
-        <td><span class="status-badge" style="background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color);">${escapeHTML(c.docType || '계약서')}</span></td>
-        <td style="font-weight: 500;">${escapeHTML(c.client || '')}</td>
-        <td>${escapeHTML(c.date || '')}</td>
-        <td style="text-align: right; font-weight: 600; color: var(--primary);">${formattedAmount}</td>
-        <td>${escapeHTML(c.payment || '')}</td>
-        <td>${escapeHTML(c.deliveryDate || '')}</td>
-        <td>${escapeHTML(c.summary || '')}</td>
-        <td style="text-align: center;"><span style="color: ${statusColor}; font-weight:600;">${escapeHTML(c.status || '검토중')}</span></td>
-        <td>
-          <div style="display:flex; gap:0.5rem; justify-content:center; align-items:center;">
-            ${c.pdfUrl ? `<a href="${c.pdfUrl}" target="_blank" class="btn-secondary" style="padding:0.25rem 0.5rem; font-size:0.75rem;">PDF</a>` : '<span style="color:var(--text-muted); font-size:0.75rem;">-</span>'}
-            <button class="btn-secondary" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="openContractModal('${c.id}')">수정</button>
-          </div>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  renderPagination('contract-pagination', state.pagination.contract.currentPage, totalPages, 'contract');
-}
-
-function openContractModal(contractId = null) {
-  const modal = document.getElementById('modal-contract');
-  const form = document.getElementById('form-contract');
-  const deleteBtn = document.getElementById('btn-delete-contract');
-  const title = document.getElementById('contract-modal-title');
-  const uploadStatus = document.getElementById('contract-pdf-upload-status');
-
-  form.reset();
-  uploadStatus.textContent = '';
-  document.getElementById('contract-pdf-url').value = '';
-  document.getElementById('contract-pdf-name').value = '';
-  document.getElementById('contract-status').value = '검토중';
-  document.getElementById('contract-doc-type').value = '계약서';
-  document.getElementById('contract-date').value = getNormalizedDateString(new Date());
-
-  if (contractId) {
-    const c = state.contracts.find(x => x.id === contractId);
-    if (c) {
-      document.getElementById('contract-id').value = c.id;
-      document.getElementById('contract-doc-type').value = c.docType || '계약서';
-      document.getElementById('contract-client').value = c.client || '';
-      document.getElementById('contract-date').value = c.date || '';
-      document.getElementById('contract-amount').value = c.amount || '';
-      document.getElementById('contract-payment').value = c.payment || '';
-      document.getElementById('contract-delivery-date').value = c.deliveryDate || '';
-      document.getElementById('contract-summary').value = c.summary || '';
-      document.getElementById('contract-status').value = c.status || '검토중';
-      document.getElementById('contract-pdf-url').value = c.pdfUrl || '';
-      document.getElementById('contract-pdf-name').value = c.pdfName || '';
-
-      if (c.pdfName) uploadStatus.textContent = `현재 파일: ${c.pdfName}`;
-
-      title.textContent = '계약서/발주서 수정';
-      deleteBtn.style.display = 'block';
-    }
-  } else {
-    document.getElementById('contract-id').value = '';
-    title.textContent = '계약서/발주서 등록';
-    deleteBtn.style.display = 'none';
-  }
-
-  modal.classList.add('active');
-}
-
-function closeContractModal() {
-  document.getElementById('modal-contract').classList.remove('active');
-}
-
-function saveContract(e) {
-  e.preventDefault();
-  const id = document.getElementById('contract-id').value;
-  const docType = document.getElementById('contract-doc-type').value;
-  const client = document.getElementById('contract-client').value.trim();
-  const date = document.getElementById('contract-date').value;
-  const amount = Number(document.getElementById('contract-amount').value);
-  const payment = document.getElementById('contract-payment').value.trim();
-  const deliveryDate = document.getElementById('contract-delivery-date').value;
-  const summary = document.getElementById('contract-summary').value.trim();
-  const status = document.getElementById('contract-status').value;
-  const pdfUrl = document.getElementById('contract-pdf-url').value;
-  const pdfName = document.getElementById('contract-pdf-name').value;
-
-  const data = { docType, client, date, amount, payment, deliveryDate, summary, status, pdfUrl, pdfName };
-
-  const submitBtn = document.getElementById('btn-submit-contract');
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = '저장 중...';
-  submitBtn.disabled = true;
-
-  if (id) {
-    db.collection('contracts').doc(id).update(data)
-      .then(() => {
-        showToast('성공적으로 수정되었습니다.', 'success');
-        closeContractModal();
-      })
-      .catch(err => {
-        console.error(err);
-        showToast('저장 중 오류가 발생했습니다.', 'danger');
-      })
-      .finally(() => {
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
-      });
-  } else {
-    data.createdAt = new Date().toISOString();
-    db.collection('contracts').add(data)
-      .then(() => {
-        showToast('성공적으로 등록되었습니다.', 'success');
-        closeContractModal();
-      })
-      .catch(err => {
-        console.error(err);
-        showToast('등록 중 오류가 발생했습니다.', 'danger');
-      })
-      .finally(() => {
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
-      });
-  }
-}
-
-function deleteContract() {
-  const id = document.getElementById('contract-id').value;
-  if (!id) return;
-  if (!confirm('정말 이 문서를 삭제하시겠습니까?')) return;
-
-  db.collection('contracts').doc(id).delete()
-    .then(() => {
-      showToast('삭제되었습니다.', 'success');
-      closeContractModal();
-    })
-    .catch(err => {
-      console.error(err);
-      showToast('삭제 중 오류가 발생했습니다.', 'danger');
-    });
-}
-
-async function parseContractPDF(file) {
-  const uploadStatus = document.getElementById('contract-pdf-upload-status');
-  uploadStatus.textContent = 'PDF 텍스트 추출 중...';
-
-  if (!window.pdfjsLib) {
-    showToast('PDF 파싱 라이브러리가 로드되지 않았습니다.', 'danger');
-    uploadStatus.textContent = '실패: 라이브러리 없음';
-    return;
-  }
-
-  try {
-    const fileReader = new FileReader();
-    fileReader.onload = async function () {
-      const typedarray = new Uint8Array(this.result);
-      const pdf = await pdfjsLib.getDocument(typedarray).promise;
-      let fullText = '';
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n';
-      }
-      uploadStatus.textContent = '텍스트 추출 완료. AI 분석 중...';
-      await analyzeContractWithAI(fullText, file);
-    };
-    fileReader.readAsArrayBuffer(file);
-  } catch (err) {
-    console.error(err);
-    uploadStatus.textContent = 'PDF 처리 중 오류 발생';
-    showToast('PDF 처리 중 오류가 발생했습니다.', 'danger');
-  }
-}
-
-async function analyzeContractWithAI(text, file) {
-  const uploadStatus = document.getElementById('contract-pdf-upload-status');
-  const apiKey = localStorage.getItem('gemini_api_key');
-
-  if (!apiKey) {
-    showToast('Gemini API 키가 설정되지 않아 자동 채우기를 건너뜁니다.', 'warning');
-    uploadStatus.textContent = 'API 키 없음. 파일만 업로드합니다...';
-    uploadContractPDF(file);
-    return;
-  }
-
-  const prompt = `
-너는 전문 법무/구매 보조 AI야. 전달받은 PDF(계약서 또는 발주서)를 분석해서 아래 JSON 규격으로 반환해줘.
-- doc_type: "계약서" 또는 "발주서"
-- client_name: 상대방 업체명
-- contract_date: 계약 또는 발주일 (YYYY-MM-DD 형식, 모르면 "")
-- total_amount: 금액 (부가세 포함 최종합계, 숫자만, 모르면 0)
-- payment_terms: 결제 조건 (선금, 잔금 등 짧게 요약)
-- delivery_date: 납기일 / 이행 기한 (YYYY-MM-DD, 모르면 "")
-- summary: 문서의 핵심 주요 내용 요약 (1문장)
-
-다음은 분석할 문서 텍스트야:
-${text.substring(0, 5000)}
-`;
-
-  try {
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
-      })
-    });
-
-    if (!response.ok) throw new Error('API 요청 실패');
-    const result = await response.json();
-    let jsonStr = result.candidates[0].content.parts[0].text;
-    jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(jsonStr);
-
-    document.getElementById('contract-doc-type').value = parsed.doc_type || '계약서';
-    document.getElementById('contract-client').value = parsed.client_name || '';
-    if (parsed.contract_date) document.getElementById('contract-date').value = parsed.contract_date;
-    if (parsed.total_amount) document.getElementById('contract-amount').value = parsed.total_amount;
-    document.getElementById('contract-payment').value = parsed.payment_terms || '';
-    if (parsed.delivery_date) document.getElementById('contract-delivery-date').value = parsed.delivery_date;
-    document.getElementById('contract-summary').value = parsed.summary || '';
-
-    uploadStatus.textContent = 'AI 분석 성공. 파일 업로드 중...';
-    uploadContractPDF(file);
-
-  } catch (err) {
-    console.error('AI 분석 실패:', err);
-    uploadStatus.textContent = 'AI 분석 실패. 수동으로 입력해주세요.';
-    showToast('AI 분석에 실패했습니다. 파일을 백그라운드로 업로드합니다.', 'warning');
-    uploadContractPDF(file);
-  }
-}
-
-function uploadContractPDF(file) {
-  const uploadStatus = document.getElementById('contract-pdf-upload-status');
-  const storageRef = firebase.storage().ref();
-  const fileRef = storageRef.child(`contracts/${Date.now()}_${file.name}`);
-
-  fileRef.put(file).then(snapshot => {
-    return snapshot.ref.getDownloadURL();
-  }).then(downloadURL => {
-    document.getElementById('contract-pdf-url').value = downloadURL;
-    document.getElementById('contract-pdf-name').value = file.name;
-    uploadStatus.textContent = `업로드 완료: ${file.name}`;
-  }).catch(error => {
-    console.error('Upload failed:', error);
-    uploadStatus.textContent = '업로드 실패';
-    showToast('파일 업로드 중 오류가 발생했습니다.', 'danger');
-  });
-}
-
-async function syncOneDriveContracts() {
-  const statusEl = document.getElementById('onedrive-contract-sync-status');
-  const btn = document.getElementById('btn-sync-contract-onedrive');
-  if (!statusEl || !btn) return;
-
-  statusEl.textContent = "Graph API 인증 확인 중...";
-  btn.disabled = true;
-
-  try {
-    const token = await getGraphAccessToken();
-    if (!token) {
-      statusEl.textContent = "로그인 필요 (팝업 허용 필요)";
-      btn.disabled = false;
-      return;
-    }
-
-    statusEl.textContent = "/메일계약서 폴더 검색 중...";
-    const searchUrl = "https://graph.microsoft.com/v1.0/me/drive/root/search(q='메일계약서')";
-    const searchRes = await fetch(searchUrl, { headers: { "Authorization": "Bearer " + token } });
-    if (!searchRes.ok) throw new Error("검색 실패");
-
-    const searchData = await searchRes.json();
-    const folder = searchData.value.find(item => item.folder && item.name === '메일계약서');
-
-    if (!folder) {
-      statusEl.textContent = "/메일계약서 폴더를 찾을 수 없습니다.";
-      btn.disabled = false;
-      return;
-    }
-
-    statusEl.textContent = "PDF 파일 가져오는 중...";
-    const childrenUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${folder.id}/children`;
-    const childrenRes = await fetch(childrenUrl, { headers: { "Authorization": "Bearer " + token } });
-    if (!childrenRes.ok) throw new Error("파일 목록 로드 실패");
-    const childrenData = await childrenRes.json();
-
-    const pdfs = childrenData.value.filter(item => item.name.toLowerCase().endsWith('.pdf'));
-    if (pdfs.length === 0) {
-      statusEl.textContent = "새로운 PDF가 없습니다.";
-      setTimeout(() => statusEl.textContent = "", 3000);
-      btn.disabled = false;
-      return;
-    }
-
-    statusEl.textContent = `총 ${pdfs.length}개 파일 처리 중...`;
-    let processed = 0;
-
-    for (const pdf of pdfs) {
-      const existing = state.contracts.find(q => q.pdfName === pdf.name);
-      if (existing) {
-        processed++;
-        statusEl.textContent = `${processed}/${pdfs.length} (건너뜀: ${pdf.name})`;
-        continue;
-      }
-
-      statusEl.textContent = `${processed}/${pdfs.length} (다운로드: ${pdf.name})`;
-      const downloadUrl = pdf['@microsoft.graph.downloadUrl'];
-      if (!downloadUrl) continue;
-
-      const fileRes = await fetch(downloadUrl);
-      const blob = await fileRes.blob();
-      const fileObj = new File([blob], pdf.name, { type: 'application/pdf' });
-
-      if (!window.pdfjsLib) {
-        statusEl.textContent = "PDF 라이브러리 없음";
-        break;
-      }
-
-      const typedarray = new Uint8Array(await fileObj.arrayBuffer());
-      const pdfDoc = await pdfjsLib.getDocument(typedarray).promise;
-      let fullText = '';
-      for (let i = 1; i <= pdfDoc.numPages; i++) {
-        const page = await pdfDoc.getPage(i);
-        const textContent = await page.getTextContent();
-        fullText += textContent.items.map(item => item.str).join(' ') + '\n';
-      }
-
-      statusEl.textContent = `${processed}/${pdfs.length} (AI 분석: ${pdf.name})`;
-
-      const apiKey = localStorage.getItem('gemini_api_key');
-      let parsed = {
-        doc_type: "계약서", client_name: "", contract_date: "",
-        total_amount: 0, payment_terms: "", delivery_date: "", summary: ""
-      };
-
-      if (apiKey) {
-        const prompt = `너는 전문 법무/구매 보조 AI야. 전달받은 PDF(계약서 또는 발주서)를 분석해서 아래 JSON 규격으로 반환해줘.
-- doc_type: "계약서" 또는 "발주서"
-- client_name: 상대방 업체명
-- contract_date: 계약 또는 발주일 (YYYY-MM-DD 형식, 모르면 "")
-- total_amount: 금액 (부가세 포함 최종합계, 숫자만, 모르면 0)
-- payment_terms: 결제 조건 (선금, 잔금 등 짧게 요약)
-- delivery_date: 납기일 / 이행 기한 (YYYY-MM-DD, 모르면 "")
-- summary: 문서의 핵심 주요 내용 요약 (1문장)
-
-다음은 분석할 문서 텍스트야:
-${fullText.substring(0, 5000)}`;
-
-        try {
-          const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
-          const aiRes = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { response_mime_type: "application/json" }
-            })
-          });
-          if (aiRes.ok) {
-            const result = await aiRes.json();
-            let jsonStr = result.candidates[0].content.parts[0].text;
-            jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
-            parsed = JSON.parse(jsonStr);
-          }
-        } catch (e) { console.error('AI 파싱 에러', e); }
-      }
-
-      statusEl.textContent = `${processed}/${pdfs.length} (업로드: ${pdf.name})`;
-      const storageRef = firebase.storage().ref();
-      const fileRef = storageRef.child(`contracts/${Date.now()}_${fileObj.name}`);
-      const snapshot = await fileRef.put(fileObj);
-      const uploadedUrl = await snapshot.ref.getDownloadURL();
-
-      statusEl.textContent = `${processed}/${pdfs.length} (저장: ${pdf.name})`;
-      const docData = {
-        docType: parsed.doc_type || '계약서',
-        client: parsed.client_name || '',
-        date: parsed.contract_date || getNormalizedDateString(new Date()),
-        amount: parsed.total_amount || 0,
-        payment: parsed.payment_terms || '',
-        deliveryDate: parsed.delivery_date || '',
-        summary: parsed.summary || '',
-        status: '검토중',
-        pdfUrl: uploadedUrl,
-        pdfName: fileObj.name,
-        createdAt: new Date().toISOString()
-      };
-
-      await db.collection('contracts').add(docData);
-      processed++;
-    }
-
-    statusEl.textContent = "동기화 완료";
-    setTimeout(() => statusEl.textContent = "", 3000);
-
-  } catch (err) {
-    console.error(err);
-    statusEl.textContent = "동기화 실패: " + err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-
 function renderInvoiceView() {
   const tableBody = document.getElementById('invoice-table-body');
   if (!tableBody) return;
