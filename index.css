@@ -2027,7 +2027,8 @@ select.invoice-status-select.issued {
   margin-bottom: 1.5rem;
 }
 
-.pdf-drop-zone:hover, .pdf-drop-zone.dragover {
+.pdf-drop-zone:hover,
+.pdf-drop-zone.dragover {
   border-color: var(--primary);
   background: rgba(37, 99, 235, 0.05);
   color: var(--primary);
@@ -2066,6 +2067,7 @@ select.invoice-status-select.issued {
 .notice-stat-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
 .notice-stat-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 12px 28px -6px rgba(245, 158, 11, 0.25) !important;
@@ -2088,8 +2090,17 @@ select.invoice-status-select.issued {
 }
 
 @keyframes notice-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.75; transform: scale(1.05); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.75;
+    transform: scale(1.05);
+  }
 }
 
 /* 공지 모달 - 작성 영역 */
@@ -2130,11 +2141,13 @@ select.invoice-status-select.issued {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   font-family: var(--font-body);
 }
+
 .notice-compose-input:focus {
   outline: none;
   border-color: #f59e0b;
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
 }
+
 .notice-compose-input::placeholder {
   color: var(--text-muted);
 }
@@ -2153,9 +2166,11 @@ select.invoice-status-select.issued {
   transition: background 0.15s ease;
   position: relative;
 }
+
 .notice-item:last-child {
   border-bottom: none;
 }
+
 .notice-item:hover {
   background: var(--bg-hover);
 }
@@ -2218,9 +2233,11 @@ select.invoice-status-select.issued {
   padding: 4px;
   border-radius: 6px;
 }
+
 .notice-item:hover .notice-item-delete {
   opacity: 1;
 }
+
 .notice-item-delete:hover {
   color: var(--danger);
   background: rgba(239, 68, 68, 0.08);
@@ -2236,9 +2253,11 @@ select.invoice-status-select.issued {
   color: var(--text-muted);
   gap: 0.6rem;
 }
+
 .notice-empty svg {
   opacity: 0.4;
 }
+
 .notice-empty p {
   font-size: 0.9rem;
 }
@@ -2249,9 +2268,11 @@ select.invoice-status-select.issued {
     max-width: 100% !important;
     width: 98% !important;
   }
+
   .notice-compose-area {
     padding: 1rem;
   }
+
   .notice-item {
     padding: 0.9rem 1rem;
   }
