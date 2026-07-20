@@ -237,9 +237,8 @@ const state = {
   events: [],
   reports: [],
   quotes: [],
-  contracts: [],
-  contractCurrentPage: 1,
-  contractItemsPerPage: 20,
+
+
   notices: [],
   filters: {
     category: 'all',
@@ -361,7 +360,7 @@ function setupLogin() {
 // 2. 파이어베이스 실시간 데이터 동기화 리스너
 // ==========================================
 function listenToFirebaseRealtime() {
-  const loadedFlags = { members: false, events: false, reports: false, quotes: false, contracts: false, notices: false };
+  const loadedFlags = { members: false, events: false, reports: false, quotes: false, notices: false };
 
   function checkAndRender(collectionName) {
     loadedFlags[collectionName] = true;
@@ -462,23 +461,7 @@ function listenToFirebaseRealtime() {
   });
 
 
-  // F. 계약서 데이터 실시간 감지
-  db.collection("contracts").onSnapshot((snapshot) => {
-    const contracts = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      data.id = doc.id;
-      if (!data.assigneeName && data.assignee) {
-        const m = state.members.find(member => member.id === data.assignee);
-        if (m) data.assigneeName = m.name;
-      }
-      contracts.push(data);
-    });
-    // 최신 날짜순 정렬 (기본)
-    contracts.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-    state.contracts = contracts;
-    if (!loadedFlags.contracts) checkAndRender("contracts"); else renderApp();
-  });
+
 
   // E. 공지사항 데이터 실시간 감지
   db.collection("notices").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
@@ -586,7 +569,7 @@ function setupEventListeners() {
   document.getElementById('view-btn-timeline').addEventListener('click', () => switchView('timeline'));
   document.getElementById('view-btn-report').addEventListener('click', () => switchView('report'));
   document.getElementById('view-btn-quote').addEventListener('click', () => switchView('quote'));
-  document.getElementById('view-btn-contract')?.addEventListener('click', () => switchView('contract'));
+
   document.getElementById('view-btn-invoice').addEventListener('click', () => switchView('invoice'));
   document.getElementById('view-btn-completed').addEventListener('click', () => switchView('completed'));
 
@@ -1361,7 +1344,6 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'flex';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderTimelineView();
@@ -1370,7 +1352,6 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'flex';
     document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderReportView();
@@ -1382,21 +1363,11 @@ function renderCurrentView() {
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderQuoteView();
-  } else if (state.currentView === 'contract') {
-    calNav.style.display = 'none';
-    document.getElementById('timeline-view-wrapper').style.display = 'none';
-    document.getElementById('report-view-wrapper').style.display = 'none';
-    document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'flex';
-    document.getElementById('invoice-view-wrapper').style.display = 'none';
-    document.getElementById('completed-projects-view-wrapper').style.display = 'none';
-    renderContractView();
   } else if (state.currentView === 'invoice') {
     calNav.style.display = 'none';
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'flex';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderInvoiceView();
@@ -1405,7 +1376,6 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'flex';
     renderCompletedProjectsView();
@@ -1821,7 +1791,7 @@ function switchView(view) {
   document.getElementById('view-btn-timeline').classList.toggle('active', view === 'timeline');
   document.getElementById('view-btn-report').classList.toggle('active', view === 'report');
   document.getElementById('view-btn-quote').classList.toggle('active', view === 'quote');
-  document.getElementById('view-btn-contract')?.classList.toggle('active', view === 'contract');
+
   document.getElementById('view-btn-invoice').classList.toggle('active', view === 'invoice');
   document.getElementById('view-btn-completed').classList.toggle('active', view === 'completed');
 
