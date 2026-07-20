@@ -586,6 +586,7 @@ function setupEventListeners() {
   document.getElementById('view-btn-timeline').addEventListener('click', () => switchView('timeline'));
   document.getElementById('view-btn-report').addEventListener('click', () => switchView('report'));
   document.getElementById('view-btn-quote').addEventListener('click', () => switchView('quote'));
+  document.getElementById('view-btn-contract')?.addEventListener('click', () => switchView('contract'));
   document.getElementById('view-btn-invoice').addEventListener('click', () => switchView('invoice'));
   document.getElementById('view-btn-completed').addEventListener('click', () => switchView('completed'));
 
@@ -1299,6 +1300,7 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'flex';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
+    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderTimelineView();
@@ -1307,6 +1309,7 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'flex';
     document.getElementById('quote-view-wrapper').style.display = 'none';
+    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderReportView();
@@ -1318,11 +1321,21 @@ function renderCurrentView() {
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderQuoteView();
+  } else if (state.currentView === 'contract') {
+    calNav.style.display = 'none';
+    document.getElementById('timeline-view-wrapper').style.display = 'none';
+    document.getElementById('report-view-wrapper').style.display = 'none';
+    document.getElementById('quote-view-wrapper').style.display = 'none';
+    document.getElementById('contract-view-wrapper').style.display = 'flex';
+    document.getElementById('invoice-view-wrapper').style.display = 'none';
+    document.getElementById('completed-projects-view-wrapper').style.display = 'none';
+    renderContractView();
   } else if (state.currentView === 'invoice') {
     calNav.style.display = 'none';
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
+    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'flex';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderInvoiceView();
@@ -1331,6 +1344,7 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
+    document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'flex';
     renderCompletedProjectsView();
@@ -1746,19 +1760,21 @@ function switchView(view) {
   document.getElementById('view-btn-timeline').classList.toggle('active', view === 'timeline');
   document.getElementById('view-btn-report').classList.toggle('active', view === 'report');
   document.getElementById('view-btn-quote').classList.toggle('active', view === 'quote');
+  document.getElementById('view-btn-contract')?.classList.toggle('active', view === 'contract');
   document.getElementById('view-btn-invoice').classList.toggle('active', view === 'invoice');
   document.getElementById('view-btn-completed').classList.toggle('active', view === 'completed');
 
   if (view === 'timeline') document.getElementById('main-view-title').textContent = '스케줄 타임라인';
   else if (view === 'report') document.getElementById('main-view-title').textContent = '주간업무 보고';
   else if (view === 'quote') document.getElementById('main-view-title').textContent = '견적 관리';
+  else if (view === 'contract') document.getElementById('main-view-title').textContent = '계약서 관리';
   else if (view === 'invoice') document.getElementById('main-view-title').textContent = '세금계산서 발행현황';
   else if (view === 'completed') document.getElementById('main-view-title').textContent = '프로젝트 완료 현황';
 
   // 메인 스탯 바 숨김/표시 처리
   const statsBar = document.querySelector('.stats-bar:not(.quote-stats-bar)');
   if (statsBar) {
-    if (view === 'invoice' || view === 'completed' || view === 'quote') {
+    if (view === 'invoice' || view === 'completed' || view === 'quote' || view === 'contract') {
       statsBar.style.display = 'none';
     } else {
       statsBar.style.display = 'grid';
