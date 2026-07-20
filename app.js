@@ -891,6 +891,67 @@ function setupEventListeners() {
   const btnDeleteQuote = document.getElementById('btn-delete-quote');
   if (btnDeleteQuote) btnDeleteQuote.addEventListener('click', deleteQuote);
 
+  // Contract Event Listeners
+  const btnAddContract = document.getElementById('btn-add-contract');
+  if (btnAddContract) {
+    btnAddContract.addEventListener('click', () => openContractModal());
+  }
+
+  const btnUploadContractPdf = document.getElementById('btn-upload-contract-pdf');
+  const contractPdfInput = document.getElementById('contract-pdf-input');
+  if (btnUploadContractPdf && contractPdfInput) {
+    btnUploadContractPdf.addEventListener('click', () => contractPdfInput.click());
+    contractPdfInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        openContractModal(); // 모달 열기
+        parseContractPDF(e.target.files[0]); // 파싱 시도
+        e.target.value = ''; // 같은 파일 재선택을 위해 초기화
+      }
+    });
+  }
+
+  const btnSyncOnedriveContract = document.getElementById('btn-sync-onedrive-contract');
+  if (btnSyncOnedriveContract) {
+    btnSyncOnedriveContract.addEventListener('click', syncOneDriveContracts);
+  }
+
+  const contractPdfDropZone = document.getElementById('contract-pdf-drop-zone');
+  if (contractPdfDropZone) {
+    contractPdfDropZone.addEventListener('click', () => contractPdfInput.click());
+    contractPdfDropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      contractPdfDropZone.classList.add('dragover');
+    });
+    contractPdfDropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      contractPdfDropZone.classList.remove('dragover');
+    });
+    contractPdfDropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      contractPdfDropZone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        if (e.dataTransfer.files[0].type === 'application/pdf') {
+          parseContractPDF(e.dataTransfer.files[0]);
+        } else {
+          showToast('PDF 파일만 업로드 가능합니다.', 'danger');
+        }
+      }
+    });
+  }
+
+  const btnCloseContractModal = document.getElementById('btn-close-contract-modal');
+  if (btnCloseContractModal) btnCloseContractModal.addEventListener('click', closeContractModal);
+
+  const btnCancelContractModal = document.getElementById('btn-cancel-contract-modal');
+  if (btnCancelContractModal) btnCancelContractModal.addEventListener('click', closeContractModal);
+
+  const formContract = document.getElementById('form-contract');
+  if (formContract) formContract.addEventListener('submit', saveContract);
+
+  const btnDeleteContract = document.getElementById('btn-delete-contract');
+  if (btnDeleteContract) btnDeleteContract.addEventListener('click', deleteContract);
+
+
   const sidebar = document.getElementById('sidebar');
   const sidebarToggle = document.getElementById('sidebar-toggle-btn');
   const overlay = document.getElementById('sidebar-overlay');
@@ -2471,7 +2532,11 @@ function renderQuoteView() {
   if (quoteStartInput && !quoteStartInput.value) quoteStartInput.value = state.filters.quoteStart;
   if (quoteEndInput && !quoteEndInput.value) quoteEndInput.value = state.filters.quoteEnd;
 
-  let filtered = [...state.quotes];
+  let filtered = state.quotes.filter(q => {
+    const itemName = q.item ? q.item.toLowerCase() : '';
+    const pdfName = q.pdfName ? q.pdfName.toLowerCase() : '';
+    return !itemName.includes('계약') && !pdfName.includes('계약');
+  });
 
   if (state.filters.quoteSearch) {
     const s = state.filters.quoteSearch.toLowerCase();
@@ -2499,7 +2564,12 @@ function renderQuoteView() {
   const monday = new Date(today.setDate(diff));
   const mondayStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
 
-  const newQuotesThisWeek = state.quotes.filter(q => q.date && q.date >= mondayStr).length;
+  const baseQuotes = state.quotes.filter(q => {
+    const itemName = q.item ? q.item.toLowerCase() : '';
+    const pdfName = q.pdfName ? q.pdfName.toLowerCase() : '';
+    return !itemName.includes('계약') && !pdfName.includes('계약');
+  });
+  const newQuotesThisWeek = baseQuotes.filter(q => q.date && q.date >= mondayStr).length;
 
   document.getElementById('stat-total-quotes').textContent = totalCount + '건';
   document.getElementById('stat-total-quote-amount').textContent = new Intl.NumberFormat().format(totalAmount) + '원';
