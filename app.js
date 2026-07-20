@@ -361,11 +361,11 @@ function setupLogin() {
 // 2. 파이어베이스 실시간 데이터 동기화 리스너
 // ==========================================
 function listenToFirebaseRealtime() {
-  let loadedCollections = 0;
+  const loadedFlags = { members: false, events: false, reports: false, quotes: false, contracts: false, notices: false };
 
-  function checkAndRender() {
-    loadedCollections++;
-    if (loadedCollections >= 6) {
+  function checkAndRender(collectionName) {
+    loadedFlags[collectionName] = true;
+    if (Object.values(loadedFlags).every(v => v)) {
       // 테마는 UI 설정이므로 로컬 유지
       state.theme = localStorage.getItem('ts_theme') || 'light';
       document.documentElement.setAttribute('data-theme', state.theme);
@@ -397,7 +397,7 @@ function listenToFirebaseRealtime() {
     const members = [];
     snapshot.forEach((doc) => members.push(doc.data()));
     state.members = members;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
+    if (!loadedFlags.members) checkAndRender("members"); else renderApp();
   });
 
   // B. 일정 데이터 실시간 감지
@@ -412,7 +412,7 @@ function listenToFirebaseRealtime() {
       events.push(data);
     });
     state.events = events;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
+    if (!loadedFlags.events) checkAndRender("events"); else renderApp();
   });
 
   // C. 프로젝트/주간보고 데이터 실시간 감지
@@ -440,7 +440,7 @@ function listenToFirebaseRealtime() {
       reports.push(data);
     });
     state.reports = reports;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
+    if (!loadedFlags.reports) checkAndRender("reports"); else renderApp();
   });
 
   // D. 견적 데이터 실시간 감지
@@ -458,7 +458,7 @@ function listenToFirebaseRealtime() {
     // 최신 날짜순 정렬 (기본)
     quotes.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     state.quotes = quotes;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
+    if (!loadedFlags.quotes) checkAndRender("quotes"); else renderApp();
   });
 
 
@@ -477,7 +477,7 @@ function listenToFirebaseRealtime() {
     // 최신 날짜순 정렬 (기본)
     contracts.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     state.contracts = contracts;
-    if (loadedCollections < 6) checkAndRender(); else renderApp();
+    if (!loadedFlags.contracts) checkAndRender("contracts"); else renderApp();
   });
 
   // E. 공지사항 데이터 실시간 감지
