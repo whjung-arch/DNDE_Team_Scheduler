@@ -373,30 +373,15 @@ function listenToFirebaseRealtime() {
       } else {
         // 멤버가 있다면 필터 활성화
         if (state.filters.memberIds.length === 0) {
-          const loggedInUser = sessionStorage.getItem('logged_in_user');
-          if (loggedInUser) {
-            const userPrefix = loggedInUser.split('@')[0];
-            const nameMap = {
-              'hdlee': '이헌덕',
-              'ujkim': '김욱진',
-              'wtkang': '강원태',
-              'shmoon': '문승환',
-              'yslim': '임윤승',
-              'mgkim': '김민건'
-            };
-            if (userPrefix === 'whjung' || !nameMap[userPrefix]) {
-              state.filters.memberIds = state.members.map(m => m.id);
-            } else {
-              const targetName = nameMap[userPrefix];
-              const matchedMember = state.members.find(m => m.name === targetName);
-              if (matchedMember) {
-                state.filters.memberIds = [matchedMember.id];
-              } else {
-                state.filters.memberIds = state.members.map(m => m.id);
-              }
-            }
-          } else {
-            state.filters.memberIds = state.members.map(m => m.id);
+          // 사이드바 팀원 체크박스는 기본적으로 전체 선택 (타임라인 등 다른 계정 정보 볼 수 있도록)
+          state.filters.memberIds = state.members.map(m => m.id);
+
+          const currentMemberId = getCurrentUserMemberId();
+          if (currentMemberId && currentMemberId !== 'admin') {
+            // 주간업무, 계산서, 완료현황의 기본 선택 필터를 본인으로 설정
+            if (state.filters.reportAssignee === 'all') state.filters.reportAssignee = currentMemberId;
+            if (state.filters.invoiceAssignee === 'all') state.filters.invoiceAssignee = currentMemberId;
+            if (state.filters.completedAssignee === 'all') state.filters.completedAssignee = currentMemberId;
           }
         }
         renderApp();
