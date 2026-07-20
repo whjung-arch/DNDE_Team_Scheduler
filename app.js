@@ -375,10 +375,15 @@ function listenToFirebaseRealtime() {
       } else {
         // 멤버가 있다면 필터 활성화
         if (state.filters.memberIds.length === 0) {
-          // 사이드바 팀원 체크박스는 기본적으로 전체 선택 (타임라인 등 다른 계정 정보 볼 수 있도록)
-          state.filters.memberIds = state.members.map(m => m.id);
-
           const currentMemberId = getCurrentUserMemberId();
+          if (currentMemberId === 'admin') {
+            state.filters.memberIds = state.members.map(m => m.id);
+          } else if (currentMemberId) {
+            state.filters.memberIds = [currentMemberId];
+          } else {
+            state.filters.memberIds = state.members.map(m => m.id);
+          }
+
           if (currentMemberId && currentMemberId !== 'admin') {
             // 주간업무, 계산서, 완료현황의 기본 선택 필터를 본인으로 설정
             if (state.filters.reportAssignee === 'all') state.filters.reportAssignee = currentMemberId;
@@ -1546,16 +1551,16 @@ function renderTimelineView() {
   const rowsContainer = document.getElementById('timeline-rows-container');
   rowsContainer.innerHTML = '';
 
-  // 타임라인은 체크박스 필터(memberIds)를 무시하고 모든 팀원의 일정을 보여줌
-  const rawFilteredEvents = getFilteredEvents(true);
+  // 타임라인도 사이드바 체크박스 필터(memberIds)를 존중하여 표시
+  const rawFilteredEvents = getFilteredEvents(false);
   const filteredEvents = rawFilteredEvents.filter(event => !event.id || !event.id.toString().startsWith('e_r_'));
 
-  const activeMembers = [...state.members];
-  const activeMemberIds = state.members.map(m => m.id);
+  const activeMembers = state.members.filter(m => state.filters.memberIds.includes(m.id));
+  const activeMemberIds = activeMembers.map(m => m.id);
   const deletedMemberIds = [...new Set(
     state.reports.map(r => r.assignee)
       .concat(state.events.map(e => e.assignee))
-  )].filter(id => id && !activeMemberIds.includes(id));
+  )].filter(id => id && !activeMemberIds.includes(id) && state.members.findIndex(m => m.id === id) === -1);
 
   deletedMemberIds.forEach(id => {
     const assigneeInfo = getAssigneeInfo(id);
