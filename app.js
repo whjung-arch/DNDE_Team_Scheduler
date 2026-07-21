@@ -1,4 +1,4 @@
-﻿// ==========================================
+// ==========================================
 // 1. 파이어베이스 초기화 및 설정 (보내주신 비밀키 적용)
 // ==========================================
 const firebaseConfig = {
@@ -706,10 +706,10 @@ function setupEventListeners() {
   if (scaleContainer) {
     const scaleBtns = scaleContainer.querySelectorAll('.scale-btn');
     scaleBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         scaleBtns.forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        state.timelineScale = e.target.dataset.scale;
+        btn.classList.add('active');
+        state.timelineScale = btn.dataset.scale;
         renderApp();
       });
     });
@@ -717,10 +717,10 @@ function setupEventListeners() {
 
   const priorityFilters = document.getElementById('priority-filter-container').querySelectorAll('.filter-tag');
   priorityFilters.forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', () => {
       priorityFilters.forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      state.filters.priority = e.target.dataset.priority;
+      btn.classList.add('active');
+      state.filters.priority = btn.dataset.priority;
       resetPaginationPages();
       renderApp();
     });
