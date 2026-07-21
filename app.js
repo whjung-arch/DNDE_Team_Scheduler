@@ -305,12 +305,14 @@ function setupLogin() {
 
       const showAdminActions = (user.email === 'whjung@dnde.co.kr');
       const viewBtnQuote = document.getElementById('view-btn-quote');
+      const viewBtnContract = document.getElementById('view-btn-contract');
 
       if (btnReset) btnReset.style.display = showAdminActions ? 'flex' : 'none';
       if (btnExport) btnExport.style.display = showAdminActions ? 'flex' : 'none';
       if (btnImport) btnImport.style.display = showAdminActions ? 'flex' : 'none';
       if (btnExportReportExcel) btnExportReportExcel.style.display = showAdminActions ? 'inline-flex' : 'none';
       if (viewBtnQuote) viewBtnQuote.style.display = showAdminActions ? 'flex' : 'none';
+      if (viewBtnContract) viewBtnContract.style.display = showAdminActions ? 'flex' : 'none';
 
       setupEventListeners();
       listenToFirebaseRealtime();
@@ -5158,21 +5160,32 @@ async function syncOneDriveContracts() {
 
 // 필터 이벤트 리스너 추가
 document.addEventListener('DOMContentLoaded', () => {
-  const contractTypeFilter = document.getElementById('filter-contract-type');
-  if (contractTypeFilter) {
-    contractTypeFilter.addEventListener('change', (e) => {
-      state.filters.contractType = e.target.value;
+  const btnSearchContract = document.getElementById('btn-search-contract');
+  if (btnSearchContract) {
+    btnSearchContract.addEventListener('click', () => {
+      const typeEl = document.getElementById('filter-contract-type');
+      const searchEl = document.getElementById('filter-contract-search');
+      const startEl = document.getElementById('filter-contract-start');
+      const endEl = document.getElementById('filter-contract-end');
+
+      if (typeEl) state.filters.contractType = typeEl.value;
+      if (searchEl) state.filters.contractSearch = searchEl.value;
+      if (startEl) state.filters.contractStart = startEl.value;
+      if (endEl) state.filters.contractEnd = endEl.value;
+
       state.pagination.contract.currentPage = 1;
       renderContractView();
     });
   }
 
+  // 검색창에서 Enter 키 누를 경우 검색 버튼 클릭 효과
   const contractSearchFilter = document.getElementById('filter-contract-search');
   if (contractSearchFilter) {
-    contractSearchFilter.addEventListener('input', (e) => {
-      state.filters.contractSearch = e.target.value;
-      state.pagination.contract.currentPage = 1;
-      renderContractView();
+    contractSearchFilter.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        btnSearchContract.click();
+      }
     });
   }
 });
