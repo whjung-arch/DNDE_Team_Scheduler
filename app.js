@@ -4926,6 +4926,7 @@ async function parseContractPDF(file) {
       try {
         const parsed = await parseContractTextWithAI(fullText, file.name);
 
+        if (parsed.docType) document.getElementById('contract-type').value = parsed.docType;
         if (parsed.companyName) document.getElementById('contract-client').value = parsed.companyName;
         if (parsed.clientRep) document.getElementById('contract-client-rep').value = parsed.clientRep;
         if (parsed.contractDate) document.getElementById('contract-date').value = parsed.contractDate;
