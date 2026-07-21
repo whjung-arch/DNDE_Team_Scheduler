@@ -519,18 +519,18 @@
                     <div
                         style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; flex: 1;">
 
-                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
                             <select id="filter-contract-type" class="form-control" style="width: 100px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
                                 <option value="all">전체 (구분)</option>
                                 <option value="contract">계약서</option>
                                 <option value="order">발주서</option>
                             </select>
-                            <input type="text" id="filter-contract-search" class="form-control" placeholder="거래처/품목명 검색" style="width: 150px; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
-                            <input type="date" id="filter-contract-start" class="form-control"
-                                style="width: 120px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
+                            <input type="text" id="filter-contract-search" class="form-control" autocomplete="off" placeholder="거래처/품목명 검색" style="width: 140px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
+                            <input type="date" id="filter-contract-start" class="form-control" autocomplete="off"
+                                style="width: 130px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
                             <span style="color: var(--text-muted);">~</span>
-                            <input type="date" id="filter-contract-end" class="form-control"
-                                style="width: 120px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
+                            <input type="date" id="filter-contract-end" class="form-control" autocomplete="off"
+                                style="width: 130px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
                         </div>
                         <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
                             <span id="onedrive-sync-status-contract"

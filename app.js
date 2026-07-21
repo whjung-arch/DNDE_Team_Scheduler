@@ -257,8 +257,8 @@ const state = {
     quoteSearch: '',
     quoteStart: getOffsetDateString(-7),
     quoteEnd: getOffsetDateString(0),
-    contractStart: getOffsetDateString(-30),
-    contractEnd: getOffsetDateString(0),
+    contractStart: '',
+    contractEnd: '',
     contractSearch: '',
     contractType: 'all'
   },
@@ -4806,28 +4806,33 @@ async function deleteContract() {
   }
 }
 
-async function parseContractTextWithAI(text) {
+async function parseContractTextWithAI(text, fileName = '') {
   let apiKey = await requireApiKey();
   if (!apiKey) {
     throw new Error("NO_API_KEY");
   }
 
-  const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(계약서) 텍스트에서 다음 항목을 정밀하게 추출해서 엄격한 JSON 형식으로만 응답해 줘.
+  const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(계약서 또는 발주서) 텍스트와 파일명을 종합적으로 분석해서 다음 항목을 정밀하게 추출하고 엄격한 JSON 형식으로만 응답해 줘.
+특히 계약일(Contract Date)과 계약기간(Contract Period)을 정확히 분석해. 발주서의 경우 납기일(Promised Date, 납품기한 등)이 계약기간(Period)에 해당하므로 이를 참고해.
+
 항목:
 {
   "docType": "텍스트의 내용을 판단하여 발주서(Purchase Order 등 발주 관련 문서)라면 'order', 그 외 일반 계약서면 'contract' 반환",
   "companyName": "계약서의 거래처명 (주식회사 등은 제외하고 핵심 이름만)",
   "clientRep": "계약서의 거래처 담당자명 (직급 포함, 없으면 빈문자열)",
-  "contractDate": "계약일자: YYYY-MM-DD",
+  "contractDate": "계약일자/발주일자 (YYYY-MM-DD 형식). 찾을 수 없으면 빈 문자열.",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
   "supplyPrice": 공급가액(숫자),
   "vat": 부가세(숫자),
   "totalAmount": 총계약금액(숫자),
   "assignee": "계약서의 우리 회사 담당자 이름",
-  "contractPeriod": "계약기간 (예: 2026.01.01 ~ 2026.12.31, 찾을수 없으면 빈문자열)"
+  "contractPeriod": "계약기간 또는 납기일 (예: 2026.01.01 ~ 2026.12.31, 또는 특정 납품일. 찾을수 없으면 빈문자열)"
 }
 
-추출할 계약서 텍스트:
+파일명:
+${fileName}
+
+문서 텍스트:
 ${text}`;
 
   const controller = new AbortController();
@@ -4893,7 +4898,7 @@ async function parseContractPDF(file) {
       uploadStatus.textContent = 'AI가 계약서를 분석 중입니다...';
 
       try {
-        const parsed = await parseContractTextWithAI(fullText);
+        const parsed = await parseContractTextWithAI(fullText, file.name);
 
         if (parsed.companyName) document.getElementById('contract-client').value = parsed.companyName;
         if (parsed.clientRep) document.getElementById('contract-client-rep').value = parsed.clientRep;
@@ -5069,7 +5074,7 @@ async function syncOneDriveContracts() {
 
         let parsed;
         try {
-          parsed = await parseContractTextWithAI(fullText);
+          parsed = await parseContractTextWithAI(fullText, file.name);
         } catch (aiErr) {
           console.error("AI 파싱 실패:", aiErr);
           if (aiErr.message === "NO_API_KEY") {
