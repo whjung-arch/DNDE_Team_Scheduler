@@ -258,7 +258,9 @@ const state = {
     quoteStart: getOffsetDateString(-7),
     quoteEnd: getOffsetDateString(0),
     contractStart: getOffsetDateString(-30),
-    contractEnd: getOffsetDateString(0)
+    contractEnd: getOffsetDateString(0),
+    contractSearch: '',
+    contractType: 'all'
   },
   currentView: 'timeline',
   currentDate: new Date(),
@@ -4570,6 +4572,21 @@ function renderContractView() {
     filteredContracts = filteredContracts.filter(c => (c.date || '') <= state.filters.contractEnd);
   }
 
+  // 필터: 문서 구분 (계약서/발주서)
+  if (state.filters.contractType && state.filters.contractType !== 'all') {
+    filteredContracts = filteredContracts.filter(c => (c.docType || 'contract') === state.filters.contractType);
+  }
+
+  // 필터: 검색 (거래처/품목명)
+  if (state.filters.contractSearch) {
+    const term = state.filters.contractSearch.toLowerCase();
+    filteredContracts = filteredContracts.filter(c =>
+      (c.client || '').toLowerCase().includes(term) ||
+      (c.item || '').toLowerCase().includes(term) ||
+      (c.clientRep || '').toLowerCase().includes(term)
+    );
+  }
+
   // 통계 계산
   const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
   const oneWeekAgo = new Date();
@@ -4636,8 +4653,12 @@ function renderContractView() {
       </a>`;
     }
 
+    const badgeClass = (contract.docType === 'order') ? 'badge-order' : 'badge-contract';
+    const badgeText = (contract.docType === 'order') ? '발주서' : '계약서';
+
     tr.innerHTML = `
       <td>${displayNum}</td>
+      <td style="text-align: center;"><span class="badge ${badgeClass}">${badgeText}</span></td>
       <td>${contract.date || '-'}</td>
       <td class="table-client-name">
         <div>${contract.client || '-'}</div>
@@ -4680,6 +4701,7 @@ function openContractModal(id = null) {
   document.getElementById('contract-pdf-name').value = '';
   uploadStatus.textContent = '';
   document.getElementById('contract-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('contract-type').value = 'contract';
 
   const assigneeSelect = document.getElementById('contract-assignee');
   assigneeSelect.innerHTML = '<option value="">선택하세요</option>';
@@ -4698,6 +4720,7 @@ function openContractModal(id = null) {
       title.textContent = '계약서 수정';
       document.getElementById('contract-id').value = contract.id;
       document.getElementById('contract-date').value = contract.date || '';
+      document.getElementById('contract-type').value = contract.docType || 'contract';
 
       if (contract.assignee && !state.members.find(m => m.id === contract.assignee)) {
         assigneeSelect.innerHTML += `<option value="${contract.assignee}">${contract.assigneeName || contract.assignee} (퇴사/삭제됨)</option>`;
@@ -4737,6 +4760,7 @@ async function saveContract(e) {
 
   const contractData = {
     date: document.getElementById('contract-date').value,
+    docType: document.getElementById('contract-type').value,
     assignee: document.getElementById('contract-assignee').value,
     client: document.getElementById('contract-client').value,
     clientRep: document.getElementById('contract-client-rep').value,
@@ -4791,6 +4815,7 @@ async function parseContractTextWithAI(text) {
   const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(계약서) 텍스트에서 다음 항목을 정밀하게 추출해서 엄격한 JSON 형식으로만 응답해 줘.
 항목:
 {
+  "docType": "텍스트의 내용을 판단하여 발주서(Purchase Order 등 발주 관련 문서)라면 'order', 그 외 일반 계약서면 'contract' 반환",
   "companyName": "계약서의 거래처명 (주식회사 등은 제외하고 핵심 이름만)",
   "clientRep": "계약서의 거래처 담당자명 (직급 포함, 없으면 빈문자열)",
   "contractDate": "계약일자: YYYY-MM-DD",
@@ -5125,3 +5150,24 @@ async function syncOneDriveContracts() {
     uploadStatus.style.color = 'var(--danger)';
   }
 }
+
+// 필터 이벤트 리스너 추가
+document.addEventListener('DOMContentLoaded', () => {
+  const contractTypeFilter = document.getElementById('filter-contract-type');
+  if (contractTypeFilter) {
+    contractTypeFilter.addEventListener('change', (e) => {
+      state.filters.contractType = e.target.value;
+      state.pagination.contract.currentPage = 1;
+      renderContractView();
+    });
+  }
+
+  const contractSearchFilter = document.getElementById('filter-contract-search');
+  if (contractSearchFilter) {
+    contractSearchFilter.addEventListener('input', (e) => {
+      state.filters.contractSearch = e.target.value;
+      state.pagination.contract.currentPage = 1;
+      renderContractView();
+    });
+  }
+});
