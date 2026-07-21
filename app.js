@@ -1522,6 +1522,29 @@ function renderTimelineView() {
           memberEvents.push({ ...event, clampedStartCol: startCol, clampedEndCol: endCol });
         }
       });
+
+      // 프로젝트(reports) 데이터도 Today 뷰에 표시
+      state.reports.forEach(report => {
+        if (report.assignee !== member.id || report.finalCompleted) return;
+        if (state.filters.client !== 'all' && report.client !== state.filters.client) return;
+        if (!report.startDate || !report.endDate) return;
+        if (report.startDate > todayStr || report.endDate < todayStr) return;
+
+        memberEvents.push({
+          id: `e_r_${report.id}`,
+          title: `[${report.client || ''}] ${report.project || ''}`,
+          startDate: report.startDate,
+          endDate: report.endDate,
+          assignee: report.assignee,
+          assigneeName: report.assigneeName,
+          category: 'project',
+          priority: 'medium',
+          client: report.client,
+          description: `프로젝트 연동 일정 (${report.client || ''})`,
+          clampedStartCol: 1,
+          clampedEndCol: 10
+        });
+      });
     } else if (scale === 'year') {
       const yearStartStr = `${year}-01-01`;
       const yearEndStr = `${year}-12-31`;
@@ -1531,6 +1554,32 @@ function renderTimelineView() {
         const startM = event.startDate < yearStartStr ? 1 : parseInt(event.startDate.split('-')[1], 10);
         const endM = event.endDate > yearEndStr ? 12 : parseInt(event.endDate.split('-')[1], 10);
         memberEvents.push({ ...event, clampedStartCol: startM, clampedEndCol: endM });
+      });
+
+      // 프로젝트(reports) 데이터도 Year 뷰에 표시
+      state.reports.forEach(report => {
+        if (report.assignee !== member.id || report.finalCompleted) return;
+        if (state.filters.client !== 'all' && report.client !== state.filters.client) return;
+        if (!report.startDate || !report.endDate) return;
+        if (report.endDate < yearStartStr || report.startDate > yearEndStr) return;
+
+        const startM = report.startDate < yearStartStr ? 1 : parseInt(report.startDate.split('-')[1], 10);
+        const endM = report.endDate > yearEndStr ? 12 : parseInt(report.endDate.split('-')[1], 10);
+
+        memberEvents.push({
+          id: `e_r_${report.id}`,
+          title: `[${report.client || ''}] ${report.project || ''}`,
+          startDate: report.startDate,
+          endDate: report.endDate,
+          assignee: report.assignee,
+          assigneeName: report.assigneeName,
+          category: 'project',
+          priority: 'medium',
+          client: report.client,
+          description: `프로젝트 연동 일정 (${report.client || ''})`,
+          clampedStartCol: startM,
+          clampedEndCol: endM
+        });
       });
     } else {
       const monthStartStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
