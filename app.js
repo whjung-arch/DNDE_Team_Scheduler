@@ -4263,6 +4263,11 @@ function requireApiKey() {
   });
 }
 
+function cleanCompanyName(name) {
+  if (!name) return name;
+  return name.replace(/\(주\)|주식회사|\(유\)|유한회사|\(사\)|사단법인|\(재\)|재단법인|귀하|님/g, '').trim();
+}
+
 // --- AI Text Parsing Helper ---
 async function parseTextWithAI(text) {
   let apiKey = await requireApiKey();
@@ -4273,7 +4278,7 @@ async function parseTextWithAI(text) {
   const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(견적서) 텍스트에서 다음 항목을 정밀하게 추출해서 엄격한 JSON 형식으로만 응답해 줘.
 항목:
 {
-  "companyName": "견적서의 '수신' (거래처명. 단, 우리 회사인 '디엔디이' 또는 'DNDE'는 제외하고 실제 수신 거래처의 핵심 이름만)",
+  "companyName": "견적서의 '수신' (거래처명. 단, 우리 회사인 '디엔디이' 또는 'DNDE'는 제외하고 실제 수신 거래처의 핵심 기업명만 작성. '귀하', '주식회사' 등 제외)",
   "clientRep": "견적서의 '참조' (거래처 담당자명, 직급 포함)",
   "quoteDate": "견적일자: YYYY-MM-DD",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
@@ -4528,7 +4533,7 @@ async function syncOneDriveQuotes() {
           date: parsed.quoteDate || new Date().toISOString().split('T')[0],
           assignee: assigneeId || rawAssignee || '',
           assigneeName: assigneeId ? '' : rawAssignee,
-          client: parsed.companyName || '미확인 거래처',
+          client: cleanCompanyName(parsed.companyName) || '미확인 거래처',
           clientRep: parsed.clientRep || '',
           amount: parsed.totalAmount || 0,
           item: '',
@@ -4844,7 +4849,7 @@ async function parseContractTextWithAI(text, fileName = '') {
 항목:
 {
   "docType": "주어진 파일명(fileName)이나 문서 내용을 확인하여 발주서 관련 단어(예: 발주서, Purchase Order Sheet, PO 등)가 포함되어 있으면 'order', 그 외 계약서면 'contract' 반환",
-  "companyName": "발주하는 회사(거래처/발주처)의 이름. 단, 우리 회사인 '디엔디이' 또는 'DNDE'는 무조건 제외하고 상대방 기업의 이름만 찾아서 추출 (주식회사 등은 제외하고 핵심 이름만)",
+  "companyName": "발주하는 회사(거래처/발주처)의 이름. 단, 우리 회사인 '디엔디이' 또는 'DNDE'는 무조건 제외하고 상대방 기업의 이름만 찾아서 추출 (주식회사, 귀하 등은 제외하고 핵심 기업명만 작성)",
   "clientRep": "계약서의 거래처 담당자명 (직급 포함, 없으면 빈문자열)",
   "contractDate": "계약서 내의 계약시작 일자 (YYYY-MM-DD 형식). 시작일 기준.",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
@@ -4927,7 +4932,7 @@ async function parseContractPDF(file) {
         const parsed = await parseContractTextWithAI(fullText, file.name);
 
         if (parsed.docType) document.getElementById('contract-type').value = parsed.docType;
-        if (parsed.companyName) document.getElementById('contract-client').value = parsed.companyName;
+        if (parsed.companyName) document.getElementById('contract-client').value = cleanCompanyName(parsed.companyName);
         if (parsed.clientRep) document.getElementById('contract-client-rep').value = parsed.clientRep;
         if (parsed.contractDate) document.getElementById('contract-date').value = parsed.contractDate;
         if (parsed.totalAmount) document.getElementById('contract-amount').value = parsed.totalAmount;
@@ -5140,7 +5145,7 @@ async function syncOneDriveContracts() {
           docType: parsed.docType || 'contract',
           assignee: assigneeId || rawAssignee || '',
           assigneeName: assigneeId ? '' : rawAssignee,
-          client: parsed.companyName || '미확인 거래처',
+          client: cleanCompanyName(parsed.companyName) || '미확인 거래처',
           clientRep: parsed.clientRep || '',
           amount: parsed.totalAmount || 0,
           period: parsed.contractPeriod || '',
