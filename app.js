@@ -627,16 +627,24 @@ function setupEventListeners() {
       renderApp();
     });
   }
-  const contractPdfUpload = document.getElementById('contract-pdf-upload');
-  if (contractPdfUpload) {
-    contractPdfUpload.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        parseContractPDF(e.target.files[0]);
+  const btnUploadContractPdf = document.getElementById('btn-upload-contract-pdf');
+  const contractPdfInput = document.getElementById('contract-pdf-input');
+
+  if (btnUploadContractPdf && contractPdfInput) {
+    btnUploadContractPdf.addEventListener('click', () => contractPdfInput.click());
+    contractPdfInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        openContractModal(); // 모달 띄우고
+        parseContractPDF(e.target.files[0]); // 파싱 진행
+        e.target.value = ''; // 동일 파일 재선택 가능하게 초기화
       }
     });
   }
   const contractDropZone = document.getElementById('contract-pdf-drop-zone');
   if (contractDropZone) {
+    if (contractPdfInput) {
+      contractDropZone.addEventListener('click', () => contractPdfInput.click());
+    }
     contractDropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       contractDropZone.style.borderColor = 'var(--primary)';
@@ -648,8 +656,13 @@ function setupEventListeners() {
     contractDropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       contractDropZone.style.borderColor = 'var(--border-color)';
-      if (e.dataTransfer.files.length > 0) {
-        parseContractPDF(e.dataTransfer.files[0]);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        if (e.dataTransfer.files[0].type === 'application/pdf') {
+          openContractModal();
+          parseContractPDF(e.dataTransfer.files[0]);
+        } else {
+          showToast('PDF 파일만 업로드 가능합니다.', 'danger');
+        }
       }
     });
   }
@@ -4589,6 +4602,13 @@ function renderContractView() {
     );
   }
 
+  // 일자(계약시작일자) 기준으로 오름차순 정렬
+  filteredContracts.sort((a, b) => {
+    const dateA = a.date || '9999-12-31';
+    const dateB = b.date || '9999-12-31';
+    return dateA.localeCompare(dateB);
+  });
+
   // 통계 계산
   const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
   const oneWeekAgo = new Date();
@@ -4633,8 +4653,8 @@ function renderContractView() {
   pageData.forEach((contract, index) => {
     const tr = document.createElement('tr');
 
-    // 계산 번호 (역순)
-    const displayNum = filteredContracts.length - startIndex - index;
+    // 계약 번호 (오름차순)
+    const displayNum = startIndex + index + 1;
 
     let assigneeDisplay = contract.assigneeName || contract.assignee || '미지정';
     if (contract.assignee && !contract.assigneeName) {
@@ -4820,15 +4840,15 @@ async function parseContractTextWithAI(text, fileName = '') {
 항목:
 {
   "docType": "텍스트의 내용을 판단하여 발주서(Purchase Order 등 발주 관련 문서)라면 'order', 그 외 일반 계약서면 'contract' 반환",
-  "companyName": "계약서의 거래처명 (주식회사 등은 제외하고 핵심 이름만)",
+  "companyName": "발주하는 회사(거래처/발주처)의 이름 (주식회사 등은 제외하고 핵심 이름만)",
   "clientRep": "계약서의 거래처 담당자명 (직급 포함, 없으면 빈문자열)",
-  "contractDate": "계약일자/발주일자 (YYYY-MM-DD 형식). 찾을 수 없으면 빈 문자열.",
+  "contractDate": "계약서 내의 계약시작 일자 (YYYY-MM-DD 형식). 시작일 기준.",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
   "supplyPrice": 공급가액(숫자),
   "vat": 부가세(숫자),
   "totalAmount": 총계약금액(숫자),
   "assignee": "계약서의 우리 회사 담당자 이름",
-  "contractPeriod": "계약기간 또는 납기일 (예: 2026.01.01 ~ 2026.12.31, 또는 특정 납품일. 찾을수 없으면 빈문자열)"
+  "contractPeriod": "계약기간 또는 납기일 (예: 2026.01.01 ~ 2026.12.31). 특히 promised date, 납기일, 납품기한을 참고하여 정확하게 판단할 것. 찾을수 없으면 빈문자열"
 }
 
 파일명:
