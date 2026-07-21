@@ -1375,7 +1375,7 @@ function renderCurrentView() {
   } else if (state.currentView === 'report') {
     calNav.style.display = 'none';
     document.getElementById('timeline-view-wrapper').style.display = 'none';
-    document.getElementById('report-view-wrapper').style.display = 'flex';
+    document.getElementById('report-view-wrapper').style.display = 'block';
     document.getElementById('quote-view-wrapper').style.display = 'none';
     document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
@@ -1385,7 +1385,7 @@ function renderCurrentView() {
     calNav.style.display = 'none';
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
-    document.getElementById('quote-view-wrapper').style.display = 'flex';
+    document.getElementById('quote-view-wrapper').style.display = 'block';
     document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
@@ -1395,7 +1395,7 @@ function renderCurrentView() {
     document.getElementById('timeline-view-wrapper').style.display = 'none';
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
-    document.getElementById('contract-view-wrapper').style.display = 'flex';
+    document.getElementById('contract-view-wrapper').style.display = 'block';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderContractView();
@@ -1405,7 +1405,7 @@ function renderCurrentView() {
     document.getElementById('report-view-wrapper').style.display = 'none';
     document.getElementById('quote-view-wrapper').style.display = 'none';
     document.getElementById('contract-view-wrapper').style.display = 'none';
-    document.getElementById('invoice-view-wrapper').style.display = 'flex';
+    document.getElementById('invoice-view-wrapper').style.display = 'block';
     document.getElementById('completed-projects-view-wrapper').style.display = 'none';
     renderInvoiceView();
   } else if (state.currentView === 'completed') {
@@ -1415,7 +1415,7 @@ function renderCurrentView() {
     document.getElementById('quote-view-wrapper').style.display = 'none';
     document.getElementById('contract-view-wrapper').style.display = 'none';
     document.getElementById('invoice-view-wrapper').style.display = 'none';
-    document.getElementById('completed-projects-view-wrapper').style.display = 'flex';
+    document.getElementById('completed-projects-view-wrapper').style.display = 'block';
     renderCompletedProjectsView();
   }
 }
