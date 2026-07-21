@@ -5137,6 +5137,7 @@ async function syncOneDriveContracts() {
 
         const contractData = {
           date: parsed.contractDate || new Date().toISOString().split('T')[0],
+          docType: parsed.docType || 'contract',
           assignee: assigneeId || rawAssignee || '',
           assigneeName: assigneeId ? '' : rawAssignee,
           client: parsed.companyName || '미확인 거래처',
