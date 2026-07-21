@@ -603,6 +603,10 @@ function setupEventListeners() {
   if (btnCloseContractModal) {
     btnCloseContractModal.addEventListener('click', closeContractModal);
   }
+  const btnCancelContractModal = document.getElementById('btn-cancel-contract-modal');
+  if (btnCancelContractModal) {
+    btnCancelContractModal.addEventListener('click', closeContractModal);
+  }
   const formContract = document.getElementById('form-contract');
   if (formContract) {
     formContract.addEventListener('submit', saveContract);
@@ -4269,7 +4273,7 @@ async function parseTextWithAI(text) {
   const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(견적서) 텍스트에서 다음 항목을 정밀하게 추출해서 엄격한 JSON 형식으로만 응답해 줘.
 항목:
 {
-  "companyName": "견적서의 '수신' (거래처명, 주식회사 등은 제외하고 핵심 이름만)",
+  "companyName": "견적서의 '수신' (거래처명. 단, 우리 회사인 '디엔디이' 또는 'DNDE'는 제외하고 실제 수신 거래처의 핵심 이름만)",
   "clientRep": "견적서의 '참조' (거래처 담당자명, 직급 포함)",
   "quoteDate": "견적일자: YYYY-MM-DD",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
@@ -4839,8 +4843,8 @@ async function parseContractTextWithAI(text, fileName = '') {
 
 항목:
 {
-  "docType": "텍스트의 내용을 판단하여 발주서(Purchase Order 등 발주 관련 문서)라면 'order', 그 외 일반 계약서면 'contract' 반환",
-  "companyName": "발주하는 회사(거래처/발주처)의 이름 (주식회사 등은 제외하고 핵심 이름만)",
+  "docType": "주어진 파일명(fileName)을 우선적으로 확인하여 파일명에 발주서 관련 단어가 포함되어 있으면 'order', 그 외 계약서면 'contract' 반환",
+  "companyName": "발주하는 회사(거래처/발주처)의 이름. 단, 우리 회사인 '디엔디이' 또는 'DNDE'는 무조건 제외하고 상대방 기업의 이름만 찾아서 추출 (주식회사 등은 제외하고 핵심 이름만)",
   "clientRep": "계약서의 거래처 담당자명 (직급 포함, 없으면 빈문자열)",
   "contractDate": "계약서 내의 계약시작 일자 (YYYY-MM-DD 형식). 시작일 기준.",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
