@@ -4843,7 +4843,7 @@ async function parseContractTextWithAI(text, fileName = '') {
 
 항목:
 {
-  "docType": "주어진 파일명(fileName)을 우선적으로 확인하여 파일명에 발주서 관련 단어가 포함되어 있으면 'order', 그 외 계약서면 'contract' 반환",
+  "docType": "주어진 파일명(fileName)이나 문서 내용을 확인하여 발주서 관련 단어(예: 발주서, Purchase Order Sheet, PO 등)가 포함되어 있으면 'order', 그 외 계약서면 'contract' 반환",
   "companyName": "발주하는 회사(거래처/발주처)의 이름. 단, 우리 회사인 '디엔디이' 또는 'DNDE'는 무조건 제외하고 상대방 기업의 이름만 찾아서 추출 (주식회사 등은 제외하고 핵심 이름만)",
   "clientRep": "계약서의 거래처 담당자명 (직급 포함, 없으면 빈문자열)",
   "contractDate": "계약서 내의 계약시작 일자 (YYYY-MM-DD 형식). 시작일 기준.",
