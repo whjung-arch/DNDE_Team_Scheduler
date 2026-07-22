@@ -395,6 +395,7 @@
                                 <th>프로젝트명</th>
                                 <th>시작일</th>
                                 <th>종료일</th>
+                                <th>목표일</th>
                                 <th style="text-align: center;">금액(만원)</th>
                                 <th>진척률</th>
                                 <th>상태</th>
@@ -1315,7 +1316,7 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
+                    <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
                         <div class="form-group">
                             <label class="form-label" for="report-start-date">시작일</label>
                             <input class="form-control" type="date" id="report-start-date" required>
@@ -1323,6 +1324,10 @@
                         <div class="form-group">
                             <label class="form-label" for="report-end-date">종료일</label>
                             <input class="form-control" type="date" id="report-end-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="report-target-date">목표일</label>
+                            <input class="form-control" type="date" id="report-target-date" title="미입력 시 종료일과 동일">
                         </div>
                     </div>
 

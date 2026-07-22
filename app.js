@@ -2190,10 +2190,10 @@ function calculateMemberWorkload() {
       totalAmount += amt;
 
       let days = 30; // 기본 30일
-      if (r.startDate && r.endDate) {
+      if (r.startDate && (r.targetDate || r.endDate)) {
         const start = new Date(r.startDate);
-        const end = new Date(r.endDate);
-        const diffTime = Math.max(0, end - start);
+        const endOrTarget = new Date(r.targetDate || r.endDate);
+        const diffTime = Math.max(0, endOrTarget - start);
         days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
       }
       if (amt > 0) {
@@ -2415,6 +2415,7 @@ function renderReportView() {
       <td style="width: 25%; text-align: center;"><input class="inline-edit-input ${isNewProject(report.createdAt) ? 'new-project-name' : ''}" style="font-weight: 600; text-align: left; min-width: 120px; width: 85%; margin: 0 auto; display: block; box-sizing: border-box;" value="${escapeHTML(report.project)}" onchange="updateReportInline('${report.id}', 'project', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.startDate)}" onfocus="this.type='date'; this.value='${report.startDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'startDate', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input ${isNewProject(report.endDateModifiedAt) ? 'new-project-name' : ''} ${isEndDateApproaching(report.endDate, report.status) ? 'approaching-end-date' : ''}" style="text-align: center; width: 80px;" value="${window.formatShortDate(report.endDate)}" onfocus="this.type='date'; this.value='${report.endDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'endDate', this.value)"></td>
+      <td style="width: 1%; white-space: nowrap; text-align: center;"><input type="text" class="inline-edit-input" style="text-align: center; width: 80px;" title="미입력시 종료일과 동일" value="${window.formatShortDate(report.targetDate || report.endDate)}" onfocus="this.type='date'; this.value='${report.targetDate || report.endDate}';" onblur="this.type='text'; this.value=window.formatShortDate(this.value);" onchange="if(this.type==='date') updateReportInline('${report.id}', 'targetDate', this.value)"></td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
         <input type="text" class="inline-edit-input" style="text-align: right; width: 80px; margin: 0 auto; display: block;" value="${Number(report.amount || 0).toLocaleString()}" onfocus="this.value='${report.amount || 0}'" onblur="this.value=Number(this.value).toLocaleString()" onchange="updateReportInline('${report.id}', 'amount', this.value.replace(/,/g, ''))">
       </td>
@@ -2627,6 +2628,7 @@ function openReportModal(reportId = null) {
   const amountInput = document.getElementById('report-amount');
   const startDateInput = document.getElementById('report-start-date');
   const endDateInput = document.getElementById('report-end-date');
+  const targetDateInput = document.getElementById('report-target-date');
   const progressInput = document.getElementById('report-progress');
   const statusSelect = document.getElementById('report-status');
   const remarksInput = document.getElementById('report-remarks');
@@ -2662,6 +2664,7 @@ function openReportModal(reportId = null) {
       amountInput.value = Number(report.amount || 0).toLocaleString();
       startDateInput.value = report.startDate;
       endDateInput.value = report.endDate;
+      if (targetDateInput) targetDateInput.value = report.targetDate || '';
       progressInput.value = report.progress;
       statusSelect.value = report.status;
       remarksInput.value = report.remarks || '';
@@ -2674,6 +2677,7 @@ function openReportModal(reportId = null) {
     const todayStr = getNormalizedDateString(new Date());
     startDateInput.value = todayStr;
     endDateInput.value = todayStr;
+    if (targetDateInput) targetDateInput.value = '';
     progressInput.value = '0';
     statusSelect.value = 'ongoing';
   }
@@ -2699,6 +2703,8 @@ function handleReportSubmit(e) {
   const amount = Number(document.getElementById('report-amount').value.replace(/,/g, ''));
   const startDate = document.getElementById('report-start-date').value;
   const endDate = document.getElementById('report-end-date').value;
+  const targetDateInput = document.getElementById('report-target-date');
+  const targetDate = targetDateInput && targetDateInput.value ? targetDateInput.value : endDate;
   const progress = Number(document.getElementById('report-progress').value);
   const status = document.getElementById('report-status').value;
   const remarks = document.getElementById('report-remarks').value.trim();
@@ -2717,7 +2723,7 @@ function handleReportSubmit(e) {
   const assigneeName = memberObj ? memberObj.name : '';
 
   const targetReport = {
-    id, assignee, assigneeName, project, client, amount, startDate, endDate, progress, status, remarks,
+    id, assignee, assigneeName, project, client, amount, startDate, endDate, targetDate, progress, status, remarks,
     invoiceStatus: prevReport?.invoiceStatus || 'unissued',
     invoiceDate: prevReport?.invoiceDate || '',
     invoiceRemarks: prevReport?.invoiceRemarks || '',
