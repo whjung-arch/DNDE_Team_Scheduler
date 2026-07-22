@@ -2081,12 +2081,12 @@ select.invoice-status-select.issued {
   background: linear-gradient(135deg, #f59e0b, #ef4444);
   color: white;
   font-size: 0.65rem;
-  font-weight: 700;
-  padding: 2px 7px;
+  font-weight: 800;
+  padding: 3px 8px;
   border-radius: 20px;
   letter-spacing: 0.05em;
-  animation: notice-pulse 1.8s ease-in-out infinite;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.5);
+  animation: notice-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
 }
 
 @keyframes notice-pulse {
@@ -2095,11 +2095,13 @@ select.invoice-status-select.issued {
   100% {
     opacity: 1;
     transform: scale(1);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
   }
 
   50% {
-    opacity: 0.75;
-    transform: scale(1.05);
+    opacity: 0.9;
+    transform: scale(1.15);
+    box-shadow: 0 0 18px rgba(239, 68, 68, 1);
   }
 }
 

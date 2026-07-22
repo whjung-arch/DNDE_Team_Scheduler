@@ -1494,7 +1494,17 @@ function renderStatsBar() {
   const noticeCountEl = document.getElementById('stat-notice-count');
   if (noticeCountEl) noticeCountEl.textContent = noticeCount;
   const noticeBadge = document.getElementById('notice-new-badge');
-  if (noticeBadge) noticeBadge.style.display = noticeCount > 0 ? 'inline-block' : 'none';
+  if (noticeBadge) {
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const hasNewNotice = state.notices.some(n => {
+      let d = n.createdAt;
+      if (d && typeof d.toDate === 'function') d = d.toDate();
+      else if (d && d.seconds) d = new Date(d.seconds * 1000);
+      else d = new Date(d);
+      return !isNaN(d.getTime()) && d.getTime() >= oneWeekAgo;
+    });
+    noticeBadge.style.display = hasNewNotice ? 'inline-block' : 'none';
+  }
 
   const endingProjects = filteredEvents.filter(event => {
     if (event.category !== 'project' || !event.endDate) return false;
