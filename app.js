@@ -50,9 +50,18 @@ function getCurrentUserMemberId() {
 
 function isWhjungUser() {
   const loggedInUser = sessionStorage.getItem('logged_in_user');
-  if (!loggedInUser) return false;
-  if (loggedInUser === 'admin' || loggedInUser === 'whjung@dnde.co.kr') return true;
-  return loggedInUser.startsWith('whjung');
+  // 세션이 아직 없거나 로컬 테스트 환경인 경우에도 대시보드가 사라지지 않도록 기본 표출 허용
+  if (!loggedInUser) return true;
+
+  const lowerUser = loggedInUser.toLowerCase();
+  // 다른 팀원 계정으로 명시적 로그인한 경우에만 부하도 현황 숨김
+  const otherTeamUsers = ['hdlee', 'ujkim', 'wtkang', 'shmoon', 'yslim', 'mgkim'];
+  const userPrefix = lowerUser.split('@')[0];
+  if (otherTeamUsers.includes(userPrefix)) {
+    return false;
+  }
+
+  return true;
 }
 
 // --- 기본 컬러 팔레트 ---
