@@ -2196,15 +2196,14 @@ function calculateMemberWorkload() {
         const diffTime = Math.max(0, end - start);
         days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
       }
-      totalDays += days;
-
       if (amt > 0) {
+        totalDays += days;
         // 비용이 있는 프로젝트: 1개월(30일) 2,000만원 = 100% 부하 (4개월 120일 8,000만원 = 100% 부하)
         // 수식: (amt / days) * 1.5 (%)
         const projectLoad = (amt / Math.max(1, days)) * 1.5;
         totalCalculatedLoad += projectLoad;
       } else {
-        // 비용이 없는 업무의 경우 건당 약 10% 부하 책정
+        // 비용이 없는 업무의 경우 건당 약 10% 부하 책정 (예상기간 합산에서 제외)
         totalCalculatedLoad += 10;
       }
     });
