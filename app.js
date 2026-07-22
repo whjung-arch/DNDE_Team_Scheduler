@@ -2168,37 +2168,55 @@ function calculateMemberWorkload() {
     const extraEventCount = activeEvents.length;
     const totalActiveCount = projectCount + extraEventCount;
 
-    // 예상 소요 공수(일수 / M-H) 계산
     let totalDays = 0;
+    let totalAmount = 0; // 총 프로젝트 금액 (만원)
+    let rawWorkloadScore = 0; // 종합 부하 점수
+
     activeReports.forEach(r => {
+      const amt = Number(r.amount || 0); // 만원 단위
+      totalAmount += amt;
+
+      let days = 5; // 기본 5일
       if (r.startDate && r.endDate) {
         const start = new Date(r.startDate);
         const end = new Date(r.endDate);
         const diffTime = Math.max(0, end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        totalDays += diffDays;
-      } else {
-        totalDays += 5;
+        days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
       }
+      totalDays += days;
+
+      // 일일 사업 규모 강도 (만원/일): e.g. 10일 동안 1000만원 = 100만원/일
+      const dailyIntensity = amt / Math.max(1, days);
+
+      // 개별 프로젝트 점수 = 기본 점수(15점) + (일일 금액 강도 * 0.8) + (기간 일수 * 0.15)
+      const projectScore = 15 + (dailyIntensity * 0.8) + (days * 0.15);
+      rawWorkloadScore += projectScore;
     });
+
+    // 추가 타임라인 일정당 기본 10점 부하 추가
+    rawWorkloadScore += (extraEventCount * 10);
 
     // 부하 상태 결정 기준 (Overload / Normal / Underload)
     let status = 'normal';
     let statusText = 'Normal (적정)';
-    let loadPercentage = 60;
+    let loadPercentage = 50;
 
-    if (totalActiveCount >= 4) {
-      status = 'overload';
-      statusText = 'Overload (초과)';
-      loadPercentage = Math.min(100, 85 + (totalActiveCount - 4) * 5);
-    } else if (totalActiveCount <= 1) {
+    if (totalActiveCount === 0) {
       status = 'underload';
       statusText = 'Underload (여유)';
-      loadPercentage = totalActiveCount === 0 ? 15 : 35;
+      loadPercentage = 10;
+    } else if (rawWorkloadScore >= 85) {
+      status = 'overload';
+      statusText = 'Overload (초과)';
+      loadPercentage = Math.min(100, Math.round(85 + ((rawWorkloadScore - 85) / 30) * 15));
+    } else if (rawWorkloadScore < 40) {
+      status = 'underload';
+      statusText = 'Underload (여유)';
+      loadPercentage = Math.round(15 + (rawWorkloadScore / 40) * 23);
     } else {
       status = 'normal';
       statusText = 'Normal (적정)';
-      loadPercentage = totalActiveCount === 2 ? 55 : 75;
+      loadPercentage = Math.round(40 + ((rawWorkloadScore - 40) / 45) * 44);
     }
 
     return {
@@ -2207,6 +2225,8 @@ function calculateMemberWorkload() {
       activeEventCount: extraEventCount,
       totalActiveCount,
       totalDays,
+      totalAmount,
+      rawWorkloadScore,
       status,
       statusText,
       loadPercentage
@@ -2251,19 +2271,23 @@ function renderWorkloadDashboard() {
         </div>
         <span class="workload-status-badge ${item.status}">${item.statusText}</span>
       </div>
-      <div class="workload-metrics">
+      <div class="workload-metrics" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem;">
         <div class="workload-metric-item">
-          <span class="workload-metric-label">진행 중 프로젝트</span>
+          <span class="workload-metric-label">진행 프로젝트</span>
           <span class="workload-metric-value">${item.totalActiveCount}건</span>
         </div>
+        <div class="workload-metric-item" style="text-align: center;">
+          <span class="workload-metric-label">총 사업 규모</span>
+          <span class="workload-metric-value" style="color: var(--primary);">${item.totalAmount > 0 ? Number(item.totalAmount).toLocaleString() + '만원' : '0만원'}</span>
+        </div>
         <div class="workload-metric-item" style="text-align: right;">
-          <span class="workload-metric-label">예상 투입 기간</span>
+          <span class="workload-metric-label">예상 기간</span>
           <span class="workload-metric-value">약 ${item.totalDays}일</span>
         </div>
       </div>
       <div>
         <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">
-          <span>업무 부하율</span>
+          <span>종합 부하율 (기간/금액 반영)</span>
           <span style="font-weight: 700; color: var(--text-primary);">${item.loadPercentage}%</span>
         </div>
         <div class="workload-bar-outer">
