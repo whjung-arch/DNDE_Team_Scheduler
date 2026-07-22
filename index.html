@@ -341,12 +341,12 @@
                             <span class="admin-only-badge" style="font-size: 0.7rem; background: rgba(99, 102, 241, 0.15); color: var(--primary); padding: 2px 8px; border-radius: 12px; font-weight: 600;">whjung 전용</span>
                         </div>
                         <div class="workload-summary-legend" style="display: flex; gap: 0.75rem; font-size: 0.75rem; color: var(--text-secondary); flex-wrap: wrap;">
-                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Overload (초과: 4건 이상)</span>
-                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Normal (적정: 2~3건)</span>
-                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span> Underload (여유: 0~1건)</span>
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Overload (초과: 100%+ / 2천만/월 기준)</span>
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Normal (적정: 40~99%)</span>
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span> Underload (여유: 40% 미만)</span>
                         </div>
                     </div>
-                    <div class="workload-cards-grid" id="workload-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
+                    <div class="workload-cards-grid" id="workload-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 1rem;">
                         <!-- 팀원별 부하도 카드가 동적으로 생성됩니다 -->
                     </div>
                 </div>

@@ -2159,10 +2159,9 @@ function calculateMemberWorkload() {
       return true;
     });
 
-    // 해당 팀원의 독립 타임라인 일정(프로젝트 연동 이벤트 e_r_ 제외)
+    // 해당 팀원의 진행 중 타임라인 일정(중복되는 모든 일정 포함)
     const activeEvents = state.events.filter(e => {
       if (e.assignee !== member.id) return false;
-      if (e.id && e.id.startsWith('e_r_')) return false;
       if (e.endDate && e.endDate < todayStr) return false;
       return true;
     });
@@ -2199,7 +2198,7 @@ function calculateMemberWorkload() {
       }
     });
 
-    // 타임라인 전용 독립 일정 1건당 약 10% 부하 추가
+    // 중복 및 추가 타임라인 일정 1건당 약 10% 부하 추가 합산
     totalCalculatedLoad += (extraEventCount * 10);
 
     const loadPercentage = Math.round(totalCalculatedLoad);
@@ -2272,16 +2271,16 @@ function renderWorkloadDashboard() {
       </div>
       <div class="workload-metrics" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem;">
         <div class="workload-metric-item">
-          <span class="workload-metric-label">진행 프로젝트</span>
-          <span class="workload-metric-value">${item.totalActiveCount}건</span>
+          <span class="workload-metric-label" style="white-space: nowrap;">진행 업무</span>
+          <span class="workload-metric-value" style="white-space: nowrap;">${item.totalActiveCount}건</span>
         </div>
         <div class="workload-metric-item" style="text-align: center;">
-          <span class="workload-metric-label" style="white-space: nowrap;">총사업규모(만원)</span>
-          <span class="workload-metric-value" style="color: var(--primary);">${Number(item.totalAmount || 0).toLocaleString()}</span>
+          <span class="workload-metric-label" style="white-space: nowrap;">총사업규모</span>
+          <span class="workload-metric-value" style="color: var(--primary); white-space: nowrap;">${Number(item.totalAmount || 0).toLocaleString()}만원</span>
         </div>
         <div class="workload-metric-item" style="text-align: right;">
-          <span class="workload-metric-label">예상 기간</span>
-          <span class="workload-metric-value">약 ${item.totalDays}일</span>
+          <span class="workload-metric-label" style="white-space: nowrap;">예상 기간</span>
+          <span class="workload-metric-value" style="white-space: nowrap;">약 ${item.totalDays}일</span>
         </div>
       </div>
       <div>

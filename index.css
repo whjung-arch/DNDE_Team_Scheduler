@@ -2396,26 +2396,33 @@ select.invoice-status-select.issued {
 }
 
 .workload-metrics {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+  align-items: center;
 }
 
 .workload-metric-item {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .workload-metric-label {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .workload-metric-value {
   font-weight: 700;
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .workload-bar-outer {
