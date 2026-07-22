@@ -2160,23 +2160,17 @@ function calculateMemberWorkload() {
       return true;
     });
 
-    // 해당 팀원의 진행 중 타임라인 일정 (프로젝트 연동 일정은 ongoing & progress < 100 조건 검사)
-    const activeEvents = state.events.filter(e => {
+    // 해당 팀원의 순수 독립 타임라인 일정 (주간보고 연동 e_r_ 이벤트는 이중 합산 방지를 위해 제외)
+    const activeStandaloneEvents = state.events.filter(e => {
       if (e.assignee !== member.id) return false;
       if (e.endDate && e.endDate < todayStr) return false;
-      if (e.id && e.id.startsWith('e_r_')) {
-        const reportId = e.id.replace('e_r_', '');
-        const report = state.reports.find(r => r.id === reportId);
-        if (!report || report.status !== 'ongoing' || Number(report.progress || 0) >= 100 || report.finalCompleted) {
-          return false;
-        }
-      }
+      if (e.id && e.id.startsWith('e_r_')) return false; // 주간보고 연동 일정 이중 합산 방지
       return true;
     });
 
     const projectCount = activeReports.length;
-    const extraEventCount = activeEvents.length;
-    const totalActiveCount = projectCount + extraEventCount;
+    const standaloneEventCount = activeStandaloneEvents.length;
+    const totalActiveCount = projectCount + standaloneEventCount;
 
     let totalDays = 0;
     let totalAmount = 0; // 총 프로젝트 금액 (만원)
@@ -2186,7 +2180,7 @@ function calculateMemberWorkload() {
       const amt = Number(r.amount || 0); // 만원 단위
       totalAmount += amt;
 
-      let days = 5; // 기본 5일
+      let days = 30; // 기본 30일
       if (r.startDate && r.endDate) {
         const start = new Date(r.startDate);
         const end = new Date(r.endDate);
@@ -2196,8 +2190,8 @@ function calculateMemberWorkload() {
       totalDays += days;
 
       if (amt > 0) {
-        // 비용이 있는 프로젝트: 1개월(30일) 2,000만원 = 100% 부하
-        // (amt / days) * 30 ➔ 월 환산 금액, 월 환산 금액 / 2000 * 100 ➔ (amt / days) * 1.5 (%)
+        // 비용이 있는 프로젝트: 1개월(30일) 2,000만원 = 100% 부하 (4개월 120일 8,000만원 = 100% 부하)
+        // 수식: (amt / days) * 1.5 (%)
         const projectLoad = (amt / Math.max(1, days)) * 1.5;
         totalCalculatedLoad += projectLoad;
       } else {
@@ -2206,8 +2200,8 @@ function calculateMemberWorkload() {
       }
     });
 
-    // 중복 및 추가 타임라인 일정 1건당 약 10% 부하 추가 합산
-    totalCalculatedLoad += (extraEventCount * 10);
+    // 독립 타임라인 일정 1건당 약 10% 부하 추가 합산
+    totalCalculatedLoad += (standaloneEventCount * 10);
 
     const loadPercentage = Math.round(totalCalculatedLoad);
 
