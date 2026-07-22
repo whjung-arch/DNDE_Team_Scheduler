@@ -2199,8 +2199,8 @@ function calculateMemberWorkload() {
       if (amt > 0) {
         totalDays += days;
       } else {
-        // 비용이 없는 업무의 경우 건당 약 10% 부하 책정 (예상기간 합산에서 제외)
-        totalCalculatedLoad += 10;
+        // 비용이 없는 업무의 경우 건당 약 15% 부하 책정 (예상기간 합산에서 제외)
+        totalCalculatedLoad += 15;
       }
     });
 
@@ -2268,6 +2268,9 @@ function renderWorkloadDashboard() {
     workloads.forEach(item => {
       const card = document.createElement('div');
       card.className = 'workload-card';
+      card.style.cursor = 'pointer';
+      card.title = '클릭하여 해당 팀원의 주간업무 목록 보기';
+      card.onclick = () => window.filterByMember(item.member.id);
 
       const avatarInitial = item.member && item.member.name ? item.member.name.slice(-2) : '팀';
 
@@ -2313,6 +2316,23 @@ function renderWorkloadDashboard() {
     console.error("renderWorkloadDashboard 에러:", err);
   }
 }
+
+window.filterByMember = function (memberId) {
+  const selectAssignee = document.getElementById('filter-report-assignee');
+  if (selectAssignee) {
+    selectAssignee.value = memberId;
+    state.filters.reportAssignee = memberId;
+    renderReportView();
+
+    // 약간의 지연 후 스크롤 이동 (렌더링 안정화)
+    setTimeout(() => {
+      const target = document.getElementById('filter-report-assignee');
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  }
+};
 
 // --- 주간 업무보고서 (Weekly Report) 뷰 렌더링 ---
 function renderReportView() {
