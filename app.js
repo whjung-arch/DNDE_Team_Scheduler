@@ -2198,15 +2198,17 @@ function calculateMemberWorkload() {
       }
       if (amt > 0) {
         totalDays += days;
-        // 비용이 있는 프로젝트: 1개월(30일) 2,000만원 = 100% 부하 (4개월 120일 8,000만원 = 100% 부하)
-        // 수식: (amt / days) * 1.5 (%)
-        const projectLoad = (amt / Math.max(1, days)) * 1.5;
-        totalCalculatedLoad += projectLoad;
       } else {
         // 비용이 없는 업무의 경우 건당 약 10% 부하 책정 (예상기간 합산에서 제외)
         totalCalculatedLoad += 10;
       }
     });
+
+    // 합산된 전체 금액(totalAmount)과 전체 일정(totalDays)에 대해 한 번에 부하율 산정
+    if (totalAmount > 0) {
+      const aggregateLoad = (totalAmount / Math.max(1, totalDays)) * 1.5;
+      totalCalculatedLoad += aggregateLoad;
+    }
 
     // 독립 타임라인 일정 1건당 약 10% 부하 추가 합산
     totalCalculatedLoad += (standaloneEventCount * 10);
