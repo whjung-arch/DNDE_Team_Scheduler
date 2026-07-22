@@ -330,6 +330,27 @@
 
             <!-- 주간 업무보고 뷰 -->
             <div class="report-view-container" id="report-view-wrapper" style="display: none;">
+                <!-- 팀원 리소스 및 부하도(Man-Hour) 관리 섹션 (whjung 계정 전용) -->
+                <div class="workload-dashboard-section" id="workload-dashboard-section" style="display: none; margin-bottom: 1.5rem;">
+                    <div class="workload-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                            </svg>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-primary);">팀원 리소스 및 부하도 (Man-Hour) 현황</h3>
+                            <span class="admin-only-badge" style="font-size: 0.7rem; background: rgba(99, 102, 241, 0.15); color: var(--primary); padding: 2px 8px; border-radius: 12px; font-weight: 600;">whjung 전용</span>
+                        </div>
+                        <div class="workload-summary-legend" style="display: flex; gap: 0.75rem; font-size: 0.75rem; color: var(--text-secondary); flex-wrap: wrap;">
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Overload (초과: 4건 이상)</span>
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Normal (적정: 2~3건)</span>
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span> Underload (여유: 0~1건)</span>
+                        </div>
+                    </div>
+                    <div class="workload-cards-grid" id="workload-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
+                        <!-- 팀원별 부하도 카드가 동적으로 생성됩니다 -->
+                    </div>
+                </div>
+
                 <div class="report-actions-bar">
                     <h2 class="report-section-title">주간업무 보고 목록</h2>
                     <div style="display: flex; align-items: center; gap: 0.75rem;">

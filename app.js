@@ -48,6 +48,13 @@ function getCurrentUserMemberId() {
   return matchedMember ? matchedMember.id : null;
 }
 
+function isWhjungUser() {
+  const loggedInUser = sessionStorage.getItem('logged_in_user');
+  if (!loggedInUser) return false;
+  if (loggedInUser === 'admin' || loggedInUser === 'whjung@dnde.co.kr') return true;
+  return loggedInUser.startsWith('whjung');
+}
+
 // --- 기본 컬러 팔레트 ---
 const COLOR_PALETTE = [
   '#6366f1', // Indigo
@@ -2136,8 +2143,142 @@ function handleDeleteMember() {
   }
 }
 
+// --- 팀원 리소스 및 부하도 (Man-Hour) 계산 및 대시보드 렌더링 ---
+function calculateMemberWorkload() {
+  const todayStr = getNormalizedDateString(new Date());
+
+  return state.members.map(member => {
+    // 해당 팀원의 진행 중 프로젝트 수집 (완료/보류/파기 제외)
+    const activeReports = state.reports.filter(r => {
+      if (r.assignee !== member.id) return false;
+      if (r.finalCompleted) return false;
+      if (r.status === 'completed' || r.status === 'suspended') return false;
+      return true;
+    });
+
+    // 해당 팀원의 독립 타임라인 일정(프로젝트 연동 이벤트 e_r_ 제외)
+    const activeEvents = state.events.filter(e => {
+      if (e.assignee !== member.id) return false;
+      if (e.id && e.id.startsWith('e_r_')) return false;
+      if (e.endDate && e.endDate < todayStr) return false;
+      return true;
+    });
+
+    const projectCount = activeReports.length;
+    const extraEventCount = activeEvents.length;
+    const totalActiveCount = projectCount + extraEventCount;
+
+    // 예상 소요 공수(일수 / M-H) 계산
+    let totalDays = 0;
+    activeReports.forEach(r => {
+      if (r.startDate && r.endDate) {
+        const start = new Date(r.startDate);
+        const end = new Date(r.endDate);
+        const diffTime = Math.max(0, end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        totalDays += diffDays;
+      } else {
+        totalDays += 5;
+      }
+    });
+
+    // 부하 상태 결정 기준 (Overload / Normal / Underload)
+    let status = 'normal';
+    let statusText = 'Normal (적정)';
+    let loadPercentage = 60;
+
+    if (totalActiveCount >= 4) {
+      status = 'overload';
+      statusText = 'Overload (초과)';
+      loadPercentage = Math.min(100, 85 + (totalActiveCount - 4) * 5);
+    } else if (totalActiveCount <= 1) {
+      status = 'underload';
+      statusText = 'Underload (여유)';
+      loadPercentage = totalActiveCount === 0 ? 15 : 35;
+    } else {
+      status = 'normal';
+      statusText = 'Normal (적정)';
+      loadPercentage = totalActiveCount === 2 ? 55 : 75;
+    }
+
+    return {
+      member,
+      activeProjectCount: projectCount,
+      activeEventCount: extraEventCount,
+      totalActiveCount,
+      totalDays,
+      status,
+      statusText,
+      loadPercentage
+    };
+  });
+}
+
+function renderWorkloadDashboard() {
+  const section = document.getElementById('workload-dashboard-section');
+  const container = document.getElementById('workload-cards-container');
+  if (!section || !container) return;
+
+  if (!isWhjungUser()) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  container.innerHTML = '';
+
+  const workloads = calculateMemberWorkload();
+
+  if (workloads.length === 0) {
+    container.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 1.5rem;">등록된 팀원이 없습니다.</div>`;
+    return;
+  }
+
+  workloads.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'workload-card';
+
+    const avatarInitial = item.member.name ? item.member.name.slice(-2) : '팀';
+
+    card.innerHTML = `
+      <div class="workload-card-header">
+        <div class="workload-member-info">
+          <div class="workload-avatar" style="background-color: ${item.member.color || '#6366f1'};">${escapeHTML(avatarInitial)}</div>
+          <div>
+            <div class="workload-member-name">${escapeHTML(item.member.name)}</div>
+            <div class="workload-member-role">${escapeHTML(item.member.role || '팀원')}</div>
+          </div>
+        </div>
+        <span class="workload-status-badge ${item.status}">${item.statusText}</span>
+      </div>
+      <div class="workload-metrics">
+        <div class="workload-metric-item">
+          <span class="workload-metric-label">진행 중 프로젝트</span>
+          <span class="workload-metric-value">${item.totalActiveCount}건</span>
+        </div>
+        <div class="workload-metric-item" style="text-align: right;">
+          <span class="workload-metric-label">예상 투입 기간</span>
+          <span class="workload-metric-value">약 ${item.totalDays}일</span>
+        </div>
+      </div>
+      <div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">
+          <span>업무 부하율</span>
+          <span style="font-weight: 700; color: var(--text-primary);">${item.loadPercentage}%</span>
+        </div>
+        <div class="workload-bar-outer">
+          <div class="workload-bar-inner ${item.status}" style="width: ${item.loadPercentage}%;"></div>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+}
+
 // --- 주간 업무보고서 (Weekly Report) 뷰 렌더링 ---
 function renderReportView() {
+  renderWorkloadDashboard();
   const tableBody = document.getElementById('report-table-body');
   if (!tableBody) return;
   tableBody.innerHTML = '';

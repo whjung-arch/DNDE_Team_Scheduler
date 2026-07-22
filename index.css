@@ -2303,3 +2303,143 @@ select.invoice-status-select.issued {
   background: rgba(245, 158, 11, 0.2);
   color: #fbbf24;
 }
+
+/* ==========================================
+   팀원 리소스 및 부하도 (Man-Hour) 대시보드 스타일
+   ========================================== */
+.workload-dashboard-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-md);
+}
+
+.workload-card {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.workload-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.workload-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.workload-member-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workload-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.workload-member-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.workload-member-role {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.workload-status-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.workload-status-badge.overload {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.workload-status-badge.normal {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.workload-status-badge.underload {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.workload-metrics {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.workload-metric-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.workload-metric-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.workload-metric-value {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.workload-bar-outer {
+  width: 100%;
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.workload-bar-inner {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.workload-bar-inner.overload {
+  background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);
+}
+
+.workload-bar-inner.normal {
+  background: linear-gradient(90deg, #34d399 0%, #10b981 100%);
+}
+
+.workload-bar-inner.underload {
+  background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%);
+}
