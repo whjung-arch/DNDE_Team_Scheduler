@@ -2151,18 +2151,26 @@ function calculateMemberWorkload() {
   const MONTHLY_STANDARD_MH_COST = 2000;
 
   return state.members.map(member => {
-    // 해당 팀원의 진행 중 프로젝트 수집 (완료/보류/파기 제외)
+    // 해당 팀원의 진행 중 프로젝트 수집 (상태가 ongoing이고, 진척률이 100 미만인 건만 부하율 반영)
     const activeReports = state.reports.filter(r => {
       if (r.assignee !== member.id) return false;
       if (r.finalCompleted) return false;
-      if (r.status === 'completed' || r.status === 'suspended') return false;
+      if (r.status !== 'ongoing') return false; // 진행중(ongoing) 상태 프로젝트만 반영
+      if (Number(r.progress || 0) >= 100) return false; // 진척률 100인 프로젝트 제외
       return true;
     });
 
-    // 해당 팀원의 진행 중 타임라인 일정(중복되는 모든 일정 포함)
+    // 해당 팀원의 진행 중 타임라인 일정 (프로젝트 연동 일정은 ongoing & progress < 100 조건 검사)
     const activeEvents = state.events.filter(e => {
       if (e.assignee !== member.id) return false;
       if (e.endDate && e.endDate < todayStr) return false;
+      if (e.id && e.id.startsWith('e_r_')) {
+        const reportId = e.id.replace('e_r_', '');
+        const report = state.reports.find(r => r.id === reportId);
+        if (!report || report.status !== 'ongoing' || Number(report.progress || 0) >= 100 || report.finalCompleted) {
+          return false;
+        }
+      }
       return true;
     });
 
