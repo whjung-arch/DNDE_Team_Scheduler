@@ -2147,6 +2147,9 @@ function handleDeleteMember() {
 function calculateMemberWorkload() {
   const todayStr = getNormalizedDateString(new Date());
 
+  // 1인 1개월(30일) 기준 M/H 표준 공수 비용 = 2,000 만원
+  const MONTHLY_STANDARD_MH_COST = 2000;
+
   return state.members.map(member => {
     // 해당 팀원의 진행 중 프로젝트 수집 (완료/보류/파기 제외)
     const activeReports = state.reports.filter(r => {
@@ -2170,7 +2173,7 @@ function calculateMemberWorkload() {
 
     let totalDays = 0;
     let totalAmount = 0; // 총 프로젝트 금액 (만원)
-    let rawWorkloadScore = 0; // 종합 부하 점수
+    let totalCalculatedLoad = 0; // 총 부하율 %
 
     activeReports.forEach(r => {
       const amt = Number(r.amount || 0); // 만원 단위
@@ -2185,38 +2188,35 @@ function calculateMemberWorkload() {
       }
       totalDays += days;
 
-      // 일일 사업 규모 강도 (만원/일): e.g. 10일 동안 1000만원 = 100만원/일
-      const dailyIntensity = amt / Math.max(1, days);
-
-      // 개별 프로젝트 점수 = 기본 점수(15점) + (일일 금액 강도 * 0.8) + (기간 일수 * 0.15)
-      const projectScore = 15 + (dailyIntensity * 0.8) + (days * 0.15);
-      rawWorkloadScore += projectScore;
+      if (amt > 0) {
+        // 비용이 있는 프로젝트: 1개월(30일) 2,000만원 = 100% 부하
+        // (amt / days) * 30 ➔ 월 환산 금액, 월 환산 금액 / 2000 * 100 ➔ (amt / days) * 1.5 (%)
+        const projectLoad = (amt / Math.max(1, days)) * 1.5;
+        totalCalculatedLoad += projectLoad;
+      } else {
+        // 비용이 없는 업무의 경우 건당 약 10% 부하 책정
+        totalCalculatedLoad += 10;
+      }
     });
 
-    // 추가 타임라인 일정당 기본 10점 부하 추가
-    rawWorkloadScore += (extraEventCount * 10);
+    // 타임라인 전용 독립 일정 1건당 약 10% 부하 추가
+    totalCalculatedLoad += (extraEventCount * 10);
 
-    // 부하 상태 결정 기준 (Overload / Normal / Underload)
+    const loadPercentage = Math.round(totalCalculatedLoad);
+
+    // 부하 상태 판정 (100% 이상: 초과 / 40%~99%: 적정 / 40% 미만: 여유)
     let status = 'normal';
     let statusText = 'Normal (적정)';
-    let loadPercentage = 50;
 
-    if (totalActiveCount === 0) {
-      status = 'underload';
-      statusText = 'Underload (여유)';
-      loadPercentage = 10;
-    } else if (rawWorkloadScore >= 85) {
+    if (loadPercentage >= 100) {
       status = 'overload';
       statusText = 'Overload (초과)';
-      loadPercentage = Math.min(100, Math.round(85 + ((rawWorkloadScore - 85) / 30) * 15));
-    } else if (rawWorkloadScore < 40) {
+    } else if (loadPercentage < 40) {
       status = 'underload';
       statusText = 'Underload (여유)';
-      loadPercentage = Math.round(15 + (rawWorkloadScore / 40) * 23);
     } else {
       status = 'normal';
       statusText = 'Normal (적정)';
-      loadPercentage = Math.round(40 + ((rawWorkloadScore - 40) / 45) * 44);
     }
 
     return {
@@ -2226,7 +2226,6 @@ function calculateMemberWorkload() {
       totalActiveCount,
       totalDays,
       totalAmount,
-      rawWorkloadScore,
       status,
       statusText,
       loadPercentage
@@ -2277,8 +2276,8 @@ function renderWorkloadDashboard() {
           <span class="workload-metric-value">${item.totalActiveCount}건</span>
         </div>
         <div class="workload-metric-item" style="text-align: center;">
-          <span class="workload-metric-label">총 사업 규모</span>
-          <span class="workload-metric-value" style="color: var(--primary);">${item.totalAmount > 0 ? Number(item.totalAmount).toLocaleString() + '만원' : '0만원'}</span>
+          <span class="workload-metric-label" style="white-space: nowrap;">총사업규모(만원)</span>
+          <span class="workload-metric-value" style="color: var(--primary);">${Number(item.totalAmount || 0).toLocaleString()}</span>
         </div>
         <div class="workload-metric-item" style="text-align: right;">
           <span class="workload-metric-label">예상 기간</span>
@@ -2287,11 +2286,11 @@ function renderWorkloadDashboard() {
       </div>
       <div>
         <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">
-          <span>종합 부하율 (기간/금액 반영)</span>
+          <span>종합 부하율 (M/H 2천만/월)</span>
           <span style="font-weight: 700; color: var(--text-primary);">${item.loadPercentage}%</span>
         </div>
         <div class="workload-bar-outer">
-          <div class="workload-bar-inner ${item.status}" style="width: ${item.loadPercentage}%;"></div>
+          <div class="workload-bar-inner ${item.status}" style="width: ${Math.min(100, item.loadPercentage)}%;"></div>
         </div>
       </div>
     `;
