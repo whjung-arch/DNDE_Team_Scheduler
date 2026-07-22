@@ -2232,7 +2232,7 @@ function calculateMemberWorkload() {
     return {
       member,
       activeProjectCount: projectCount,
-      activeEventCount: extraEventCount,
+      activeEventCount: standaloneEventCount,
       totalActiveCount,
       totalDays,
       totalAmount,
