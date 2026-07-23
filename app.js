@@ -884,6 +884,18 @@ function setupEventListeners() {
     filterQuoteEnd.addEventListener('change', onDateChange);
   }
 
+  const btnQuoteAllDates = document.getElementById('btn-quote-all-dates');
+  if (btnQuoteAllDates) {
+    btnQuoteAllDates.addEventListener('click', () => {
+      if (filterQuoteStart) filterQuoteStart.value = '';
+      if (filterQuoteEnd) filterQuoteEnd.value = '';
+      state.filters.quoteStart = '';
+      state.filters.quoteEnd = '';
+      state.pagination.quote.currentPage = 1;
+      renderApp();
+    });
+  }
+
   const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
   if (sidebarCollapseBtn) {
     sidebarCollapseBtn.addEventListener('click', () => {
@@ -2894,7 +2906,9 @@ function renderQuoteView() {
         </td>
         <td>
           <button class="btn-primary btn-sm" onclick="openQuoteModal('${quote.id}')">수정</button>
-          <button class="btn-secondary btn-sm" onclick="openLinkProjectModal('${quote.id}', 'quote')" style="margin-left: 4px; padding: 4px 8px;">주간보고 연결</button>
+          <button class="btn-icon" onclick="openLinkProjectModal('${quote.id}', 'quote')" title="주간보고 연결" style="margin-left: 4px; vertical-align: middle; color: var(--primary);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+          </button>
         </td>
       `;
       tableBody.appendChild(tr);
@@ -4924,7 +4938,9 @@ function renderContractView() {
         <button class="btn-icon" onclick="openContractModal('${contract.id}')" title="수정" style="vertical-align: middle;">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
         </button>
-        <button class="btn-secondary btn-sm" onclick="openLinkProjectModal('${contract.id}', 'contract')" style="margin-left: 4px; padding: 4px 8px; vertical-align: middle;">주간보고 연결</button>
+        <button class="btn-icon" onclick="openLinkProjectModal('${contract.id}', 'contract')" title="주간보고 연결" style="margin-left: 4px; vertical-align: middle; color: var(--primary);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+        </button>
       </td>
     `;
     tableBody.appendChild(tr);
@@ -5484,6 +5500,16 @@ let currentLinkingDocType = null;
 window.openLinkProjectModal = function (docId, type) {
   currentLinkingDocId = docId;
   currentLinkingDocType = type;
+
+  const select = document.getElementById('link-project-assignee');
+  if (select) {
+    select.innerHTML = '<option value="all">전체 팀원</option>';
+    state.members.forEach(m => {
+      select.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+    });
+    select.value = 'all';
+  }
+
   document.getElementById('link-project-search').value = '';
   renderLinkProjectList();
   document.getElementById('modal-link-project').classList.add('active');
@@ -5495,6 +5521,7 @@ document.getElementById('btn-close-link-project-modal')?.addEventListener('click
 
 window.renderLinkProjectList = function () {
   const search = document.getElementById('link-project-search').value.toLowerCase();
+  const assigneeFilter = document.getElementById('link-project-assignee')?.value || 'all';
   const listContainer = document.getElementById('link-project-list');
   listContainer.innerHTML = '';
 
@@ -5503,11 +5530,16 @@ window.renderLinkProjectList = function () {
     return {
       id: r.id,
       title: `[${r.client || ''}] ${r.project}`,
+      assignee: r.assignee,
       assigneeName: r.assigneeName,
       isLinked: isLinked,
       date: r.startDate
     };
   });
+
+  if (assigneeFilter !== 'all') {
+    items = items.filter(i => i.assignee === assigneeFilter);
+  }
 
   if (search) {
     items = items.filter(i => i.title.toLowerCase().includes(search) || (i.assigneeName && i.assigneeName.toLowerCase().includes(search)));
