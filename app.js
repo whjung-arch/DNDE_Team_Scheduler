@@ -5185,13 +5185,13 @@ async function parseContractTextWithAI(text, fileName = '', base64Image = null) 
 - companyName: 발주처(상대방 거래처) 기업명 (우리 회사 '디엔디이' 제외, 핵심 이름만)
 - clientRep: 상대방 담당자명 및 직급
 - contractDate: 계약일 또는 발주일 (이 날짜가 시작일임. 반드시 YYYY-MM-DD 포맷. 예: 2026-07-23)
-- items: 품목 배열 (가장 중요함! 절대 비워두지 말 것. 발주서의 경우 '규격' 칸에 적힌 내용이 핵심 품목명이 될 수 있으므로, '규격', '품명', '프로젝트' 등을 모두 길게 합쳐서 아주 구체적인 이름으로 기재. 표가 아니라면 단일 용역명 기재)
-- qty: 수량 (Number 타입, 쉼표 제외. 없으면 1)
-- unitPrice: 단가 (Number 타입, 쉼표 제외. 없으면 총액과 동일)
-- amount: 금액/비용 (Number 타입, 쉼표 제외)
-- supplyPrice: 공급가액 (Number 타입, 쉼표 제외)
-- vat: 부가세 (Number 타입, 쉼표 제외)
-- totalAmount: 총계약(발주)금액 (Number 타입, 쉼표 제외)
+- items: 품목 배열 (발주서의 경우 '규격' 칸에 적힌 내용이 핵심 품목명이 될 수 있으므로, '규격', '품명', '프로젝트' 등을 모두 길게 합쳐서 구체적인 이름으로 기재. 표가 아니라면 단일 용역명 기재. 비워두지 말 것)
+- qty: 수량 (숫자형식. 쉼표 제외. 없으면 1)
+- unitPrice: 단가 (숫자형식. 쉼표 제외. 없으면 총액과 동일)
+- amount: 금액/비용 (숫자형식. 쉼표 제외)
+- supplyPrice: 공급가액 (숫자형식. 쉼표 제외)
+- vat: 부가세 (숫자형식. 쉼표 제외)
+- totalAmount: 총계약(발주)금액 (숫자형식. 쉼표 제외)
 - assignee: 우리 회사(디엔디이) 측 담당자 이름 (수신/발신 무관하게 내부 직원 이름)
 - contractPeriod: 계약 완료일 또는 요구 납기일 (발주서의 경우 요구 납기일이 계약 기간/완료일임. 예: 2026-07-27)
 
@@ -5251,7 +5251,11 @@ ${text}`;
 
     const data = await response.json();
     const responseText = data.choices[0].message.content;
-    if (!responseText) throw new Error("AI 응답 내용이 비어있습니다. (안전 필터 등에 의해 차단되었을 수 있습니다.)");
+    if (!responseText) {
+      const reason = data.choices[0].finish_reason || 'unknown';
+      const refusal = data.choices[0].message.refusal || '';
+      throw new Error(`AI 응답이 비어있습니다. (사유: ${reason}${refusal ? ', 상세: ' + refusal : ''})`);
+    }
     const parsed = JSON.parse(responseText);
     if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
     return parsed;
