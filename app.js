@@ -3065,10 +3065,10 @@ async function parseQuotePDF(file) {
       }
 
       let base64Image = null;
-      if (fullText.trim().length < 50) {
-        uploadStatus.textContent = '스캔 문서 감지됨. 이미지 분석 모드로 전환합니다...';
+      if (true) { // 텍스트 섞임 방지: 표 구조 파악을 위해 무조건 이미지 렌더링 수행
+        uploadStatus.textContent = '정밀 분석을 위해 문서 이미지를 추출합니다...';
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.5 });
+        const viewport = page.getViewport({ scale: 2.5 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
@@ -3128,7 +3128,7 @@ ${text}`;
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
@@ -4564,7 +4564,7 @@ ${text}`;
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
@@ -4770,10 +4770,10 @@ async function syncOneDriveQuotes() {
         }
 
         let base64Image = null;
-        if (fullText.trim().length < 50) {
-          uploadStatus.textContent = `'${file.name}' 스캔 문서 감지 (이미지 변환 중)...`;
+        if (true) { // 텍스트 섞임 방지: 무조건 이미지 렌더링 수행
+          uploadStatus.textContent = `'${file.name}' 정밀 분석 (이미지 변환 중)...`;
           const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 1.5 });
+          const viewport = page.getViewport({ scale: 2.5 });
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
           canvas.height = viewport.height;
@@ -5181,7 +5181,7 @@ ${text}`;
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
@@ -5231,10 +5231,10 @@ async function parseContractPDF(file) {
       }
 
       let base64Image = null;
-      if (fullText.trim().length < 50) {
-        uploadStatus.textContent = '스캔 문서 감지됨. 이미지 분석 모드로 전환합니다...';
+      if (true) { // 텍스트 섞임 방지: 표 구조 파악을 위해 무조건 이미지 렌더링 수행
+        uploadStatus.textContent = '정밀 분석을 위해 문서 이미지를 추출합니다...';
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.5 });
+        const viewport = page.getViewport({ scale: 2.5 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
@@ -5442,10 +5442,10 @@ async function syncOneDriveContracts() {
         }
 
         let base64Image = null;
-        if (fullText.trim().length < 50) {
-          uploadStatus.textContent = `'${file.name}' 스캔 문서 감지 (이미지 변환 중)...`;
+        if (true) { // 텍스트 섞임 방지: 무조건 이미지 렌더링 수행
+          uploadStatus.textContent = `'${file.name}' 정밀 분석 (이미지 변환 중)...`;
           const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 1.5 });
+          const viewport = page.getViewport({ scale: 2.5 });
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
           canvas.height = viewport.height;
