@@ -2479,11 +2479,8 @@ function renderReportView() {
       <td style="width: 1%; white-space: nowrap; text-align: center;">
         <div style="display: flex; justify-content: center;"><button class="member-action-btn" title="상세 모달 열기" onclick="openReportModal('${report.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>${confirmBtn}</div>
       </td>
-      <td style="width: 5%; text-align: center; vertical-align: top;">
-        <div style="display: flex; flex-direction: column; gap: 4px; align-items: center; min-width: 130px;">
-          ${renderLinkedDocs(report)}
-          <button class="btn-secondary btn-sm" onclick="openLinkDocModal('${report.id}')" style="padding: 2px 6px; font-size: 0.75rem; margin-top: 4px;">+ 문서 링크</button>
-        </div>
+      <td style="width: 5%; text-align: center; vertical-align: middle;">
+        ${renderLinkedDocs(report)}
       </td>
     `;
     tableBody.appendChild(tr);
@@ -2897,6 +2894,7 @@ function renderQuoteView() {
         </td>
         <td>
           <button class="btn-primary btn-sm" onclick="openQuoteModal('${quote.id}')">수정</button>
+          <button class="btn-secondary btn-sm" onclick="openLinkProjectModal('${quote.id}', 'quote')" style="margin-left: 4px; padding: 4px 8px;">주간보고 연결</button>
         </td>
       `;
       tableBody.appendChild(tr);
@@ -4922,10 +4920,11 @@ function renderContractView() {
       <td class="table-period">${contract.period || '-'}</td>
       <td>${assigneeDisplay}</td>
       <td>${pdfLink}</td>
-      <td>
-        <button class="btn-icon" onclick="openContractModal('${contract.id}')" title="수정">
+      <td style="white-space: nowrap;">
+        <button class="btn-icon" onclick="openContractModal('${contract.id}')" title="수정" style="vertical-align: middle;">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
         </button>
+        <button class="btn-secondary btn-sm" onclick="openLinkProjectModal('${contract.id}', 'contract')" style="margin-left: 4px; padding: 4px 8px; vertical-align: middle;">주간보고 연결</button>
       </td>
     `;
     tableBody.appendChild(tr);
@@ -5443,90 +5442,85 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// --- 관련 문서 링크 로직 ---
+// --- 관련 문서 링크 로직 (PDF 아이콘 표출) ---
 window.renderLinkedDocs = function (report) {
-  let html = '';
+  let html = '<div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;">';
   const linkedIds = report.linkedDocs || [];
   linkedIds.forEach(docId => {
     const quote = state.quotes.find(q => q.id === docId);
     const contract = state.contracts.find(c => c.id === docId);
     if (quote) {
-      html += `<div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-hover); padding: 4px 6px; border-radius: 4px; font-size: 0.8rem; width: 100%; border: 1px solid var(--border-color); box-sizing: border-box;">
-                        <span title="${escapeHTML(quote.client)} - ${escapeHTML(quote.item)}" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: left;">📄[견적] ${escapeHTML(quote.client)}</span>
-                        <button onclick="unlinkDoc('${report.id}', '${docId}')" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 0; margin-left: 4px; font-size: 1.1rem; line-height: 1;" title="연결 해제">&times;</button>
-                     </div>`;
+      if (quote.pdfUrl) {
+        html += `<a href="${quote.pdfUrl}" target="_blank" title="[견적서 PDF] ${escapeHTML(quote.client)}" style="display: inline-flex; align-items: center; justify-content: center; background: #e0f2fe; color: #0284c7; padding: 6px; border-radius: 4px; text-decoration: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                 </a>`;
+      } else {
+        html += `<span title="[견적서] ${escapeHTML(quote.client)} (PDF 없음)" style="display: inline-flex; align-items: center; justify-content: center; background: var(--bg-hover); color: var(--text-muted); padding: 6px; border-radius: 4px; cursor: not-allowed;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                 </span>`;
+      }
     } else if (contract) {
-      const typeStr = contract.type === 'order' ? '발주' : '계약';
-      html += `<div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-hover); padding: 4px 6px; border-radius: 4px; font-size: 0.8rem; width: 100%; border: 1px solid var(--border-color); box-sizing: border-box;">
-                        <span title="${escapeHTML(contract.client)} - ${escapeHTML(contract.item)}" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: left;">🤝[${typeStr}] ${escapeHTML(contract.client)}</span>
-                        <button onclick="unlinkDoc('${report.id}', '${docId}')" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 0; margin-left: 4px; font-size: 1.1rem; line-height: 1;" title="연결 해제">&times;</button>
-                     </div>`;
+      const typeStr = contract.type === 'order' ? '발주서' : '계약서';
+      if (contract.pdfUrl) {
+        const bgColor = contract.type === 'order' ? '#dcfce7' : '#f3e8ff';
+        const color = contract.type === 'order' ? '#16a34a' : '#9333ea';
+        html += `<a href="${contract.pdfUrl}" target="_blank" title="[${typeStr} PDF] ${escapeHTML(contract.client)}" style="display: inline-flex; align-items: center; justify-content: center; background: ${bgColor}; color: ${color}; padding: 6px; border-radius: 4px; text-decoration: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                 </a>`;
+      } else {
+        html += `<span title="[${typeStr}] ${escapeHTML(contract.client)} (PDF 없음)" style="display: inline-flex; align-items: center; justify-content: center; background: var(--bg-hover); color: var(--text-muted); padding: 6px; border-radius: 4px; cursor: not-allowed;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                 </span>`;
+      }
     }
   });
+  html += '</div>';
   return html;
 };
 
-let currentLinkDocTab = 'contracts';
+let currentLinkingDocId = null;
+let currentLinkingDocType = null;
 
-window.openLinkDocModal = function (reportId) {
-  document.getElementById('link-doc-report-id').value = reportId;
-  document.getElementById('link-doc-search').value = '';
-  switchLinkDocTab(currentLinkDocTab);
-  document.getElementById('modal-link-doc').classList.add('active');
+window.openLinkProjectModal = function (docId, type) {
+  currentLinkingDocId = docId;
+  currentLinkingDocType = type;
+  document.getElementById('link-project-search').value = '';
+  renderLinkProjectList();
+  document.getElementById('modal-link-project').classList.add('active');
 };
 
-document.getElementById('btn-close-link-doc-modal')?.addEventListener('click', () => {
-  document.getElementById('modal-link-doc').classList.remove('active');
+document.getElementById('btn-close-link-project-modal')?.addEventListener('click', () => {
+  document.getElementById('modal-link-project').classList.remove('active');
 });
 
-window.switchLinkDocTab = function (tab) {
-  currentLinkDocTab = tab;
-  document.getElementById('btn-tab-contracts').classList.toggle('active', tab === 'contracts');
-  document.getElementById('btn-tab-quotes').classList.toggle('active', tab === 'quotes');
-  renderLinkDocList();
-};
-
-window.renderLinkDocList = function () {
-  const reportId = document.getElementById('link-doc-report-id').value;
-  const report = state.reports.find(r => r.id === reportId);
-  if (!report) return;
-
-  const linkedIds = report.linkedDocs || [];
-  const search = document.getElementById('link-doc-search').value.toLowerCase();
-  const listContainer = document.getElementById('link-doc-list');
+window.renderLinkProjectList = function () {
+  const search = document.getElementById('link-project-search').value.toLowerCase();
+  const listContainer = document.getElementById('link-project-list');
   listContainer.innerHTML = '';
 
-  let items = [];
-  if (currentLinkDocTab === 'contracts') {
-    items = state.contracts.map(c => ({
-      id: c.id,
-      title: `[${c.type === 'order' ? '발주서' : '계약서'}] ${c.client}`,
-      desc: c.item,
-      date: c.date,
-      isLinked: linkedIds.includes(c.id)
-    }));
-  } else {
-    items = state.quotes.map(q => ({
-      id: q.id,
-      title: `[견적서] ${q.client}`,
-      desc: q.item,
-      date: q.date,
-      isLinked: linkedIds.includes(q.id)
-    }));
-  }
+  let items = state.reports.map(r => {
+    const isLinked = (r.linkedDocs || []).includes(currentLinkingDocId);
+    return {
+      id: r.id,
+      title: `[${r.client || ''}] ${r.project}`,
+      assigneeName: r.assigneeName,
+      isLinked: isLinked,
+      date: r.startDate
+    };
+  });
 
   if (search) {
-    items = items.filter(i => i.title.toLowerCase().includes(search) || (i.desc && i.desc.toLowerCase().includes(search)));
+    items = items.filter(i => i.title.toLowerCase().includes(search) || (i.assigneeName && i.assigneeName.toLowerCase().includes(search)));
   }
 
-  // Sort: unlinked first, then by date descending
+  // Sort: linked first, then by start date descending
   items.sort((a, b) => {
-    if (a.isLinked !== b.isLinked) return a.isLinked ? 1 : -1;
+    if (a.isLinked !== b.isLinked) return a.isLinked ? -1 : 1;
     return (b.date || '').localeCompare(a.date || '');
   });
 
   if (items.length === 0) {
-    listContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 1rem;">검색 결과가 없습니다.</div>';
+    listContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 1rem;">주간보고 프로젝트가 없습니다.</div>';
     return;
   }
 
@@ -5544,12 +5538,12 @@ window.renderLinkDocList = function () {
     div.innerHTML = `
             <div>
                 <div style="font-weight: 500; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 0.25rem;">${escapeHTML(item.title)}</div>
-                <div style="font-size: 0.85rem; color: var(--text-secondary);">${item.date || '날짜 없음'} | ${escapeHTML(item.desc || '내용 없음')}</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">담당자: ${escapeHTML(item.assigneeName || '미정')}</div>
             </div>
             <div>
                 ${item.isLinked ?
-        `<button class="btn-secondary btn-sm" onclick="unlinkDoc('${reportId}', '${item.id}')" style="padding: 4px 10px; font-size: 0.8rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.3);">연결 해제</button>` :
-        `<button class="btn-primary btn-sm" onclick="linkDoc('${reportId}', '${item.id}')" style="padding: 4px 10px; font-size: 0.8rem;">연결</button>`
+        `<button class="btn-secondary btn-sm" onclick="unlinkProject('${item.id}', '${currentLinkingDocId}')" style="padding: 4px 10px; font-size: 0.8rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.3);">연결 해제</button>` :
+        `<button class="btn-primary btn-sm" onclick="linkProject('${item.id}', '${currentLinkingDocId}')" style="padding: 4px 10px; font-size: 0.8rem;">연결</button>`
       }
             </div>
         `;
@@ -5557,7 +5551,7 @@ window.renderLinkDocList = function () {
   });
 };
 
-window.linkDoc = function (reportId, docId) {
+window.linkProject = function (reportId, docId) {
   const reportRef = db.collection("reports").doc(reportId);
   reportRef.get().then(doc => {
     if (doc.exists) {
@@ -5569,20 +5563,19 @@ window.linkDoc = function (reportId, docId) {
       }
     }
   }).then(() => {
-    // Update local state instantly for UI refresh
     const report = state.reports.find(r => r.id === reportId);
     if (report) {
       report.linkedDocs = report.linkedDocs || [];
       if (!report.linkedDocs.includes(docId)) report.linkedDocs.push(docId);
     }
-    renderLinkDocList();
-    showToast('문서가 연결되었습니다.');
+    renderLinkProjectList();
+    showToast('주간보고 프로젝트와 연결되었습니다.');
   }).catch(err => {
-    console.error("Error linking doc:", err);
+    console.error("Error linking project:", err);
   });
 };
 
-window.unlinkDoc = function (reportId, docId) {
+window.unlinkProject = function (reportId, docId) {
   const reportRef = db.collection("reports").doc(reportId);
   reportRef.get().then(doc => {
     if (doc.exists) {
@@ -5595,21 +5588,15 @@ window.unlinkDoc = function (reportId, docId) {
       }
     }
   }).then(() => {
-    // Update local state instantly for UI refresh
     const report = state.reports.find(r => r.id === reportId);
     if (report) {
       report.linkedDocs = report.linkedDocs || [];
       const index = report.linkedDocs.indexOf(docId);
       if (index > -1) report.linkedDocs.splice(index, 1);
     }
-    if (document.getElementById('modal-link-doc').classList.contains('active')) {
-      renderLinkDocList();
-    } else {
-      // If triggered from table, force table re-render
-      renderReportView();
-    }
-    showToast('문서 연결이 해제되었습니다.');
+    renderLinkProjectList();
+    showToast('주간보고 프로젝트 연결이 해제되었습니다.');
   }).catch(err => {
-    console.error("Error unlinking doc:", err);
+    console.error("Error unlinking project:", err);
   });
 };
