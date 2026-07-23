@@ -4685,18 +4685,36 @@ async function syncOneDriveQuotes() {
   try {
     // Get files from '메일견적서' folder
     const folderName = encodeURIComponent('메일견적서');
-    const response = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:/${folderName}:/children`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
+    let allFiles = [];
+    let url = `https://graph.microsoft.com/v1.0/me/drive/root:/${folderName}:/children`;
 
-    if (!response.ok) {
-      throw new Error(`Graph API 에러: ${response.status}`);
+    while (url) {
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!response.ok) throw new Error(`Graph API 에러: ${response.status}`);
+      const data = await response.json();
+      allFiles = allFiles.concat(data.value);
+      url = data['@odata.nextLink'] || null;
     }
 
-    const data = await response.json();
-    let files = data.value.filter(file => file.file && file.name.toLowerCase().endsWith('.pdf'));
+    let files = allFiles.filter(file => file.file && file.name.toLowerCase().endsWith('.pdf'));
+    const currentOneDriveIds = files.map(f => f.id);
+
+    // Delete missing files from Firebase
+    let deletedCount = 0;
+    for (const q of state.quotes) {
+      if (q.oneDriveId && !currentOneDriveIds.includes(q.oneDriveId)) {
+        try {
+          await db.collection('quotes').doc(q.id).delete();
+          deletedCount++;
+        } catch (err) {
+          console.error("Failed to delete removed OneDrive quote from DB:", err);
+        }
+      }
+    }
+    if (deletedCount > 0) {
+      uploadStatus.textContent = `OneDrive에서 삭제된 견적서 ${deletedCount}건을 정리했습니다.`;
+      await new Promise(r => setTimeout(r, 1500));
+    }
 
     // 기간 필터 적용: 상단의 '월별 필터'가 설정되어 있으면 해당 월에 생성/수정된 파일만 가져옴
     const monthFilter = document.getElementById('filter-quote-month')?.value;
@@ -5342,16 +5360,36 @@ async function syncOneDriveContracts() {
 
   try {
     const folderName = encodeURIComponent('메일계약서');
-    const response = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:/${folderName}:/children`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
+    let allFiles = [];
+    let url = `https://graph.microsoft.com/v1.0/me/drive/root:/${folderName}:/children`;
 
-    if (!response.ok) {
-      throw new Error(`Graph API 에러: ${response.status}`);
+    while (url) {
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!response.ok) throw new Error(`Graph API 에러: ${response.status}`);
+      const data = await response.json();
+      allFiles = allFiles.concat(data.value);
+      url = data['@odata.nextLink'] || null;
     }
 
-    const data = await response.json();
-    let files = data.value.filter(file => file.file && file.name.toLowerCase().endsWith('.pdf'));
+    let files = allFiles.filter(file => file.file && file.name.toLowerCase().endsWith('.pdf'));
+    const currentOneDriveIds = files.map(f => f.id);
+
+    // Delete missing files from Firebase
+    let deletedCount = 0;
+    for (const c of state.contracts) {
+      if (c.oneDriveId && !currentOneDriveIds.includes(c.oneDriveId)) {
+        try {
+          await db.collection('contracts').doc(c.id).delete();
+          deletedCount++;
+        } catch (err) {
+          console.error("Failed to delete removed OneDrive contract from DB:", err);
+        }
+      }
+    }
+    if (deletedCount > 0) {
+      uploadStatus.textContent = `OneDrive에서 삭제된 계약/발주서 ${deletedCount}건을 정리했습니다.`;
+      await new Promise(r => setTimeout(r, 1500));
+    }
 
     const monthFilter = document.getElementById('filter-contract-start')?.value?.substring(0, 7);
     if (monthFilter) {
