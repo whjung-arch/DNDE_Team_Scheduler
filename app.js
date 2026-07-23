@@ -5219,36 +5219,40 @@ async function parseContractTextWithAI(text, fileName = '', base64Image = null) 
     throw new Error("NO_API_KEY");
   }
 
-  const promptText = `아래 PDF 문서(계약서 또는 발주서)의 텍스트와 파일명을 분석해서 JSON으로 응답해 줘.
+  const promptText = `전달된 PDF 문서(계약서 또는 발주서)에서 다음 항목을 정밀하게 추출하여 JSON 포맷으로 응답해 줘.
 
-[핵심 규칙]
-- 문서에 실제로 존재하는 정보만 추출할 것. 추측하거나 지어내지 말 것.
-- 찾을 수 없는 항목은 반드시 빈 문자열("") 또는 0으로 둘 것.
+[추출 규칙]
+1. docType: 문서에 '발주서', 'PURCHASE ORDER', 'PO' 등의 단어가 있으면 "order", 그 외 계약서는 "contract"
+2. companyName: 상대방 거래처(발주처 또는 수신처/공급자) 기업명 (우리 회사 '디엔디이'나 'DNDE'는 제외, 주요 기업명만)
+3. clientRep: 상대방 담당자 이름 및 직급
+4. contractDate: 계약일 또는 발주일 (반드시 YYYY-MM-DD 포맷)
+5. contractPeriod: 계약 기간 또는 완료일/납기일 (예: "2026-07-23 ~ 2026-07-27" 또는 "2026-07-27")
+6. items: 품목 목록 배열. 각 품목별 { "name": "품목명 및 규격", "qty": 수량숫자, "unitPrice": 단가숫자, "amount": 금액숫자 }
+   - 발주서의 경우 표의 '규격', '품명', 'PROJECT' 란의 내용을 종합하여 구체적인 용역/품목명 작성
+7. supplyPrice: 공급가액 (숫자만, 쉼표 제외)
+8. vat: 부가세 (숫자만, 쉼표 제외)
+9. totalAmount: 총금액 (숫자만, 쉼표 제외)
+10. assignee: 디엔디이(우리 회사) 측 담당자 이름 (예: 권혁문)
 
-[추출 조건]
-- docType: 발주서이면 "order", 계약서이면 "contract"
-- companyName: 상대방 거래처 기업명 (디엔디이 제외)
-- clientRep: 상대방 담당자
-- contractDate: 계약일/발주일 (YYYY-MM-DD)
-- items: 품목 배열. 발주서의 '규격' 칸이 품목명. [{name, qty, unitPrice, amount}]
-- supplyPrice: 공급가액 (숫자만)
-- vat: 부가세 (숫자만)
-- totalAmount: 총금액 (숫자만)
-- assignee: 디엔디이 측 담당자
-- contractPeriod: 완료일/납기일 (YYYY-MM-DD)
-
-[출력 형식]
+[응답 JSON 예시]
 {
-  "docType": "",
-  "companyName": "",
-  "clientRep": "",
-  "contractDate": "",
-  "items": [],
-  "supplyPrice": 0,
+  "docType": "order",
+  "companyName": "LS Power Solution",
+  "clientRep": "김현일",
+  "contractDate": "2026-07-23",
+  "contractPeriod": "2026-07-23 ~ 2026-07-27",
+  "items": [
+    {
+      "name": "4차년도 3MVA급 LCL Filter일체형 변압기 열 유동해석",
+      "qty": 1,
+      "unitPrice": 2800000,
+      "amount": 2800000
+    }
+  ],
+  "supplyPrice": 2800000,
   "vat": 0,
-  "totalAmount": 0,
-  "assignee": "",
-  "contractPeriod": ""
+  "totalAmount": 2800000,
+  "assignee": "권혁문"
 }
 
 파일명: ${fileName}
@@ -5260,7 +5264,7 @@ ${text}`;
     ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image, detail: "high" } }]
     : promptText;
 
-  async function callOpenAI(userContent) {
+  async function callOpenAI(payload) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
@@ -5274,8 +5278,8 @@ ${text}`;
           model: "gpt-4o",
           response_format: { type: "json_object" },
           messages: [
-            { role: "system", content: "You are a business document data extraction assistant. Extract ONLY information that is explicitly present in the provided text. If the text is garbled or unreadable, return empty values. NEVER fabricate or guess data. Output a valid JSON object." },
-            { role: "user", content: userContent }
+            { role: "system", content: "You are a professional accounting & purchasing AI assistant. Analyze the provided document text/image and extract contract or purchase order details strictly into JSON format." },
+            { role: "user", content: payload }
           ]
         }),
         signal: controller.signal
@@ -5297,18 +5301,15 @@ ${text}`;
     }
   }
 
-  // 1차 시도: 이미지 포함
   let message = await callOpenAI(userContent);
 
-  // AI가 거부한 경우 (refusal 또는 빈 content) → 이미지 없이 텍스트만으로 재시도
   if (!message.content && base64Image) {
-    console.warn("AI가 이미지 포함 요청을 거부했습니다. 텍스트만으로 재시도합니다...");
-    message = await callOpenAI(promptText); // 텍스트만 전송
+    console.warn("이미지 분석 실패로 텍스트 분석으로 전환합니다...");
+    message = await callOpenAI(promptText);
   }
 
   if (!message.content) {
-    const refusal = message.refusal || '';
-    throw new Error(`AI가 문서 분석을 거부했습니다.${refusal ? ' (' + refusal + ')' : ''}`);
+    throw new Error("AI가 문서 내용을 파악하지 못했습니다.");
   }
 
   let responseText = message.content;
@@ -5350,7 +5351,7 @@ async function parseContractPDF(file) {
       }
 
       let base64Image = null;
-      if (true) { // 텍스트 섞임 방지: 표 구조 파악을 위해 무조건 이미지 렌더링 수행
+      try {
         uploadStatus.textContent = '정밀 분석을 위해 문서 이미지를 추출합니다...';
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 2.5 });
@@ -5360,6 +5361,8 @@ async function parseContractPDF(file) {
         canvas.width = viewport.width;
         await page.render({ canvasContext: context, viewport: viewport }).promise;
         base64Image = canvas.toDataURL('image/jpeg');
+      } catch (imgErr) {
+        console.warn("이미지 추출 실패, 텍스트 전송으로 진행합니다:", imgErr);
       }
 
       uploadStatus.textContent = 'AI가 계약서를 분석 중입니다...';
@@ -5375,45 +5378,68 @@ async function parseContractPDF(file) {
         }
         if (parsed.clientRep) document.getElementById('contract-client-rep').value = parsed.clientRep;
 
-        // 날짜 정리 (인라인)
+        // 날짜 정리
+        let dateStr = '';
         if (parsed.contractDate) {
-          let dateStr = String(parsed.contractDate);
-          const dm = dateStr.match(/(\d{4})[-.\s]*(\d{2})[-.\s]*(\d{2})/);
-          if (dm) dateStr = dm[1] + '-' + dm[2] + '-' + dm[3];
-          document.getElementById('contract-date').value = dateStr;
+          const dm = String(parsed.contractDate).match(/(\d{4})[-.\s]*(\d{2})[-.\s]*(\d{2})/);
+          if (dm) dateStr = `${dm[1]}-${dm[2]}-${dm[3]}`;
+        }
+        if (dateStr) document.getElementById('contract-date').value = dateStr;
+
+        // 계약 기간 정리
+        if (parsed.contractPeriod) {
+          let periodVal = String(parsed.contractPeriod).trim();
+          if (dateStr && !periodVal.includes('~') && periodVal !== dateStr) {
+            periodVal = `${dateStr} ~ ${periodVal}`;
+          }
+          document.getElementById('contract-period').value = periodVal;
         }
 
-        // 금액 정리 (인라인)
-        let rawAmt = parsed.supplyPrice || parsed.totalAmount || '';
+        // 금액 정리 (supplyPrice, totalAmount, 또는 items 내 amount/unitPrice)
+        let rawAmt = parsed.supplyPrice || parsed.totalAmount || 0;
+        if (!rawAmt && parsed.items && Array.isArray(parsed.items) && parsed.items.length > 0) {
+          rawAmt = parsed.items[0].amount || parsed.items[0].unitPrice || 0;
+        }
         if (rawAmt) {
           let numStr = String(rawAmt).replace(/,/g, '').replace(/[^\d.-]/g, '');
           let numVal = Number(numStr);
           if (numVal) document.getElementById('contract-amount').value = numVal;
         }
 
-        if (parsed.contractPeriod) document.getElementById('contract-period').value = parsed.contractPeriod;
-
+        // 담당자 정리
         if (parsed.assignee) {
-          const member = state.members.find(m => m.name.includes(parsed.assignee) || parsed.assignee.includes(m.name));
+          const cleanAssignee = String(parsed.assignee).trim();
+          const member = state.members.find(m => m.name.includes(cleanAssignee) || cleanAssignee.includes(m.name));
+          const select = document.getElementById('contract-assignee');
           if (member) {
-            document.getElementById('contract-assignee').value = member.id;
+            select.value = member.id;
           } else {
-            const select = document.getElementById('contract-assignee');
-            const opt = document.createElement('option');
-            opt.value = parsed.assignee;
-            opt.textContent = parsed.assignee + ' (자동감지)';
-            select.appendChild(opt);
-            select.value = parsed.assignee;
+            let existingOpt = Array.from(select.options).find(opt => opt.value === cleanAssignee || opt.textContent.includes(cleanAssignee));
+            if (existingOpt) {
+              select.value = existingOpt.value;
+            } else {
+              const opt = document.createElement('option');
+              opt.value = cleanAssignee;
+              opt.textContent = cleanAssignee + ' (자동감지)';
+              select.appendChild(opt);
+              select.value = cleanAssignee;
+            }
           }
         }
 
+        // 품목 정리
         if (parsed.items && Array.isArray(parsed.items) && parsed.items.length > 0) {
-          const firstItemName = parsed.items[0].name;
-          const extraCount = parsed.items.length - 1;
-          if (extraCount > 0) {
-            document.getElementById('contract-item').value = `${firstItemName} 외 ${extraCount}건`;
-          } else {
-            document.getElementById('contract-item').value = firstItemName;
+          const validItems = parsed.items.filter(it => it && (it.name || it.spec || it.project));
+          if (validItems.length > 0) {
+            const firstItemName = validItems[0].name || validItems[0].spec || validItems[0].project || '';
+            const extraCount = validItems.length - 1;
+            if (firstItemName) {
+              if (extraCount > 0) {
+                document.getElementById('contract-item').value = `${firstItemName} 외 ${extraCount}건`;
+              } else {
+                document.getElementById('contract-item').value = firstItemName;
+              }
+            }
           }
         }
 
