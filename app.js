@@ -5222,20 +5222,20 @@ async function parseContractTextWithAI(text, fileName = '', base64Image = null) 
   const promptText = `아래 PDF 문서(계약서 또는 발주서)의 텍스트와 파일명을 분석해서 JSON으로 응답해 줘.
 
 [핵심 규칙]
-- 문서에 실제로 존재하는 정보만 추출할 것. 추측하거나 지어내지 말 것.
-- 찾을 수 없는 항목은 반드시 빈 문자열("") 또는 0으로 둘 것.
+- 문서에 실제로 존재하는 정보만 추출할 것. 절대로 데이터를 지어내거나(hallucination) 유추하지 말 것.
+- 텍스트가 깨져서 항목을 찾을 수 없는 경우, 빈 문자열("") 또는 0으로 둘 것.
 
 [추출 조건]
-- docType: 발주서이면 "order", 계약서이면 "contract"
+- docType: 발주서, PURCHASE ORDER 등이면 "order", 계약서이면 "contract"
 - companyName: 상대방 거래처 기업명 (디엔디이 제외)
-- clientRep: 상대방 담당자
-- contractDate: 계약일/발주일 (YYYY-MM-DD)
-- items: 품목 배열. 발주서의 '규격' 칸이 품목명. [{name, qty, unitPrice, amount}]
-- supplyPrice: 공급가액 (숫자만)
-- vat: 부가세 (숫자만)
-- totalAmount: 총금액 (숫자만)
-- assignee: 디엔디이 측 담당자
-- contractPeriod: 완료일/납기일 (YYYY-MM-DD)
+- clientRep: 상대방 담당자 성명 및 직급
+- contractDate: 계약일/발주일 (YYYY-MM-DD 포맷)
+- contractPeriod: 계약기간, 납기일, 또는 완료일. (예: "2024-01-01 ~ 2024-12-31" 또는 "2024-12-31")
+- items: 품목 배열. 문서의 '건명', '품명', '규격', '프로젝트명', '용역명' 등을 정확히 품목명(name)으로 추출. [{name, qty, unitPrice, amount}]
+- supplyPrice: 공급가액 (숫자만, 쉼표 제거)
+- vat: 부가세 (숫자만, 쉼표 제거)
+- totalAmount: 총계약금액/합계 (숫자만, 쉼표 제거)
+- assignee: 디엔디이 측 담당자 성명
 
 [출력 형식]
 {
@@ -5243,12 +5243,12 @@ async function parseContractTextWithAI(text, fileName = '', base64Image = null) 
   "companyName": "",
   "clientRep": "",
   "contractDate": "",
+  "contractPeriod": "",
   "items": [],
   "supplyPrice": 0,
   "vat": 0,
   "totalAmount": 0,
-  "assignee": "",
-  "contractPeriod": ""
+  "assignee": ""
 }
 
 파일명: ${fileName}
@@ -5274,7 +5274,7 @@ ${text}`;
           model: "gpt-4o",
           response_format: { type: "json_object" },
           messages: [
-            { role: "system", content: "You are a business document data extraction assistant. Extract ONLY information that is explicitly present in the provided text. If the text is garbled or unreadable, return empty values. NEVER fabricate or guess data. Output a valid JSON object." },
+            { role: "system", content: "You are a strict data extraction AI. Extract ONLY information explicitly present. If unreadable or missing, return empty values. NEVER fabricate data." },
             { role: "user", content: userContent }
           ]
         }),
@@ -5391,7 +5391,9 @@ async function parseContractPDF(file) {
           if (numVal) document.getElementById('contract-amount').value = numVal;
         }
 
-        if (parsed.contractPeriod) document.getElementById('contract-period').value = parsed.contractPeriod;
+        if (parsed.contractPeriod) {
+          document.getElementById('contract-period').value = String(parsed.contractPeriod).trim();
+        }
 
         if (parsed.assignee) {
           const member = state.members.find(m => m.name.includes(parsed.assignee) || parsed.assignee.includes(m.name));
@@ -5408,12 +5410,17 @@ async function parseContractPDF(file) {
         }
 
         if (parsed.items && Array.isArray(parsed.items) && parsed.items.length > 0) {
-          const firstItemName = parsed.items[0].name;
-          const extraCount = parsed.items.length - 1;
-          if (extraCount > 0) {
-            document.getElementById('contract-item').value = `${firstItemName} 외 ${extraCount}건`;
-          } else {
-            document.getElementById('contract-item').value = firstItemName;
+          const validItems = parsed.items.filter(it => it && (it.name || it.item || it.spec));
+          if (validItems.length > 0) {
+            const firstItemName = validItems[0].name || validItems[0].item || validItems[0].spec || '';
+            const extraCount = validItems.length - 1;
+            if (firstItemName) {
+              if (extraCount > 0) {
+                document.getElementById('contract-item').value = `${firstItemName} 외 ${extraCount}건`;
+              } else {
+                document.getElementById('contract-item').value = firstItemName;
+              }
+            }
           }
         }
 
