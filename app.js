@@ -3060,8 +3060,21 @@ async function parseQuotePDF(file) {
         fullText += pageText + ' ';
       }
 
+      let base64Image = null;
+      if (fullText.trim().length < 50) {
+        uploadStatus.textContent = '스캔 문서 감지됨. 이미지 분석 모드로 전환합니다...';
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        base64Image = canvas.toDataURL('image/jpeg');
+      }
+
       // 텍스트 추출 완료 후 GPT API 호출
-      await analyzeWithAI(fullText, file);
+      await analyzeWithAI(fullText, file, base64Image);
     };
     fileReader.readAsArrayBuffer(file);
   } catch (err) {
@@ -3072,7 +3085,7 @@ async function parseQuotePDF(file) {
   }
 }
 
-async function analyzeWithAI(text, file) {
+async function analyzeWithAI(text, file, base64Image = null) {
   const uploadStatus = document.getElementById('quote-pdf-upload-status');
   let apiKey = await requireApiKey();
   if (!apiKey) {
@@ -3099,6 +3112,10 @@ async function analyzeWithAI(text, file) {
 추출할 견적서 텍스트:
 ${text}`;
 
+  const userContent = base64Image
+    ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image } }]
+    : promptText;
+
   try {
     const response = await fetch(`https://api.openai.com/v1/chat/completions`, {
       method: 'POST',
@@ -3111,7 +3128,7 @@ ${text}`;
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
-          { role: "user", content: promptText }
+          { role: "user", content: userContent }
         ]
       })
     });
@@ -4257,6 +4274,7 @@ window.addEventListener('click', (e) => {
   if (e.target === modal) modal.classList.remove('active');
 });
 
+
 window.openUrgentProjectModal = function (reportId, eventId) {
   const report = state.reports.find(r => r.id === reportId);
   const event = state.events.find(e => e.id === eventId);
@@ -4725,10 +4743,23 @@ async function syncOneDriveQuotes() {
           fullText += pageText + ' ';
         }
 
+        let base64Image = null;
+        if (fullText.trim().length < 50) {
+          uploadStatus.textContent = `'${file.name}' 스캔 문서 감지 (이미지 변환 중)...`;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          await page.render({ canvasContext: context, viewport: viewport }).promise;
+          base64Image = canvas.toDataURL('image/jpeg');
+        }
+
         // AI Parse
         let parsed;
         try {
-          parsed = await parseTextWithAI(fullText);
+          parsed = await parseTextWithAI(fullText, base64Image);
         } catch (aiErr) {
           console.error("AI 파싱 실패:", aiErr);
           if (aiErr.message === "NO_API_KEY") {
@@ -5076,7 +5107,7 @@ async function deleteContract() {
   }
 }
 
-async function parseContractTextWithAI(text, fileName = '') {
+async function parseContractTextWithAI(text, fileName = '', base64Image = null) {
   let apiKey = await requireApiKey();
   if (!apiKey) {
     throw new Error("NO_API_KEY");
@@ -5105,6 +5136,10 @@ ${fileName}
 문서 텍스트:
 ${text}`;
 
+  const userContent = base64Image
+    ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image } }]
+    : promptText;
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초 타임아웃
 
@@ -5120,7 +5155,7 @@ ${text}`;
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
-          { role: "user", content: promptText }
+          { role: "user", content: userContent }
         ]
       }),
       signal: controller.signal
@@ -5165,10 +5200,23 @@ async function parseContractPDF(file) {
         fullText += pageText + ' ';
       }
 
+      let base64Image = null;
+      if (fullText.trim().length < 50) {
+        uploadStatus.textContent = '스캔 문서 감지됨. 이미지 분석 모드로 전환합니다...';
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        base64Image = canvas.toDataURL('image/jpeg');
+      }
+
       uploadStatus.textContent = 'AI가 계약서를 분석 중입니다...';
 
       try {
-        const parsed = await parseContractTextWithAI(fullText, file.name);
+        const parsed = await parseContractTextWithAI(fullText, file.name, base64Image);
 
         if (parsed.docType) document.getElementById('contract-type').value = parsed.docType;
         if (parsed.companyName) document.getElementById('contract-client').value = cleanCompanyName(parsed.companyName);
@@ -5343,9 +5391,22 @@ async function syncOneDriveContracts() {
           fullText += pageText + ' ';
         }
 
+        let base64Image = null;
+        if (fullText.trim().length < 50) {
+          uploadStatus.textContent = `'${file.name}' 스캔 문서 감지 (이미지 변환 중)...`;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          await page.render({ canvasContext: context, viewport: viewport }).promise;
+          base64Image = canvas.toDataURL('image/jpeg');
+        }
+
         let parsed;
         try {
-          parsed = await parseContractTextWithAI(fullText, file.name);
+          parsed = await parseContractTextWithAI(fullText, file.name, base64Image);
         } catch (aiErr) {
           console.error("AI 파싱 실패:", aiErr);
           if (aiErr.message === "NO_API_KEY") {
