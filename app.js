@@ -5208,16 +5208,16 @@ async function parseContractTextWithAI(text, fileName = '', base64Image = null) 
 
 [출력 형식]
 {
-  "docType": "",
-  "companyName": "",
-  "clientRep": "",
-  "contractDate": "",
-  "items": [{"name": "", "qty": 0, "unitPrice": 0, "amount": 0}],
-  "supplyPrice": 0,
-  "vat": 0,
-  "totalAmount": 0,
-  "assignee": "",
-  "contractPeriod": ""
+  "docType": "String",
+  "companyName": "String",
+  "clientRep": "String",
+  "contractDate": "String",
+  "items": [{"name": "String", "qty": "Number", "unitPrice": "Number", "amount": "Number"}],
+  "supplyPrice": "Number",
+  "vat": "Number",
+  "totalAmount": "Number",
+  "assignee": "String",
+  "contractPeriod": "String"
 }
 
 파일명:
@@ -5326,9 +5326,13 @@ async function parseContractPDF(file) {
         if (parsed.docType) document.getElementById('contract-type').value = parsed.docType;
         if (parsed.companyName) document.getElementById('contract-client').value = cleanCompanyName(parsed.companyName);
         if (parsed.clientRep) document.getElementById('contract-client-rep').value = parsed.clientRep;
-        if (parsed.contractDate) document.getElementById('contract-date').value = parsed.contractDate;
-        const amt = parsed.supplyPrice || parsed.totalAmount || '';
+
+        const cDate = cleanDate(parsed.contractDate);
+        if (cDate) document.getElementById('contract-date').value = cDate;
+
+        const amt = cleanNumber(parsed.supplyPrice) || cleanNumber(parsed.totalAmount) || '';
         if (amt) document.getElementById('contract-amount').value = amt;
+
         if (parsed.contractPeriod) document.getElementById('contract-period').value = parsed.contractPeriod;
 
         if (parsed.assignee) {
