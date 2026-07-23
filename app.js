@@ -2896,10 +2896,7 @@ function renderQuoteView() {
       const tr = document.createElement('tr');
       const isLinked = state.reports.some(r => (r.linkedDocs || []).includes(quote.id));
       tr.innerHTML = `
-        <td style="font-weight: 500; color: var(--primary);">
-          ${quoteNo}
-          ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px;">✅</span>` : ''}
-        </td>
+        <td style="font-weight: 500; color: var(--primary);">${quoteNo}</td>
         <td>${quote.date || ''}</td>
         <td>${quote.client || ''} ${quote.clientRep ? `(${quote.clientRep})` : ''}</td>
         <td>${quote.item || ''}</td>
@@ -2915,6 +2912,7 @@ function renderQuoteView() {
           <button class="btn-icon" onclick="openLinkProjectModal('${quote.id}', 'quote')" title="주간보고 연결" style="margin-left: 4px; vertical-align: middle; color: var(--primary);">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
           </button>
+          ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">✅</span>` : ''}
         </td>
       `;
       tableBody.appendChild(tr);
@@ -4965,10 +4963,7 @@ function renderContractView() {
 
     tr.innerHTML = `
       <td>${displayNum}</td>
-      <td style="text-align: center;">
-        <span class="badge ${badgeClass}">${badgeText}</span>
-        ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px;">✅</span>` : ''}
-      </td>
+      <td style="text-align: center;"><span class="badge ${badgeClass}">${badgeText}</span></td>
       <td>${contract.date || '-'}</td>
       <td class="table-client-name">
         <div>${contract.client || '-'}</div>
@@ -4986,6 +4981,7 @@ function renderContractView() {
         <button class="btn-icon" onclick="openLinkProjectModal('${contract.id}', 'contract')" title="주간보고 연결" style="margin-left: 4px; vertical-align: middle; color: var(--primary);">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
         </button>
+        ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">✅</span>` : ''}
       </td>
     `;
     tableBody.appendChild(tr);
