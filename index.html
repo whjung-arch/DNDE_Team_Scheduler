@@ -331,22 +331,37 @@
             <!-- 주간 업무보고 뷰 -->
             <div class="report-view-container" id="report-view-wrapper" style="display: none;">
                 <!-- 팀원 리소스 및 부하도(Man-Hour) 관리 섹션 (whjung 계정 전용) -->
-                <div class="workload-dashboard-section" id="workload-dashboard-section" style="display: none; margin-bottom: 1.5rem;">
-                    <div class="workload-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
+                <div class="workload-dashboard-section" id="workload-dashboard-section"
+                    style="display: none; margin-bottom: 1.5rem;">
+                    <div class="workload-header"
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" style="color: var(--primary);">
                                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
                             </svg>
-                            <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-primary);">팀원 리소스 및 부하도 (Man-Hour) 현황</h3>
-                            <span class="admin-only-badge" style="font-size: 0.7rem; background: rgba(99, 102, 241, 0.15); color: var(--primary); padding: 2px 8px; border-radius: 12px; font-weight: 600;">whjung 전용</span>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-primary);">팀원
+                                리소스 및 부하도 (Man-Hour) 현황</h3>
+                            <span class="admin-only-badge"
+                                style="font-size: 0.7rem; background: rgba(99, 102, 241, 0.15); color: var(--primary); padding: 2px 8px; border-radius: 12px; font-weight: 600;">whjung
+                                전용</span>
                         </div>
-                        <div class="workload-summary-legend" style="display: flex; gap: 0.75rem; font-size: 0.75rem; color: var(--text-secondary); flex-wrap: wrap;">
-                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Overload (초과: 100%+ / 2천만/월 기준)</span>
-                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Normal (적정: 40~99%)</span>
-                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span> Underload (여유: 40% 미만)</span>
+                        <div class="workload-summary-legend"
+                            style="display: flex; gap: 0.75rem; font-size: 0.75rem; color: var(--text-secondary); flex-wrap: wrap;">
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span
+                                    style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
+                                Overload (초과: 100%+ / 2천만/월 기준)</span>
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span
+                                    style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+                                Normal (적정: 40~99%)</span>
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span
+                                    style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span>
+                                Underload (여유: 40% 미만)</span>
                         </div>
                     </div>
-                    <div class="workload-cards-grid" id="workload-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 1rem;">
+                    <div class="workload-cards-grid" id="workload-cards-container"
+                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 1rem;">
                         <!-- 팀원별 부하도 카드가 동적으로 생성됩니다 -->
                     </div>
                 </div>
@@ -413,13 +428,15 @@
             </div>
 
             <div class="quote-view-container" id="quote-view-wrapper" style="display: none;">
-                <div class="quote-actions-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div class="quote-actions-bar"
+                    style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                     <h2 class="report-section-title" style="margin: 0; min-width: 150px;">견적 관리 목록</h2>
                     <div
                         style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; flex: 1;">
 
                         <div style="display: flex; align-items: center; gap: 0.25rem;">
-                            <button class="btn-secondary" id="btn-quote-all-dates" style="width: auto; white-space: nowrap; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
+                            <button class="btn-secondary" id="btn-quote-all-dates"
+                                style="width: auto; white-space: nowrap; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
                                 전체 일정
                             </button>
                             <input type="date" id="filter-quote-start" class="form-control"
@@ -529,24 +546,29 @@
             </div>
 
             <div class="contract-view-container" id="contract-view-wrapper" style="display: none;">
-                <div class="contract-actions-bar quote-actions-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div class="contract-actions-bar quote-actions-bar"
+                    style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                     <h2 class="report-section-title" style="margin: 0; min-width: 150px;">계약 관리 목록</h2>
                     <div
                         style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; flex: 1;">
 
                         <div style="display: flex; align-items: center; gap: 0.25rem;">
-                            <select id="filter-contract-type" class="form-control" style="width: 100px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
+                            <select id="filter-contract-type" class="form-control"
+                                style="width: 100px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
                                 <option value="all">전체 (구분)</option>
                                 <option value="contract">계약서</option>
                                 <option value="order">발주서</option>
                             </select>
-                            <input type="text" id="filter-contract-search" class="form-control" autocomplete="off" placeholder="거래처/품목명 검색" style="width: 140px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
+                            <input type="text" id="filter-contract-search" class="form-control" autocomplete="off"
+                                placeholder="거래처/품목명 검색"
+                                style="width: 140px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
                             <input type="date" id="filter-contract-start" class="form-control" autocomplete="off"
                                 style="width: 130px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
                             <span style="color: var(--text-muted);">~</span>
                             <input type="date" id="filter-contract-end" class="form-control" autocomplete="off"
                                 style="width: 130px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
-                            <button class="btn-primary" id="btn-search-contract" style="width: auto; white-space: nowrap; flex-shrink: 0; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
+                            <button class="btn-primary" id="btn-search-contract"
+                                style="width: auto; white-space: nowrap; flex-shrink: 0; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
                                 검색
                             </button>
                         </div>
@@ -1522,11 +1544,16 @@
 
     <!-- 주간보고 연결 모달 -->
     <div class="modal-overlay" id="modal-link-project">
-        <div class="modal-content" style="max-width: 850px; padding: 1.5rem; border-radius: 12px; background: var(--bg-card); position: relative;">
-            <div class="modal-header" style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-                <h3 class="modal-title" style="font-size: 1.2rem; margin: 0; color: var(--text-primary);">주간보고 프로젝트 연결</h3>
-                <button class="btn-close" id="btn-close-link-project-modal" aria-label="닫기" style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="modal-content"
+            style="max-width: 850px; padding: 1.5rem; border-radius: 12px; background: var(--bg-card); position: relative;">
+            <div class="modal-header"
+                style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="modal-title" style="font-size: 1.2rem; margin: 0; color: var(--text-primary);">주간보고 프로젝트 연결
+                </h3>
+                <button class="btn-close" id="btn-close-link-project-modal" aria-label="닫기"
+                    style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
                         <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
@@ -1535,12 +1562,15 @@
             <div class="modal-body" style="color: var(--text-primary);">
                 <div style="margin-bottom: 1rem;">
                     <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
-                        <select id="link-project-assignee" class="form-control" style="width: 120px;" onchange="renderLinkProjectList()">
+                        <select id="link-project-assignee" class="form-control" style="width: 120px;"
+                            onchange="renderLinkProjectList()">
                             <option value="all">전체 팀원</option>
                         </select>
-                        <input type="text" id="link-project-search" class="form-control" placeholder="프로젝트명 검색..." oninput="renderLinkProjectList()" style="flex: 1;">
+                        <input type="text" id="link-project-search" class="form-control" placeholder="프로젝트명 검색..."
+                            oninput="renderLinkProjectList()" style="flex: 1;">
                     </div>
-                    <div id="link-project-list" style="height: 350px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem; display: flex; flex-direction: column;">
+                    <div id="link-project-list"
+                        style="height: 350px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem; display: flex; flex-direction: column;">
                         <!-- JS로 리스트 렌더링 -->
                     </div>
                 </div>
@@ -1555,7 +1585,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
 
-    <script src="app.js?v=20260723_1755"></script>
+    <script src="app.js?v=20260723_1749"></script>
 </body>
 
 </html>
