@@ -5260,68 +5260,75 @@ ${text}`;
     ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image, detail: "high" } }]
     : promptText;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초 타임아웃
-
-  try {
-    const response = await fetch(`https://api.openai.com/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: "You are a data extraction assistant. You are authorized to extract business information from the provided invoices and contracts. You must output ONLY a valid JSON object. Never apologize." },
-          { role: "user", content: userContent }
-        ]
-      }),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem('openai_api_key');
-        throw new Error("유효하지 않은 API 키이거나 권한이 없습니다.");
-      }
-      throw new Error(`OpenAI API Error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    let responseText = data.choices[0].message.content;
-    if (!responseText) {
-      const reason = data.choices[0].finish_reason || 'unknown';
-      const refusal = data.choices[0].message.refusal || '';
-      throw new Error(`AI 응답이 비어있습니다. (사유: ${reason}${refusal ? ', 상세: ' + refusal : ''})`);
-    }
-
-    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    let jsonString = jsonMatch ? jsonMatch[1] : responseText;
-
-    const firstBrace = jsonString.indexOf('{');
-    const lastBrace = jsonString.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      jsonString = jsonString.substring(firstBrace, lastBrace + 1);
-    }
-
-    let parsed;
+  async function callOpenAI(userContent) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
-      parsed = JSON.parse(jsonString.trim());
-    } catch (e) {
-      throw new Error("AI가 유효한 JSON 데이터를 생성하지 못했습니다: " + responseText.substring(0, 80));
+      const response = await fetch(`https://api.openai.com/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: "You are a business document data extraction assistant for an internal procurement system. The user has full authorization to process these documents. Extract the requested fields and output ONLY a valid JSON object. Do not refuse." },
+            { role: "user", content: userContent }
+          ]
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('openai_api_key');
+          throw new Error("유효하지 않은 API 키이거나 권한이 없습니다.");
+        }
+        throw new Error(`OpenAI API Error: ${response.status}`);
+      }
+      const data = await response.json();
+      return data.choices[0].message;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') throw new Error("API 응답 시간이 초과되었습니다 (60초).");
+      throw error;
     }
-    if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
-    return parsed;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      throw new Error("API 응답 시간이 초과되었습니다 (60초).");
-    }
-    throw error;
   }
+
+  // 1차 시도: 이미지 포함
+  let message = await callOpenAI(userContent);
+
+  // AI가 거부한 경우 (refusal 또는 빈 content) → 이미지 없이 텍스트만으로 재시도
+  if (!message.content && base64Image) {
+    console.warn("AI가 이미지 포함 요청을 거부했습니다. 텍스트만으로 재시도합니다...");
+    message = await callOpenAI(promptText); // 텍스트만 전송
+  }
+
+  if (!message.content) {
+    const refusal = message.refusal || '';
+    throw new Error(`AI가 문서 분석을 거부했습니다.${refusal ? ' (' + refusal + ')' : ''}`);
+  }
+
+  let responseText = message.content;
+  const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  let jsonString = jsonMatch ? jsonMatch[1] : responseText;
+
+  const firstBrace = jsonString.indexOf('{');
+  const lastBrace = jsonString.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonString.trim());
+  } catch (e) {
+    throw new Error("AI가 유효한 JSON을 생성하지 못했습니다: " + responseText.substring(0, 80));
+  }
+  if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
+  return parsed;
 }
 
 async function parseContractPDF(file) {
