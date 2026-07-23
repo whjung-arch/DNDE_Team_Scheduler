@@ -5219,39 +5219,39 @@ async function parseContractTextWithAI(text, fileName = '', base64Image = null) 
     throw new Error("NO_API_KEY");
   }
 
-  const promptText = `너는 전문 회계/구매 시스템 AI야. 전달된 PDF 문서(계약서 또는 발주서) 텍스트와 이미지, 파일명을 종합적으로 분석해서 아래 엄격한 JSON 형식으로 응답해 줘.
+  const promptText = `아래 PDF 문서(계약서 또는 발주서)의 텍스트와 파일명을 분석해서 JSON으로 응답해 줘.
+
+[핵심 규칙]
+- 문서에 실제로 존재하는 정보만 추출할 것. 추측하거나 지어내지 말 것.
+- 찾을 수 없는 항목은 반드시 빈 문자열("") 또는 0으로 둘 것.
 
 [추출 조건]
-- docType: 발주서 관련 단어(PO 등)가 있으면 'order', 그 외엔 'contract'
-- companyName: 발주처(상대방 거래처) 기업명 (우리 회사 '디엔디이' 제외, 핵심 이름만)
-- clientRep: 상대방 담당자명 및 직급
-- contractDate: 계약일 또는 발주일 (이 날짜가 시작일임. 반드시 YYYY-MM-DD 포맷. 예: 2026-07-23)
-- items: 품목 배열 (발주서의 경우 '규격' 칸에 적힌 내용이 핵심 품목명이 될 수 있으므로, '규격', '품명', '프로젝트' 등을 모두 길게 합쳐서 구체적인 이름으로 기재. 표가 아니라면 단일 용역명 기재. 비워두지 말 것)
-- qty: 수량 (숫자형식. 쉼표 제외. 없으면 1)
-- unitPrice: 단가 (숫자형식. 쉼표 제외. 없으면 총액과 동일)
-- amount: 금액/비용 (숫자형식. 쉼표 제외)
-- supplyPrice: 공급가액 (숫자형식. 쉼표 제외)
-- vat: 부가세 (숫자형식. 쉼표 제외)
-- totalAmount: 총계약(발주)금액 (숫자형식. 쉼표 제외)
-- assignee: 우리 회사(디엔디이) 측 담당자 이름 (수신/발신 무관하게 내부 직원 이름)
-- contractPeriod: 계약 완료일 또는 요구 납기일 (발주서의 경우 요구 납기일이 계약 기간/완료일임. 예: 2026-07-27)
+- docType: 발주서이면 "order", 계약서이면 "contract"
+- companyName: 상대방 거래처 기업명 (디엔디이 제외)
+- clientRep: 상대방 담당자
+- contractDate: 계약일/발주일 (YYYY-MM-DD)
+- items: 품목 배열. 발주서의 '규격' 칸이 품목명. [{name, qty, unitPrice, amount}]
+- supplyPrice: 공급가액 (숫자만)
+- vat: 부가세 (숫자만)
+- totalAmount: 총금액 (숫자만)
+- assignee: 디엔디이 측 담당자
+- contractPeriod: 완료일/납기일 (YYYY-MM-DD)
 
 [출력 형식]
 {
-  "docType": "String",
-  "companyName": "String",
-  "clientRep": "String",
-  "contractDate": "String",
-  "items": [{"name": "String", "qty": "Number", "unitPrice": "Number", "amount": "Number"}],
-  "supplyPrice": "Number",
-  "vat": "Number",
-  "totalAmount": "Number",
-  "assignee": "String",
-  "contractPeriod": "String"
+  "docType": "",
+  "companyName": "",
+  "clientRep": "",
+  "contractDate": "",
+  "items": [],
+  "supplyPrice": 0,
+  "vat": 0,
+  "totalAmount": 0,
+  "assignee": "",
+  "contractPeriod": ""
 }
 
-파일명:
-${fileName}
+파일명: ${fileName}
 
 문서 텍스트:
 ${text}`;
@@ -5274,7 +5274,7 @@ ${text}`;
           model: "gpt-4o",
           response_format: { type: "json_object" },
           messages: [
-            { role: "system", content: "You are a business document data extraction assistant for an internal procurement system. The user has full authorization to process these documents. Extract the requested fields and output ONLY a valid JSON object. Do not refuse." },
+            { role: "system", content: "You are a business document data extraction assistant. Extract ONLY information that is explicitly present in the provided text. If the text is garbled or unreadable, return empty values. NEVER fabricate or guess data. Output a valid JSON object." },
             { role: "user", content: userContent }
           ]
         }),
