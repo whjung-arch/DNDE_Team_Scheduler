@@ -2895,8 +2895,10 @@ function renderQuoteView() {
       }
       const tr = document.createElement('tr');
       const isLinked = state.reports.some(r => (r.linkedDocs || []).includes(quote.id));
+      const isNew = quote.updatedAt && (new Date() - new Date(quote.updatedAt) < 3 * 24 * 60 * 60 * 1000);
+      const newBadge = isNew ? `<span class="badge" style="background-color: var(--danger); color: white; margin-left: 6px; font-size: 10px; padding: 2px 5px;">NEW</span>` : '';
       tr.innerHTML = `
-        <td style="font-weight: 500; color: var(--primary);">${quoteNo}</td>
+        <td style="font-weight: 500; color: var(--primary);">${quoteNo}${newBadge}</td>
         <td>${quote.date || ''}</td>
         <td>${quote.client || ''} ${quote.clientRep ? `(${quote.clientRep})` : ''}</td>
         <td>${quote.item || ''}</td>
@@ -4978,10 +4980,12 @@ function renderContractView() {
     const badgeClass = (contract.docType === 'order') ? 'badge-order' : 'badge-contract';
     const badgeText = (contract.docType === 'order') ? '발주서' : '계약서';
     const isLinked = state.reports.some(r => (r.linkedDocs || []).includes(contract.id));
+    const isNew = contract.updatedAt && (new Date() - new Date(contract.updatedAt) < 3 * 24 * 60 * 60 * 1000);
+    const newBadge = isNew ? `<span class="badge" style="background-color: var(--danger); color: white; margin-left: 6px; font-size: 10px; padding: 2px 5px;">NEW</span>` : '';
 
     tr.innerHTML = `
       <td>${displayNum}</td>
-      <td style="text-align: center;"><span class="badge ${badgeClass}">${badgeText}</span></td>
+      <td style="text-align: center;"><span class="badge ${badgeClass}">${badgeText}</span>${newBadge}</td>
       <td>${contract.date || '-'}</td>
       <td class="table-client-name">
         <div>${contract.client || '-'}</div>
