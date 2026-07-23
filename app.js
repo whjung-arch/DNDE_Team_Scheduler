@@ -5252,7 +5252,8 @@ async function parseContractPDF(file) {
         if (parsed.companyName) document.getElementById('contract-client').value = cleanCompanyName(parsed.companyName);
         if (parsed.clientRep) document.getElementById('contract-client-rep').value = parsed.clientRep;
         if (parsed.contractDate) document.getElementById('contract-date').value = parsed.contractDate;
-        if (parsed.totalAmount) document.getElementById('contract-amount').value = parsed.totalAmount;
+        const amt = parsed.supplyPrice || parsed.totalAmount || '';
+        if (amt) document.getElementById('contract-amount').value = amt;
         if (parsed.contractPeriod) document.getElementById('contract-period').value = parsed.contractPeriod;
 
         if (parsed.assignee) {
@@ -5497,7 +5498,7 @@ async function syncOneDriveContracts() {
           assigneeName: assigneeId ? '' : rawAssignee,
           client: cleanCompanyName(parsed.companyName) || '미확인 거래처',
           clientRep: parsed.clientRep || '',
-          amount: parsed.totalAmount || 0,
+          amount: parsed.supplyPrice || parsed.totalAmount || 0,
           period: parsed.contractPeriod || '',
           item: '',
           pdfUrl: fbUrl,
