@@ -3143,9 +3143,8 @@ ${text}`;
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a helpful data extraction assistant that always responds with a valid JSON object enclosed in {}. Never return null. If the text is garbled, rely primarily on the visual structure of the image." },
+          { role: "system", content: "You are a helpful data extraction assistant. You must output only a valid JSON object. Do not include markdown formatting like ```json or any other text." },
           { role: "user", content: userContent }
         ]
       })
@@ -3160,9 +3159,21 @@ ${text}`;
     }
 
     const data = await response.json();
-    const responseText = data.choices[0].message.content;
-    if (!responseText) throw new Error("AI 응답 내용이 비어있습니다. (안전 필터 등에 의해 차단되었을 수 있습니다.)");
-    const parsed = JSON.parse(responseText);
+    let responseText = data.choices[0].message.content;
+    if (!responseText) {
+      const reason = data.choices[0].finish_reason || 'unknown';
+      throw new Error(`AI 응답이 비어있습니다. (사유: ${reason})`);
+    }
+
+    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) responseText = jsonMatch[1];
+
+    let parsed;
+    try {
+      parsed = JSON.parse(responseText.trim());
+    } catch (e) {
+      throw new Error("AI가 유효한 JSON을 반환하지 않았습니다: " + e.message);
+    }
     if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
 
     // 폼 채우기
@@ -5231,9 +5242,8 @@ ${text}`;
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a helpful data extraction assistant that always responds with a valid JSON object enclosed in {}. Never return null. If the text is garbled, rely primarily on the visual structure of the image." },
+          { role: "system", content: "You are a helpful data extraction assistant. You must output only a valid JSON object. Do not include markdown formatting like ```json or any other text." },
           { role: "user", content: userContent }
         ]
       }),
@@ -5250,13 +5260,22 @@ ${text}`;
     }
 
     const data = await response.json();
-    const responseText = data.choices[0].message.content;
+    let responseText = data.choices[0].message.content;
     if (!responseText) {
       const reason = data.choices[0].finish_reason || 'unknown';
       const refusal = data.choices[0].message.refusal || '';
       throw new Error(`AI 응답이 비어있습니다. (사유: ${reason}${refusal ? ', 상세: ' + refusal : ''})`);
     }
-    const parsed = JSON.parse(responseText);
+
+    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) responseText = jsonMatch[1];
+
+    let parsed;
+    try {
+      parsed = JSON.parse(responseText.trim());
+    } catch (e) {
+      throw new Error("AI가 유효한 JSON 데이터를 생성하지 못했습니다: " + e.message);
+    }
     if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
     return parsed;
   } catch (error) {
