@@ -3183,12 +3183,23 @@ ${text}`;
     if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
 
     // 폼 채우기
-    if (parsed.companyName) document.getElementById('quote-client').value = cleanCompanyName(parsed.companyName);
+    if (parsed.companyName) {
+      let cn = parsed.companyName;
+      try { cn = cn.replace(/\(주\)|주식회사|\(유\)|유한회사|\(사\)|사단법인|\(재\)|재단법인|귀하|님/g, '').trim(); } catch (e) { }
+      document.getElementById('quote-client').value = cn;
+    }
     if (parsed.clientRep) document.getElementById('quote-client-rep').value = parsed.clientRep;
-    const qDate = cleanDate(parsed.quoteDate);
-    if (qDate) document.getElementById('quote-date').value = qDate;
-    const qAmt = cleanNumber(parsed.totalAmount);
-    if (qAmt) document.getElementById('quote-amount').value = qAmt;
+    if (parsed.quoteDate) {
+      let dateStr = String(parsed.quoteDate);
+      const dm = dateStr.match(/(\d{4})[-.\s]*(\d{2})[-.\s]*(\d{2})/);
+      if (dm) dateStr = dm[1] + '-' + dm[2] + '-' + dm[3];
+      document.getElementById('quote-date').value = dateStr;
+    }
+    if (parsed.totalAmount) {
+      let numStr = String(parsed.totalAmount).replace(/,/g, '').replace(/[^\d.-]/g, '');
+      let numVal = Number(numStr);
+      if (numVal) document.getElementById('quote-amount').value = numVal;
+    }
 
     // 담당자 매핑
     if (parsed.assignee) {
@@ -5350,14 +5361,28 @@ async function parseContractPDF(file) {
         const parsed = await parseContractTextWithAI(fullText, file.name, base64Image);
 
         if (parsed.docType) document.getElementById('contract-type').value = parsed.docType;
-        if (parsed.companyName) document.getElementById('contract-client').value = cleanCompanyName(parsed.companyName);
+        if (parsed.companyName) {
+          let cn = parsed.companyName;
+          try { cn = cn.replace(/\(주\)|주식회사|\(유\)|유한회사|\(사\)|사단법인|\(재\)|재단법인|귀하|님/g, '').trim(); } catch (e) { }
+          document.getElementById('contract-client').value = cn;
+        }
         if (parsed.clientRep) document.getElementById('contract-client-rep').value = parsed.clientRep;
 
-        const cDate = cleanDate(parsed.contractDate);
-        if (cDate) document.getElementById('contract-date').value = cDate;
+        // 날짜 정리 (인라인)
+        if (parsed.contractDate) {
+          let dateStr = String(parsed.contractDate);
+          const dm = dateStr.match(/(\d{4})[-.\s]*(\d{2})[-.\s]*(\d{2})/);
+          if (dm) dateStr = dm[1] + '-' + dm[2] + '-' + dm[3];
+          document.getElementById('contract-date').value = dateStr;
+        }
 
-        const amt = cleanNumber(parsed.supplyPrice) || cleanNumber(parsed.totalAmount) || '';
-        if (amt) document.getElementById('contract-amount').value = amt;
+        // 금액 정리 (인라인)
+        let rawAmt = parsed.supplyPrice || parsed.totalAmount || '';
+        if (rawAmt) {
+          let numStr = String(rawAmt).replace(/,/g, '').replace(/[^\d.-]/g, '');
+          let numVal = Number(numStr);
+          if (numVal) document.getElementById('contract-amount').value = numVal;
+        }
 
         if (parsed.contractPeriod) document.getElementById('contract-period').value = parsed.contractPeriod;
 
