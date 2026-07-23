@@ -2895,7 +2895,10 @@ function renderQuoteView() {
       }
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="font-weight: 500; color: var(--primary);">${quoteNo}</td>
+        <td style="font-weight: 500; color: var(--primary);">
+          ${quoteNo}
+          ${quote.projectId ? `<span title="프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px;">✅</span>` : ''}
+        </td>
         <td>${quote.date || ''}</td>
         <td>${quote.client || ''} ${quote.clientRep ? `(${quote.clientRep})` : ''}</td>
         <td>${quote.item || ''}</td>
@@ -3103,10 +3106,10 @@ async function analyzeWithAI(text, file, base64Image = null) {
   "clientRep": "견적서의 '참조' (거래처 담당자명, 직급 포함)",
   "quoteDate": "견적일자: YYYY-MM-DD",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
-  "supplyPrice": 공급가액(숫자),
-  "vat": 부가세(숫자),
-  "totalAmount": 총금액(숫자),
-  "assignee": "견적서의 '발신자' 이름(견적서를 발송/작성한 우리 회사 직원 이름만)"
+  "supplyPrice": 공급가액(원 기호나 쉼표를 제외한 순수 숫자만),
+  "vat": 부가세(원 기호나 쉼표를 제외한 순수 숫자만),
+  "totalAmount": 총금액(원 기호나 쉼표를 제외한 순수 숫자만),
+  "assignee": "견적서를 발송/작성한 우리 회사(발신자) 담당자 이름 (수신처 담당자가 아님. 영업사원 등 핵심 이름만 추출)"
 }
 
 추출할 견적서 텍스트:
@@ -4536,10 +4539,10 @@ async function parseTextWithAI(text, base64Image = null) {
   "clientRep": "견적서의 '참조' (거래처 담당자명, 직급 포함)",
   "quoteDate": "견적일자: YYYY-MM-DD",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
-  "supplyPrice": 공급가액(숫자),
-  "vat": 부가세(숫자),
-  "totalAmount": 총금액(숫자),
-  "assignee": "견적서의 '발신자' 이름(견적서를 발송/작성한 우리 회사 직원 이름만)"
+  "supplyPrice": 공급가액(원 기호나 쉼표를 제외한 순수 숫자만),
+  "vat": 부가세(원 기호나 쉼표를 제외한 순수 숫자만),
+  "totalAmount": 총금액(원 기호나 쉼표를 제외한 순수 숫자만),
+  "assignee": "견적서를 발송/작성한 우리 회사(발신자) 담당자 이름 (수신처 담당자가 아님. 영업사원 등 핵심 이름만 추출)"
 }
 
 추출할 견적서 텍스트:
@@ -4960,7 +4963,10 @@ function renderContractView() {
 
     tr.innerHTML = `
       <td>${displayNum}</td>
-      <td style="text-align: center;"><span class="badge ${badgeClass}">${badgeText}</span></td>
+      <td style="text-align: center;">
+        <span class="badge ${badgeClass}">${badgeText}</span>
+        ${contract.projectId ? `<span title="프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px;">✅</span>` : ''}
+      </td>
       <td>${contract.date || '-'}</td>
       <td class="table-client-name">
         <div>${contract.client || '-'}</div>
@@ -5127,10 +5133,10 @@ async function parseContractTextWithAI(text, fileName = '', base64Image = null) 
   "clientRep": "계약서의 거래처 담당자명 (직급 포함, 없으면 빈문자열)",
   "contractDate": "계약서 내의 계약시작 일자 (YYYY-MM-DD 형식). 시작일 기준.",
   "items": [{"name": "품목명", "qty": 수량(숫자), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
-  "supplyPrice": 공급가액(숫자),
-  "vat": 부가세(숫자),
-  "totalAmount": 총계약금액(숫자),
-  "assignee": "계약서의 우리 회사 담당자 이름",
+  "supplyPrice": 공급가액(원 기호나 쉼표를 제외한 순수 숫자만),
+  "vat": 부가세(원 기호나 쉼표를 제외한 순수 숫자만),
+  "totalAmount": 총계약금액(원 기호나 쉼표를 제외한 순수 숫자만),
+  "assignee": "계약서를 발송/작성한 우리 회사(발신자) 담당자 이름 (수신처 담당자가 아님. 영업사원 등 핵심 이름만 추출)",
   "contractPeriod": "계약기간 또는 납기일 (예: 2026.01.01 ~ 2026.12.31). 특히 promised date, 납기일, 납품기한을 참고하여 정확하게 판단할 것. 찾을수 없으면 빈문자열"
 }
 
