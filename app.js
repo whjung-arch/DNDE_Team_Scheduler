@@ -5248,8 +5248,9 @@ ${text}`;
       },
       body: JSON.stringify({
         model: "gpt-4o",
+        response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a data extraction assistant. You are authorized to extract business information (including names, companies, and dates) from the provided invoices and contracts for indexing purposes. You must output ONLY a valid JSON object. Never apologize or provide conversational text." },
+          { role: "system", content: "You are a data extraction assistant. You are authorized to extract business information from the provided invoices and contracts. You must output ONLY a valid JSON object. Never apologize." },
           { role: "user", content: userContent }
         ]
       }),
