@@ -2904,8 +2904,10 @@ function renderQuoteView() {
         <td style="text-align: center;">
           ${quote.pdfUrl ? `<button class="btn-secondary btn-sm" onclick="window.open('${quote.pdfUrl}', '_blank')">PDF 열기</button>` : '-'}
         </td>
-        <td>
-          <button class="btn-primary btn-sm" onclick="openQuoteModal('${quote.id}')">수정</button>
+        <td style="white-space: nowrap;">
+          <button class="btn-icon" onclick="openQuoteModal('${quote.id}')" title="수정" style="vertical-align: middle;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
           <button class="btn-icon" onclick="openLinkProjectModal('${quote.id}', 'quote')" title="주간보고 연결" style="margin-left: 4px; vertical-align: middle; color: var(--primary);">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
           </button>
@@ -5467,25 +5469,37 @@ window.renderLinkedDocs = function (report) {
     const contract = state.contracts.find(c => c.id === docId);
     if (quote) {
       if (quote.pdfUrl) {
-        html += `<a href="${quote.pdfUrl}" target="_blank" title="[견적서 PDF] ${escapeHTML(quote.client)}" style="display: inline-flex; align-items: center; justify-content: center; background: #e0f2fe; color: #0284c7; padding: 6px; border-radius: 4px; text-decoration: none;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        html += `<a href="${quote.pdfUrl}" target="_blank" title="[견적서 PDF] ${escapeHTML(quote.client)}" style="display: inline-flex; align-items: center; justify-content: center; background: #e0f2fe; color: #0284c7; padding: 4px 8px; border-radius: 4px; text-decoration: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span style="font-size: 0.75rem; margin-left: 4px; font-weight: 500;">견적</span>
                  </a>`;
       } else {
-        html += `<span title="[견적서] ${escapeHTML(quote.client)} (PDF 없음)" style="display: inline-flex; align-items: center; justify-content: center; background: var(--bg-hover); color: var(--text-muted); padding: 6px; border-radius: 4px; cursor: not-allowed;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        html += `<span title="[견적서] ${escapeHTML(quote.client)} (PDF 없음)" style="display: inline-flex; align-items: center; justify-content: center; background: var(--bg-hover); color: var(--text-muted); padding: 4px 8px; border-radius: 4px; cursor: not-allowed;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span style="font-size: 0.75rem; margin-left: 4px; font-weight: 500;">견적</span>
                  </span>`;
       }
     } else if (contract) {
-      const typeStr = contract.type === 'order' ? '발주서' : '계약서';
+      const typeStr = contract.type === 'order' ? '발주' : '계약';
       if (contract.pdfUrl) {
         const bgColor = contract.type === 'order' ? '#dcfce7' : '#f3e8ff';
         const color = contract.type === 'order' ? '#16a34a' : '#9333ea';
-        html += `<a href="${contract.pdfUrl}" target="_blank" title="[${typeStr} PDF] ${escapeHTML(contract.client)}" style="display: inline-flex; align-items: center; justify-content: center; background: ${bgColor}; color: ${color}; padding: 6px; border-radius: 4px; text-decoration: none;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        const iconSvg = contract.type === 'order'
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`
+          : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M9.8 19.8l3.1-3.1-2-2-3.1 3.1c-.2.2-.2.5 0 .7l1.3 1.3c.2.2.5.2.7 0z"></path></svg>`;
+
+        html += `<a href="${contract.pdfUrl}" target="_blank" title="[${typeStr}서 PDF] ${escapeHTML(contract.client)}" style="display: inline-flex; align-items: center; justify-content: center; background: ${bgColor}; color: ${color}; padding: 4px 8px; border-radius: 4px; text-decoration: none;">
+                    ${iconSvg}
+                    <span style="font-size: 0.75rem; margin-left: 4px; font-weight: 500;">${typeStr}</span>
                  </a>`;
       } else {
-        html += `<span title="[${typeStr}] ${escapeHTML(contract.client)} (PDF 없음)" style="display: inline-flex; align-items: center; justify-content: center; background: var(--bg-hover); color: var(--text-muted); padding: 6px; border-radius: 4px; cursor: not-allowed;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        const iconSvg = contract.type === 'order'
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`
+          : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M9.8 19.8l3.1-3.1-2-2-3.1 3.1c-.2.2-.2.5 0 .7l1.3 1.3c.2.2.5.2.7 0z"></path></svg>`;
+
+        html += `<span title="[${typeStr}서] ${escapeHTML(contract.client)} (PDF 없음)" style="display: inline-flex; align-items: center; justify-content: center; background: var(--bg-hover); color: var(--text-muted); padding: 4px 8px; border-radius: 4px; cursor: not-allowed;">
+                    ${iconSvg}
+                    <span style="font-size: 0.75rem; margin-left: 4px; font-weight: 500;">${typeStr}</span>
                  </span>`;
       }
     }
@@ -5568,14 +5582,14 @@ window.renderLinkProjectList = function () {
     }
 
     div.innerHTML = `
-            <div>
-                <div style="font-weight: 500; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 0.25rem;">${escapeHTML(item.title)}</div>
-                <div style="font-size: 0.85rem; color: var(--text-secondary);">담당자: ${escapeHTML(item.assigneeName || '미정')}</div>
+            <div style="min-width: 0; flex: 1; padding-right: 1rem;">
+                <div style="font-weight: 500; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHTML(item.title)}</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">담당자: ${escapeHTML(item.assigneeName || '미정')}</div>
             </div>
-            <div>
+            <div style="flex-shrink: 0;">
                 ${item.isLinked ?
-        `<button class="btn-secondary btn-sm" onclick="unlinkProject('${item.id}', '${currentLinkingDocId}')" style="padding: 4px 10px; font-size: 0.8rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.3);">연결 해제</button>` :
-        `<button class="btn-primary btn-sm" onclick="linkProject('${item.id}', '${currentLinkingDocId}')" style="padding: 4px 10px; font-size: 0.8rem;">연결</button>`
+        `<button class="btn-secondary btn-sm" onclick="unlinkProject('${item.id}', '${currentLinkingDocId}')" style="padding: 4px 10px; font-size: 0.8rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.3); white-space: nowrap;">연결 해제</button>` :
+        `<button class="btn-primary btn-sm" onclick="linkProject('${item.id}', '${currentLinkingDocId}')" style="padding: 4px 10px; font-size: 0.8rem; white-space: nowrap;">연결</button>`
       }
             </div>
         `;
