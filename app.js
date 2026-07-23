@@ -4561,6 +4561,19 @@ function cleanCompanyName(name) {
   return name.replace(/\(주\)|주식회사|\(유\)|유한회사|\(사\)|사단법인|\(재\)|재단법인|귀하|님/g, '').trim();
 }
 
+function cleanNumber(val) {
+  if (!val && val !== 0) return '';
+  const numStr = String(val).replace(/,/g, '').replace(/[^\d.-]/g, '');
+  return Number(numStr) || '';
+}
+
+function cleanDate(val) {
+  if (!val) return '';
+  const match = String(val).match(/(\d{4})[-.\s]*(\d{2})[-.\s]*(\d{2})/);
+  if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+  return val;
+}
+
 // --- AI Text Parsing Helper ---
 async function parseTextWithAI(text, base64Image = null) {
   let apiKey = await requireApiKey();
