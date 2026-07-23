@@ -3166,13 +3166,19 @@ ${text}`;
     }
 
     const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) responseText = jsonMatch[1];
+    let jsonString = jsonMatch ? jsonMatch[1] : responseText;
+
+    const firstBrace = jsonString.indexOf('{');
+    const lastBrace = jsonString.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+    }
 
     let parsed;
     try {
-      parsed = JSON.parse(responseText.trim());
+      parsed = JSON.parse(jsonString.trim());
     } catch (e) {
-      throw new Error("AI가 유효한 JSON을 반환하지 않았습니다: " + e.message);
+      throw new Error("AI가 유효한 JSON을 반환하지 않았습니다: " + responseText.substring(0, 80));
     }
     if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
 
@@ -5243,7 +5249,7 @@ ${text}`;
       body: JSON.stringify({
         model: "gpt-4o",
         messages: [
-          { role: "system", content: "You are a helpful data extraction assistant. You must output only a valid JSON object. Do not include markdown formatting like ```json or any other text." },
+          { role: "system", content: "You are a data extraction assistant. You are authorized to extract business information (including names, companies, and dates) from the provided invoices and contracts for indexing purposes. You must output ONLY a valid JSON object. Never apologize or provide conversational text." },
           { role: "user", content: userContent }
         ]
       }),
@@ -5268,13 +5274,19 @@ ${text}`;
     }
 
     const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) responseText = jsonMatch[1];
+    let jsonString = jsonMatch ? jsonMatch[1] : responseText;
+
+    const firstBrace = jsonString.indexOf('{');
+    const lastBrace = jsonString.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+    }
 
     let parsed;
     try {
-      parsed = JSON.parse(responseText.trim());
+      parsed = JSON.parse(jsonString.trim());
     } catch (e) {
-      throw new Error("AI가 유효한 JSON 데이터를 생성하지 못했습니다: " + e.message);
+      throw new Error("AI가 유효한 JSON 데이터를 생성하지 못했습니다: " + responseText.substring(0, 80));
     }
     if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
     return parsed;
