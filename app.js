@@ -3106,7 +3106,7 @@ async function analyzeWithAI(text, file, base64Image = null) {
   "companyName": "견적서의 '수신' (거래처명. 표에 빈칸이더라도 문서 상단이나 다른 곳에 있으면 찾아낼 것. 주식회사 등은 제외하고 핵심 이름만)",
   "clientRep": "견적서의 '참조' (거래처 담당자명, 직급 포함. 못찾으면 빈문자열)",
   "quoteDate": "견적일자 (YYYY-MM-DD 형식)",
-  "items": [{"name": "품목명 (표의 해당 줄에 있는 프로젝트, 용량, 규격, 품명 등 모든 텍스트를 종합해 매우 구체적인 하나의 이름으로 합칠 것. 단순 '사외외주'처럼 포괄적 단어만 적지 말 것)", "qty": 수량(형식 무관), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
+  "items": [{"name": "품목명 (표 형태의 다수 품목이라면 해당 행의 프로젝트, 용량, 규격, 품명 등 모든 텍스트를 종합해 구체적으로 적고, 만약 표가 아니라 단일 항목(예: 용역명, 프로젝트명 등)으로 되어있다면 그 내용을 상세히 적을 것. 포괄적 단어 지양)", "qty": 수량(형식 무관, 없으면 1), "unitPrice": 단가(숫자, 없으면 총액과 동일), "amount": 금액(숫자)}],
   "supplyPrice": 공급가액(원 기호나 쉼표를 제외한 순수 숫자만. 표에 없으면 계산해서라도 넣을 것),
   "vat": 부가세(원 기호나 쉼표를 제외한 순수 숫자만. 표에 없으면 계산해서라도 넣을 것),
   "totalAmount": 총금액(원 기호나 쉼표를 제외한 순수 숫자만. '총금액' 칸이 없고 '금액'만 있다면 그걸 총금액으로 사용),
@@ -3117,7 +3117,7 @@ async function analyzeWithAI(text, file, base64Image = null) {
 ${text}`;
 
   const userContent = base64Image
-    ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image } }]
+    ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image, detail: "high" } }]
     : promptText;
 
   try {
@@ -3131,7 +3131,7 @@ ${text}`;
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
+          { role: "system", content: "You are a helpful data extraction assistant that always responds with a valid JSON object enclosed in {}. Never return null. If the text is garbled, rely primarily on the visual structure of the image." },
           { role: "user", content: userContent }
         ]
       })
@@ -3147,7 +3147,9 @@ ${text}`;
 
     const data = await response.json();
     const responseText = data.choices[0].message.content;
+    if (!responseText) throw new Error("AI 응답 내용이 비어있습니다. (안전 필터 등에 의해 차단되었을 수 있습니다.)");
     const parsed = JSON.parse(responseText);
+    if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
 
     // 폼 채우기
     if (parsed.companyName) document.getElementById('quote-client').value = parsed.companyName;
@@ -4539,7 +4541,7 @@ async function parseTextWithAI(text, base64Image = null) {
   "companyName": "견적서의 '수신' (거래처명. 단, 표에 빈칸이더라도 문서 상단이나 다른 곳에 있으면 찾아낼 것. 우리 회사('디엔디이' 또는 'DNDE')는 제외하고 실제 수신 거래처의 핵심 기업명만 작성. '귀하', '주식회사' 등 제외)",
   "clientRep": "견적서의 '참조' (거래처 담당자명, 직급 포함. 못찾으면 빈문자열)",
   "quoteDate": "견적일자 (YYYY-MM-DD 형식)",
-  "items": [{"name": "품목명 (표의 해당 줄에 있는 프로젝트, 용량, 규격, 품명 등 모든 텍스트를 종합해 매우 구체적인 하나의 이름으로 합칠 것. 단순 '사외외주'처럼 포괄적 단어만 적지 말 것)", "qty": 수량(형식 무관), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
+  "items": [{"name": "품목명 (표 형태의 다수 품목이라면 해당 행의 프로젝트, 용량, 규격, 품명 등 모든 텍스트를 종합해 구체적으로 적고, 만약 표가 아니라 단일 항목(예: 용역명, 프로젝트명 등)으로 되어있다면 그 내용을 상세히 적을 것. 포괄적 단어 지양)", "qty": 수량(형식 무관, 없으면 1), "unitPrice": 단가(숫자, 없으면 총액과 동일), "amount": 금액(숫자)}],
   "supplyPrice": 공급가액(원 기호나 쉼표를 제외한 순수 숫자만. 표에 없으면 계산해서라도 넣을 것),
   "vat": 부가세(원 기호나 쉼표를 제외한 순수 숫자만. 표에 없으면 계산해서라도 넣을 것),
   "totalAmount": 총금액(원 기호나 쉼표를 제외한 순수 숫자만. '총금액' 칸이 없고 '금액'만 있다면 그걸 총금액으로 사용),
@@ -4550,7 +4552,7 @@ async function parseTextWithAI(text, base64Image = null) {
 ${text}`;
 
   const userContent = base64Image
-    ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image } }]
+    ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image, detail: "high" } }]
     : promptText;
 
   const controller = new AbortController();
@@ -4567,7 +4569,7 @@ ${text}`;
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
+          { role: "system", content: "You are a helpful data extraction assistant that always responds with a valid JSON object enclosed in {}. Never return null. If the text is garbled, rely primarily on the visual structure of the image." },
           { role: "user", content: userContent }
         ]
       }),
@@ -4585,7 +4587,10 @@ ${text}`;
 
     const data = await response.json();
     const responseText = data.choices[0].message.content;
-    return JSON.parse(responseText);
+    if (!responseText) throw new Error("AI 응답 내용이 비어있습니다. (안전 필터 등에 의해 차단되었을 수 있습니다.)");
+    const parsed = JSON.parse(responseText);
+    if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
+    return parsed;
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
@@ -5152,7 +5157,7 @@ async function parseContractTextWithAI(text, fileName = '', base64Image = null) 
   "companyName": "발주하는 회사(거래처/발주처)의 이름. 표의 '매출처' 등이 비어있더라도 문서 전체를 살펴보고 우리 회사('디엔디이' 또는 'DNDE')를 제외한 상대방 기업의 이름만 추출 (주식회사, 귀하 등은 제외하고 핵심 기업명만 작성. 못찾으면 빈문자열)",
   "clientRep": "계약서의 거래처 담당자명 (직급 포함, 없으면 빈문자열)",
   "contractDate": "계약서 내의 계약시작 일자나 발주일자 (YYYY-MM-DD 형식). 시작일 기준.",
-  "items": [{"name": "품목명 (표의 해당 줄에 있는 프로젝트, 용량, 최상위 품번, 규격, 품명 등 모든 텍스트를 종합해 매우 구체적인 하나의 이름으로 길게 합칠 것. 예: '[정부과제] 1~3MVA급 변압기 M2307185 사외외주 4차년도 유동해석')", "qty": 수량(형식 무관), "unitPrice": 단가(숫자), "amount": 금액(숫자)}],
+  "items": [{"name": "품목명 (표 형태라면 해당 행의 프로젝트, 용량, 최상위 품번, 규격, 품명 등 모든 텍스트를 길게 합칠 것(예: [정부과제] ... 사외외주). 표가 아닌 단일 항목(용역명 등)이면 그 내용을 기재)", "qty": 수량(형식 무관, 없으면 1), "unitPrice": 단가(숫자, 없으면 총액과 동일), "amount": 금액(숫자)}],
   "supplyPrice": 공급가액(원 기호나 쉼표를 제외한 순수 숫자만. 표에 없으면 계산해서라도 넣을 것),
   "vat": 부가세(원 기호나 쉼표를 제외한 순수 숫자만. 표에 없으면 계산해서라도 넣을 것),
   "totalAmount": 총계약금액(원 기호나 쉼표를 제외한 순수 숫자만. '총금액' 칸이 없고 '금액'만 있다면 그걸 총계약금액으로 사용),
@@ -5167,7 +5172,7 @@ ${fileName}
 ${text}`;
 
   const userContent = base64Image
-    ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image } }]
+    ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image, detail: "high" } }]
     : promptText;
 
   const controller = new AbortController();
@@ -5184,7 +5189,7 @@ ${text}`;
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
+          { role: "system", content: "You are a helpful data extraction assistant that always responds with a valid JSON object enclosed in {}. Never return null. If the text is garbled, rely primarily on the visual structure of the image." },
           { role: "user", content: userContent }
         ]
       }),
@@ -5202,7 +5207,10 @@ ${text}`;
 
     const data = await response.json();
     const responseText = data.choices[0].message.content;
-    return JSON.parse(responseText);
+    if (!responseText) throw new Error("AI 응답 내용이 비어있습니다. (안전 필터 등에 의해 차단되었을 수 있습니다.)");
+    const parsed = JSON.parse(responseText);
+    if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
+    return parsed;
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
