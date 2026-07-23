@@ -3166,10 +3166,12 @@ ${text}`;
     if (!parsed) throw new Error("AI가 유효한 데이터를 추출하지 못했습니다.");
 
     // 폼 채우기
-    if (parsed.companyName) document.getElementById('quote-client').value = parsed.companyName;
+    if (parsed.companyName) document.getElementById('quote-client').value = cleanCompanyName(parsed.companyName);
     if (parsed.clientRep) document.getElementById('quote-client-rep').value = parsed.clientRep;
-    if (parsed.quoteDate) document.getElementById('quote-date').value = parsed.quoteDate;
-    if (parsed.totalAmount) document.getElementById('quote-amount').value = parsed.totalAmount;
+    const qDate = cleanDate(parsed.quoteDate);
+    if (qDate) document.getElementById('quote-date').value = qDate;
+    const qAmt = cleanNumber(parsed.totalAmount);
+    if (qAmt) document.getElementById('quote-amount').value = qAmt;
 
     // 담당자 매핑
     if (parsed.assignee) {
