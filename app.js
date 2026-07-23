@@ -4523,7 +4523,7 @@ function cleanCompanyName(name) {
 }
 
 // --- AI Text Parsing Helper ---
-async function parseTextWithAI(text) {
+async function parseTextWithAI(text, base64Image = null) {
   let apiKey = await requireApiKey();
   if (!apiKey) {
     throw new Error("NO_API_KEY");
@@ -4545,6 +4545,10 @@ async function parseTextWithAI(text) {
 추출할 견적서 텍스트:
 ${text}`;
 
+  const userContent = base64Image
+    ? [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: base64Image } }]
+    : promptText;
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초 타임아웃
 
@@ -4560,7 +4564,7 @@ ${text}`;
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: "You are a helpful data extraction assistant that always responds in valid JSON format." },
-          { role: "user", content: promptText }
+          { role: "user", content: userContent }
         ]
       }),
       signal: controller.signal
