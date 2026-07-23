@@ -2894,10 +2894,11 @@ function renderQuoteView() {
         }
       }
       const tr = document.createElement('tr');
+      const isLinked = state.reports.some(r => (r.linkedDocs || []).includes(quote.id));
       tr.innerHTML = `
         <td style="font-weight: 500; color: var(--primary);">
           ${quoteNo}
-          ${quote.projectId ? `<span title="프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px;">✅</span>` : ''}
+          ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px;">✅</span>` : ''}
         </td>
         <td>${quote.date || ''}</td>
         <td>${quote.client || ''} ${quote.clientRep ? `(${quote.clientRep})` : ''}</td>
@@ -4960,12 +4961,13 @@ function renderContractView() {
 
     const badgeClass = (contract.docType === 'order') ? 'badge-order' : 'badge-contract';
     const badgeText = (contract.docType === 'order') ? '발주서' : '계약서';
+    const isLinked = state.reports.some(r => (r.linkedDocs || []).includes(contract.id));
 
     tr.innerHTML = `
       <td>${displayNum}</td>
       <td style="text-align: center;">
         <span class="badge ${badgeClass}">${badgeText}</span>
-        ${contract.projectId ? `<span title="프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px;">✅</span>` : ''}
+        ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px;">✅</span>` : ''}
       </td>
       <td>${contract.date || '-'}</td>
       <td class="table-client-name">
