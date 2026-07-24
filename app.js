@@ -5410,6 +5410,13 @@ function renderContractView() {
       assigneeOptions += `<option value="${contract.assignee}" selected>${contract.assigneeName || contract.assignee}</option>`;
     }
 
+    let formattedPeriod = contract.period || '';
+    if (formattedPeriod) {
+      formattedPeriod = formattedPeriod.replace(/20(\d{2})[-. /년]*(\d{1,2})[-. /월]*(\d{1,2})[일]?/g, (m, y, mo, d) => {
+        return `${y}.${String(mo).padStart(2, '0')}.${String(d).padStart(2, '0')}`;
+      }).replace(/\s*~\s*/g, '~');
+    }
+
     tr.innerHTML = `
       <td>${displayNum}</td>
       <td style="text-align: center;"><span class="badge ${badgeClass}">${badgeText}</span>${newBadge}</td>
@@ -5430,7 +5437,7 @@ function renderContractView() {
           onchange="window.updateContractInline('${contract.id}', 'amount', this.value)">원
       </td>
       <td class="table-period">
-        <input type="text" class="inline-edit-input" style="width: 100px;" value="${contract.period || ''}" placeholder="계약기간" onchange="window.updateContractInline('${contract.id}', 'period', this.value)">
+        <input type="text" class="inline-edit-input" style="width: 130px; text-align: center;" value="${formattedPeriod}" placeholder="계약기간" onchange="window.updateContractInline('${contract.id}', 'period', this.value)">
       </td>
       <td>
         <select class="inline-edit-input" style="width: 80px; text-align: center; text-align-last: center;" onchange="
