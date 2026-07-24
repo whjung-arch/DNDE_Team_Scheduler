@@ -1,4 +1,4 @@
-﻿// ==========================================
+// ==========================================
 // 1. 파이어베이스 초기화 및 설정 (보내주신 비밀키 적용)
 // ==========================================
 const firebaseConfig = {
@@ -863,12 +863,8 @@ function setupEventListeners() {
   const filterQuoteEnd = document.getElementById('filter-quote-end');
 
   if (filterQuoteStart && filterQuoteEnd) {
-    const today = new Date();
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(today.getDate() - 7);
-
-    if (!filterQuoteStart.value) filterQuoteStart.value = oneWeekAgo.toISOString().split('T')[0];
-    if (!filterQuoteEnd.value) filterQuoteEnd.value = today.toISOString().split('T')[0];
+    if (!filterQuoteStart.value) filterQuoteStart.value = '';
+    if (!filterQuoteEnd.value) filterQuoteEnd.value = '';
 
     state.filters.quoteStart = filterQuoteStart.value;
     state.filters.quoteEnd = filterQuoteEnd.value;
@@ -891,6 +887,26 @@ function setupEventListeners() {
       if (filterQuoteEnd) filterQuoteEnd.value = '';
       state.filters.quoteStart = '';
       state.filters.quoteEnd = '';
+      state.pagination.quote.currentPage = 1;
+      renderApp();
+    });
+  }
+
+  const btnQuoteThisWeek = document.getElementById('btn-quote-this-week');
+  if (btnQuoteThisWeek) {
+    btnQuoteThisWeek.addEventListener('click', () => {
+      const today = new Date();
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(today.getDate() - 7);
+      
+      const startStr = oneWeekAgo.toISOString().split('T')[0];
+      const endStr = today.toISOString().split('T')[0];
+
+      if (filterQuoteStart) filterQuoteStart.value = startStr;
+      if (filterQuoteEnd) filterQuoteEnd.value = endStr;
+      
+      state.filters.quoteStart = startStr;
+      state.filters.quoteEnd = endStr;
       state.pagination.quote.currentPage = 1;
       renderApp();
     });
