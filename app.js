@@ -2895,6 +2895,28 @@ function handleDeleteReport() {
   }
 }
 
+// --- 견적 관리 인라인 편집 ---
+window.updateQuoteInline = function (id, field, value) {
+  const existing = state.quotes.find(q => q.id === id);
+  if (!existing) return;
+
+  if (field === 'amount') value = Number(value);
+
+  const updateData = { [field]: value, updatedAt: new Date().toISOString() };
+
+  // 디바운스 처리 (500ms 내 연속 입력 시 마지막 1번만 서버 저장)
+  const timerKey = `quote_${id}_${field}`;
+  if (window._inlineUpdateTimers[timerKey]) {
+    clearTimeout(window._inlineUpdateTimers[timerKey]);
+  }
+
+  window._inlineUpdateTimers[timerKey] = setTimeout(() => {
+    db.collection("quotes").doc(id).update(updateData).then(() => {
+      // 성공 시 별도 알림 없음 (조용히 저장)
+    }).catch(err => console.error("Error updating quote inline:", err));
+  }, 500);
+};
+
 // --- 견적 관리 뷰 렌더링 ---
 function renderQuoteView() {
   const tableBody = document.getElementById('quote-table-body');
@@ -2980,6 +3002,14 @@ function renderQuoteView() {
       const qVersion = quote.version || 'v1.0';
       const qColor = window.getQuoteStatusColor(qStatus);
 
+      let assigneeOptions = '<option value="">미지정</option>';
+      state.members.forEach(m => {
+        assigneeOptions += `<option value="${m.id}" ${quote.assignee === m.id ? 'selected' : ''}>${m.name}</option>`;
+      });
+      if (quote.assignee && !state.members.find(m => m.id === quote.assignee)) {
+        assigneeOptions += `<option value="${quote.assignee}" selected>${quote.assigneeName || quote.assignee}</option>`;
+      }
+
       let followupBadge = '';
       if (qStatus === '발송완료' && quote.date) {
         const qDate = new Date(quote.date);
@@ -2992,12 +3022,34 @@ function renderQuoteView() {
 
       tr.innerHTML = `
         <td style="font-weight: 500; color: var(--primary);">${quoteNo}${newBadge}</td>
-        <td style="text-align: center;">${qVersion}</td>
-        <td>${quote.date || ''}</td>
-        <td>${quote.client || ''} ${quote.clientRep ? `(${quote.clientRep})` : ''}</td>
-        <td>${quote.item || ''}</td>
-        <td style="text-align: right;">${new Intl.NumberFormat().format(quote.amount || 0)}원</td>
-        <td style="text-align: center;">${quote.assigneeName || ''}</td>
+        <td style="text-align: center;">
+          <input type="text" class="inline-edit-input" style="text-align: center; width: 40px;" value="${qVersion}" onchange="window.updateQuoteInline('${quote.id}', 'version', this.value)">
+        </td>
+        <td>
+          <input type="date" class="inline-edit-input" style="width: 110px;" value="${quote.date || ''}" onchange="window.updateQuoteInline('${quote.id}', 'date', this.value)">
+        </td>
+        <td class="table-client-name">
+          <input type="text" class="inline-edit-input" style="font-weight: 500; width: 100%;" value="${quote.client || ''}" placeholder="고객사" onchange="window.updateQuoteInline('${quote.id}', 'client', this.value)">
+          <input type="text" class="inline-edit-input client-rep" style="font-size: 0.8rem; width: 100%; margin-top: 2px;" value="${quote.clientRep || ''}" placeholder="담당자" onchange="window.updateQuoteInline('${quote.id}', 'clientRep', this.value)">
+        </td>
+        <td>
+          <input type="text" class="inline-edit-input" style="width: 100%;" value="${quote.item || ''}" placeholder="견적명" onchange="window.updateQuoteInline('${quote.id}', 'item', this.value)">
+        </td>
+        <td style="text-align: right;">
+          <input type="text" class="inline-edit-input" style="text-align: right; font-weight: bold; width: 100px;" value="${new Intl.NumberFormat().format(quote.amount || 0)}" 
+            onfocus="this.value='${quote.amount || 0}'" 
+            onblur="this.value=Number(this.value).toLocaleString()" 
+            onchange="window.updateQuoteInline('${quote.id}', 'amount', this.value)">원
+        </td>
+        <td style="text-align: center;">
+          <select class="inline-edit-input" style="width: 80px; text-align: center; text-align-last: center;" onchange="
+            const m = state.members.find(mem => mem.id === this.value);
+            window.updateQuoteInline('${quote.id}', 'assignee', this.value);
+            if(m) window.updateQuoteInline('${quote.id}', 'assigneeName', m.name);
+          ">
+            ${assigneeOptions}
+          </select>
+        </td>
         <td style="text-align: center;">
             <select class="form-control" style="padding: 0.2rem; font-size: 0.8rem; width: 90px; border-radius: 4px; background-color: ${qColor.bg}; color: ${qColor.text}; border-color: ${qColor.bg}; font-weight: 500;" onchange="updateQuoteStatus('${quote.id}', this.value); this.style.backgroundColor = window.getQuoteStatusColor(this.value).bg; this.style.borderColor = window.getQuoteStatusColor(this.value).bg; this.style.color = window.getQuoteStatusColor(this.value).text;">
                 <option value="작성중" ${qStatus === '작성중' ? 'selected' : ''}>작성중</option>
@@ -5219,6 +5271,28 @@ async function syncOneDriveQuotes() {
 // 계약 관리 (Contract) 탭 함수 모음
 // ==========================================
 
+// --- 계약 관리 인라인 편집 ---
+window.updateContractInline = function (id, field, value) {
+  const existing = state.contracts.find(c => c.id === id);
+  if (!existing) return;
+
+  if (field === 'amount') value = Number(value);
+
+  const updateData = { [field]: value, updatedAt: new Date().toISOString() };
+
+  // 디바운스 처리
+  const timerKey = `contract_${id}_${field}`;
+  if (window._inlineUpdateTimers[timerKey]) {
+    clearTimeout(window._inlineUpdateTimers[timerKey]);
+  }
+
+  window._inlineUpdateTimers[timerKey] = setTimeout(() => {
+    db.collection("contracts").doc(id).update(updateData).then(() => {
+      // 성공 시 별도 알림 없음
+    }).catch(err => console.error("Error updating contract inline:", err));
+  }, 500);
+};
+
 function renderContractView() {
   const tableBody = document.getElementById('contract-table-body');
   if (!tableBody) return;
@@ -5328,18 +5402,45 @@ function renderContractView() {
     const isNew = contract.updatedAt && (new Date() - new Date(contract.updatedAt) < 3 * 24 * 60 * 60 * 1000);
     const newBadge = isNew ? `<span class="badge" style="background-color: var(--danger); color: white; margin-left: 6px; font-size: 10px; padding: 2px 5px;">NEW</span>` : '';
 
+    let assigneeOptions = '<option value="">미지정</option>';
+    state.members.forEach(m => {
+      assigneeOptions += `<option value="${m.id}" ${contract.assignee === m.id ? 'selected' : ''}>${m.name}</option>`;
+    });
+    if (contract.assignee && !state.members.find(m => m.id === contract.assignee)) {
+      assigneeOptions += `<option value="${contract.assignee}" selected>${contract.assigneeName || contract.assignee}</option>`;
+    }
+
     tr.innerHTML = `
       <td>${displayNum}</td>
       <td style="text-align: center;"><span class="badge ${badgeClass}">${badgeText}</span>${newBadge}</td>
-      <td>${contract.date || '-'}</td>
-      <td class="table-client-name">
-        <div>${contract.client || '-'}</div>
-        ${contract.clientRep ? `<div class="client-rep">${contract.clientRep}</div>` : ''}
+      <td>
+        <input type="date" class="inline-edit-input" style="width: 110px;" value="${contract.date || ''}" onchange="window.updateContractInline('${contract.id}', 'date', this.value)">
       </td>
-      <td class="table-item-name">${contract.item || '-'}</td>
-      <td class="table-amount">${(Number(contract.amount) || 0).toLocaleString()}원</td>
-      <td class="table-period">${contract.period || '-'}</td>
-      <td>${assigneeDisplay}</td>
+      <td class="table-client-name">
+        <input type="text" class="inline-edit-input" style="font-weight: 500; width: 100%;" value="${contract.client || ''}" placeholder="고객사" onchange="window.updateContractInline('${contract.id}', 'client', this.value)">
+        <input type="text" class="inline-edit-input client-rep" style="font-size: 0.8rem; width: 100%; margin-top: 2px;" value="${contract.clientRep || ''}" placeholder="담당자" onchange="window.updateContractInline('${contract.id}', 'clientRep', this.value)">
+      </td>
+      <td class="table-item-name">
+        <input type="text" class="inline-edit-input" style="width: 100%;" value="${contract.item || ''}" placeholder="품목명" onchange="window.updateContractInline('${contract.id}', 'item', this.value)">
+      </td>
+      <td class="table-amount">
+        <input type="text" class="inline-edit-input" style="text-align: right; font-weight: bold; width: 100px;" value="${new Intl.NumberFormat().format(contract.amount || 0)}" 
+          onfocus="this.value='${contract.amount || 0}'" 
+          onblur="this.value=Number(this.value).toLocaleString()" 
+          onchange="window.updateContractInline('${contract.id}', 'amount', this.value)">원
+      </td>
+      <td class="table-period">
+        <input type="text" class="inline-edit-input" style="width: 100px;" value="${contract.period || ''}" placeholder="계약기간" onchange="window.updateContractInline('${contract.id}', 'period', this.value)">
+      </td>
+      <td>
+        <select class="inline-edit-input" style="width: 80px; text-align: center; text-align-last: center;" onchange="
+          const m = state.members.find(mem => mem.id === this.value);
+          window.updateContractInline('${contract.id}', 'assignee', this.value);
+          if(m) window.updateContractInline('${contract.id}', 'assigneeName', m.name);
+        ">
+          ${assigneeOptions}
+        </select>
+      </td>
       <td>${pdfLink}</td>
       <td style="white-space: nowrap;">
         <button class="btn-icon" onclick="openContractModal('${contract.id}')" title="수정" style="vertical-align: middle;">
