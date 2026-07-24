@@ -2392,7 +2392,7 @@ function renderWorkloadDashboard() {
           <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">
             <span style="display: flex; align-items: center; gap: 4px;">
               종합 부하율 (M/H ${item.memberMH / 100}천만/월)
-              <span title="${item.breakdownText}" style="cursor: help; font-size: 14px; color: var(--primary);">??</span>
+              <span title="${item.breakdownText}" onclick="window.changeMemberMH('${item.member.id}', ${item.memberMH}, event)" style="cursor: pointer; font-size: 14px; color: var(--primary);">ⓘ</span>
             </span>
             <span style="font-weight: 700; color: var(--text-primary);">${item.loadPercentage}%</span>
           </div>
@@ -2408,6 +2408,21 @@ function renderWorkloadDashboard() {
     console.error("renderWorkloadDashboard 에러:", err);
   }
 }
+
+window.changeMemberMH = function (memberId, currentMH, event) {
+  event.stopPropagation();
+  const newMH = prompt(`새로운 기준 M/H 금액을 입력하세요 (단위: 만원/월)\n(현재: ${currentMH}만원)`, currentMH);
+  if (newMH !== null && !isNaN(Number(newMH)) && newMH.trim() !== "") {
+    db.collection("members").doc(memberId).update({
+      monthlyMH: Number(newMH)
+    }).then(() => {
+      showToast('팀원 M/H 기준 금액이 변경되었습니다.');
+    }).catch(err => {
+      console.error('MH Update Error:', err);
+      alert('기준 금액 변경 중 오류가 발생했습니다.');
+    });
+  }
+};
 
 window.filterByMember = function (memberId) {
   const selectAssignee = document.getElementById('filter-report-assignee');
@@ -3913,6 +3928,39 @@ function handleProjectComplete() {
   });
 }
 
+// [서버 업데이트] 완료된 프로젝트 복구 (주간업무 보고로 이동)
+window.restoreCompletedProject = function (id) {
+  if (!confirm('이 항목을 주간업무 보고 리스트로 복구하시겠습니까?')) return;
+  const batch = db.batch();
+  batch.update(db.collection("reports").doc(id), {
+    finalCompleted: false,
+    status: 'ongoing'
+  });
+
+  // 연동 캘린더 일정 계산 배치 연계 (재등록)
+  const targetReport = state.reports.find(r => r.id === id);
+  if (targetReport) {
+    const title = `[${targetReport.client}] ${targetReport.project}`;
+    const eventData = {
+      title: title,
+      type: 'project',
+      start: targetReport.startDate,
+      end: targetReport.targetDate || targetReport.endDate,
+      memberId: targetReport.assignee,
+      color: getAssigneeInfo(targetReport.assignee).color
+    };
+    batch.set(db.collection("events").doc('e_r_' + id), eventData, { merge: true });
+  }
+
+  batch.commit().then(() => {
+    showToast('프로젝트가 주간업무 보고 리스트로 복구되었습니다.');
+  }).catch(err => {
+    console.error('Restore error:', err);
+    alert('복구 중 오류가 발생했습니다.');
+  });
+};
+
+
 // [서버 업로드] 5차 계산서 분할 상태 변경 시 실시간 업로드
 window.updateInvoiceStage = function (reportId, stageIndex, field, value) {
   const report = state.reports.find(r => r.id === reportId);
@@ -4026,6 +4074,7 @@ function renderCompletedProjectsView() {
               <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path>
             </svg>
           </button>
+          <button class="member-action-btn" onclick="restoreCompletedProject('${report.id}')" style="color: var(--primary);" title="복구">복구</button>
           <button class="member-action-btn" onclick="deleteCompletedProject('${report.id}')" style="color: var(--danger);" title="삭제">삭제</button>
         </div>
       </td>
