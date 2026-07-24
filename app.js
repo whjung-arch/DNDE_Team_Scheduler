@@ -1,4 +1,4 @@
-// ==========================================
+﻿// ==========================================
 // 1. 파이어베이스 초기화 및 설정 (보내주신 비밀키 적용)
 // ==========================================
 const firebaseConfig = {
@@ -908,13 +908,13 @@ function setupEventListeners() {
       const today = new Date();
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(today.getDate() - 7);
-      
+
       const startStr = oneWeekAgo.toISOString().split('T')[0];
       const endStr = today.toISOString().split('T')[0];
 
       if (filterQuoteStart) filterQuoteStart.value = startStr;
       if (filterQuoteEnd) filterQuoteEnd.value = endStr;
-      
+
       state.filters.quoteStart = startStr;
       state.filters.quoteEnd = endStr;
       state.pagination.quote.currentPage = 1;
@@ -2890,7 +2890,7 @@ function renderQuoteView() {
 
   // Draw Charts
   if (typeof drawQuoteCharts === 'function') {
-      drawQuoteCharts(filtered);
+    drawQuoteCharts(filtered);
   }
 
   // 통계 계산
@@ -2936,7 +2936,7 @@ function renderQuoteView() {
       const isLinked = state.reports.some(r => (r.linkedDocs || []).includes(quote.id));
       const isNew = quote.updatedAt && (new Date() - new Date(quote.updatedAt) < 3 * 24 * 60 * 60 * 1000);
       const newBadge = isNew ? `<span class="badge" style="background-color: var(--danger); color: white; margin-left: 6px; font-size: 10px; padding: 2px 5px;">NEW</span>` : '';
-      
+
       const qStatus = quote.status || '작성중';
       const qVersion = quote.version || 'v1.0';
 
@@ -2945,8 +2945,8 @@ function renderQuoteView() {
         const qDate = new Date(quote.date);
         const diffTime = Math.abs(new Date() - qDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays >= 7) {
-            followupBadge = `<span title="발송 후 7일 경과 - 팔로업 필요" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">⚠️</span>`;
+        if (diffDays >= 30) {
+          followupBadge = `<span title="발송 후 30일 경과 - 팔로업 필요" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">⚠️</span>`;
         }
       }
 
@@ -2960,10 +2960,10 @@ function renderQuoteView() {
         <td style="text-align: center;">${quote.assigneeName || ''}</td>
         <td style="text-align: center;">
             <select class="form-control" style="padding: 0.2rem; font-size: 0.8rem; width: 90px; border-radius: 4px;" onchange="updateQuoteStatus('${quote.id}', this.value)">
-                <option value="작성중" ${qStatus==='작성중'?'selected':''}>작성중</option>
-                <option value="발송완료" ${qStatus==='발송완료'?'selected':''}>발송완료</option>
-                <option value="계약성사" ${qStatus==='계약성사'?'selected':''}>계약성사</option>
-                <option value="거절됨" ${qStatus==='거절됨'?'selected':''}>거절됨</option>
+                <option value="작성중" ${qStatus === '작성중' ? 'selected' : ''}>작성중</option>
+                <option value="발송완료" ${qStatus === '발송완료' ? 'selected' : ''}>발송완료</option>
+                <option value="계약성사" ${qStatus === '계약성사' ? 'selected' : ''}>계약성사</option>
+                <option value="거절됨" ${qStatus === '거절됨' ? 'selected' : ''}>거절됨</option>
             </select>
             ${followupBadge}
         </td>
@@ -3135,7 +3135,7 @@ let quoteStatusChartInstance = null;
 function drawQuoteCharts(filteredData) {
   const monthlyCtx = document.getElementById('quote-monthly-chart');
   const statusCtx = document.getElementById('quote-status-chart');
-  
+
   if (!monthlyCtx || !statusCtx) return;
 
   const monthlyData = {};
@@ -3193,7 +3193,7 @@ function drawQuoteCharts(filteredData) {
 
   const statusLabels = Object.keys(statusData);
   const statusValues = Object.values(statusData);
-  
+
   if (quoteStatusChartInstance) quoteStatusChartInstance.destroy();
   quoteStatusChartInstance = new Chart(statusCtx, {
     type: 'doughnut',
@@ -3258,10 +3258,10 @@ function exportQuoteListToExcel() {
   const worksheet = XLSX.utils.json_to_sheet(exportData);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "견적관리");
-  
+
   const today = new Date();
   const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-  
+
   XLSX.writeFile(workbook, `견적관리목록_${dateStr}.xlsx`);
 }
 
