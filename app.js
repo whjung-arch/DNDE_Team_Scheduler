@@ -2135,6 +2135,7 @@ function openMemberModal(memberId = null) {
   const form = document.getElementById('form-member');
   const nameInput = document.getElementById('member-name');
   const roleInput = document.getElementById('member-role');
+  const mhInput = document.getElementById('member-monthly-mh');
   const colorInput = document.getElementById('member-color');
   const deleteBtn = document.getElementById('btn-delete-member');
   const paletteContainer = document.getElementById('member-color-palette');
@@ -2163,6 +2164,7 @@ function openMemberModal(memberId = null) {
       document.getElementById('member-id').value = member.id;
       nameInput.value = member.name;
       roleInput.value = member.role || '';
+      mhInput.value = member.monthlyMH || '';
       colorInput.value = member.color;
       const targetOption = Array.from(paletteContainer.children).find(child => child.dataset.color === member.color);
       if (targetOption) targetOption.classList.add('selected');
@@ -2189,9 +2191,10 @@ function handleMemberSubmit(e) {
   const id = document.getElementById('member-id').value || 'm_' + Date.now();
   const name = document.getElementById('member-name').value.trim();
   const role = document.getElementById('member-role').value.trim();
+  const monthlyMH = document.getElementById('member-monthly-mh').value.trim();
   const color = document.getElementById('member-color').value;
 
-  db.collection("members").doc(id).set({ id, name, role, color })
+  db.collection("members").doc(id).set({ id, name, role, monthlyMH, color })
     .then(() => {
       showToast('팀원 정보가 클라우드에 업데이트되었습니다.');
       closeMemberModal();
@@ -2224,6 +2227,15 @@ function calculateMemberWorkload() {
   const MONTHLY_STANDARD_MH_COST = 2000;
 
   return state.members.map(member => {
+    let memberMH = Number(member.monthlyMH);
+    if (!memberMH) {
+      if (member.name === '이헌덕' || member.name === '강원태') memberMH = 2400;
+      else if (member.name === '김욱진' || member.name === '문승환') memberMH = 2200;
+      else if (member.name === '임윤승') memberMH = 2000;
+      else if (member.name === '김민건') memberMH = 1800;
+      else memberMH = 2000;
+    }
+
     // 해당 팀원의 진행 중 프로젝트 수집 (상태가 ongoing이고, 진척률이 100 미만인 건만 부하율 반영)
     const activeReports = state.reports.filter(r => {
       if (r.assignee !== member.id) return false;
@@ -2274,7 +2286,7 @@ function calculateMemberWorkload() {
         breakdownLines.push(`• ${projectName}: 15% (무상)`);
       } else {
         // 모든 유상 프로젝트: 개별적으로 부하율 산정 후 합산 (병렬 진행 업무의 누적 부하율 반영)
-        const projectLoad = (amt / Math.max(1, days)) * 1.5;
+        const projectLoad = (amt / Math.max(1, days)) * (30 / memberMH) * 100;
         totalCalculatedLoad += projectLoad;
         breakdownLines.push(`• ${projectName}: ${Math.round(projectLoad)}% (${amt.toLocaleString()}만/${days}일)`);
       }
@@ -2315,7 +2327,8 @@ function calculateMemberWorkload() {
       status,
       statusText,
       loadPercentage,
-      breakdownText
+      breakdownText,
+      memberMH
     };
   });
 }
@@ -2378,7 +2391,7 @@ function renderWorkloadDashboard() {
         <div>
           <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">
             <span style="display: flex; align-items: center; gap: 4px;">
-              종합 부하율 (M/H 2천만/월)
+              종합 부하율 (M/H ${item.memberMH / 100}천만/월)
               <span title="${item.breakdownText}" style="cursor: help; font-size: 14px; color: var(--primary);">ℹ️</span>
             </span>
             <span style="font-weight: 700; color: var(--text-primary);">${item.loadPercentage}%</span>
