@@ -2237,8 +2237,6 @@ function calculateMemberWorkload() {
     let displayTotalDays = 0;
     let displayTotalAmount = 0; // 화면에 표시할 총 프로젝트 금액 (만원)
 
-    let calcShortDays = 0;
-    let calcShortAmount = 0;
     let totalCalculatedLoad = 0; // 총 부하율 %
 
     activeReports.forEach(r => {
@@ -2260,22 +2258,12 @@ function calculateMemberWorkload() {
       if (amt === 0) {
         // 비용이 없는 업무의 경우 건당 약 15% 부하 책정 (예상기간 합산에서 제외)
         totalCalculatedLoad += 15;
-      } else if (days >= 365) {
-        // 1년 이상 장기 프로젝트: 전체금액/전체기간 기반 개별 부하율 산정 후 별도 합산 (단기 프로젝트 평균 희석 방지)
-        const projectLoad = (amt / days) * 1.5;
-        totalCalculatedLoad += projectLoad;
       } else {
-        // 1년 미만 단기 유상 프로젝트: 일괄 합산하여 부하율 계산
-        calcShortAmount += amt;
-        calcShortDays += days;
+        // 모든 유상 프로젝트: 개별적으로 부하율 산정 후 합산 (병렬 진행 업무의 누적 부하율 반영)
+        const projectLoad = (amt / Math.max(1, days)) * 1.5;
+        totalCalculatedLoad += projectLoad;
       }
     });
-
-    // 단기 유상 프로젝트 합산분에 대해 한 번에 부하율 산정
-    if (calcShortAmount > 0) {
-      const aggregateLoad = (calcShortAmount / Math.max(1, calcShortDays)) * 1.5;
-      totalCalculatedLoad += aggregateLoad;
-    }
 
     // 독립 타임라인 일정 1건당 약 10% 부하 추가 합산
     totalCalculatedLoad += (standaloneEventCount * 10);
