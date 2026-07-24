@@ -2234,13 +2234,16 @@ function calculateMemberWorkload() {
     const standaloneEventCount = activeStandaloneEvents.length;
     const totalActiveCount = projectCount + standaloneEventCount;
 
-    let totalDays = 0;
-    let totalAmount = 0; // 총 프로젝트 금액 (만원)
+    let displayTotalDays = 0;
+    let displayTotalAmount = 0; // 화면에 표시할 총 프로젝트 금액 (만원)
+
+    let calcShortDays = 0;
+    let calcShortAmount = 0;
     let totalCalculatedLoad = 0; // 총 부하율 %
 
     activeReports.forEach(r => {
       const amt = Number(r.amount || 0); // 만원 단위
-      totalAmount += amt;
+      displayTotalAmount += amt;
 
       let days = 30; // 기본 30일
       if (r.startDate && (r.targetDate || r.endDate)) {
@@ -2249,17 +2252,28 @@ function calculateMemberWorkload() {
         const diffTime = Math.max(0, endOrTarget - start);
         days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
       }
+
       if (amt > 0) {
-        totalDays += days;
-      } else {
+        displayTotalDays += days;
+      }
+
+      if (amt === 0) {
         // 비용이 없는 업무의 경우 건당 약 15% 부하 책정 (예상기간 합산에서 제외)
         totalCalculatedLoad += 15;
+      } else if (days >= 365) {
+        // 1년 이상 장기 프로젝트: 전체금액/전체기간 기반 개별 부하율 산정 후 별도 합산 (단기 프로젝트 평균 희석 방지)
+        const projectLoad = (amt / days) * 1.5;
+        totalCalculatedLoad += projectLoad;
+      } else {
+        // 1년 미만 단기 유상 프로젝트: 일괄 합산하여 부하율 계산
+        calcShortAmount += amt;
+        calcShortDays += days;
       }
     });
 
-    // 합산된 전체 금액(totalAmount)과 전체 일정(totalDays)에 대해 한 번에 부하율 산정
-    if (totalAmount > 0) {
-      const aggregateLoad = (totalAmount / Math.max(1, totalDays)) * 1.5;
+    // 단기 유상 프로젝트 합산분에 대해 한 번에 부하율 산정
+    if (calcShortAmount > 0) {
+      const aggregateLoad = (calcShortAmount / Math.max(1, calcShortDays)) * 1.5;
       totalCalculatedLoad += aggregateLoad;
     }
 
@@ -2288,8 +2302,8 @@ function calculateMemberWorkload() {
       activeProjectCount: projectCount,
       activeEventCount: standaloneEventCount,
       totalActiveCount,
-      totalDays,
-      totalAmount,
+      totalDays: displayTotalDays,
+      totalAmount: displayTotalAmount,
       status,
       statusText,
       loadPercentage
