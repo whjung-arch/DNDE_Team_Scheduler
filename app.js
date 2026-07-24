@@ -2238,10 +2238,12 @@ function calculateMemberWorkload() {
     let displayTotalAmount = 0; // 화면에 표시할 총 프로젝트 금액 (만원)
 
     let totalCalculatedLoad = 0; // 총 부하율 %
+    let breakdownLines = []; // 부하도 산정 근거 텍스트 배열
 
     activeReports.forEach(r => {
       const amt = Number(r.amount || 0); // 만원 단위
       displayTotalAmount += amt;
+      const projectName = r.project || '이름 없음';
 
       let days = 30; // 기본 30일
       if (r.startDate && (r.targetDate || r.endDate)) {
@@ -2258,17 +2260,24 @@ function calculateMemberWorkload() {
       if (amt === 0) {
         // 비용이 없는 업무의 경우 건당 약 15% 부하 책정 (예상기간 합산에서 제외)
         totalCalculatedLoad += 15;
+        breakdownLines.push(`• ${projectName}: 15% (무상)`);
       } else {
         // 모든 유상 프로젝트: 개별적으로 부하율 산정 후 합산 (병렬 진행 업무의 누적 부하율 반영)
         const projectLoad = (amt / Math.max(1, days)) * 1.5;
         totalCalculatedLoad += projectLoad;
+        breakdownLines.push(`• ${projectName}: ${Math.round(projectLoad)}% (${amt.toLocaleString()}만/${days}일)`);
       }
     });
 
     // 독립 타임라인 일정 1건당 약 10% 부하 추가 합산
-    totalCalculatedLoad += (standaloneEventCount * 10);
+    if (standaloneEventCount > 0) {
+      const eventLoad = standaloneEventCount * 10;
+      totalCalculatedLoad += eventLoad;
+      breakdownLines.push(`• 타임라인 일정(${standaloneEventCount}건): ${eventLoad}%`);
+    }
 
     const loadPercentage = Math.round(totalCalculatedLoad);
+    const breakdownText = `[부하도 산정 근거]\n${breakdownLines.join('\n')}\n= 합계: ${loadPercentage}%`;
 
     // 부하 상태 판정 (100% 이상: 초과 / 40%~99%: 적정 / 40% 미만: 여유)
     let status = 'normal';
@@ -2294,7 +2303,8 @@ function calculateMemberWorkload() {
       totalAmount: displayTotalAmount,
       status,
       statusText,
-      loadPercentage
+      loadPercentage,
+      breakdownText
     };
   });
 }
@@ -2356,7 +2366,10 @@ function renderWorkloadDashboard() {
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">
-            <span>종합 부하율 (M/H 2천만/월)</span>
+            <span style="display: flex; align-items: center; gap: 4px;">
+              종합 부하율 (M/H 2천만/월)
+              <span title="${item.breakdownText}" style="cursor: help; font-size: 14px; color: var(--primary);">ℹ️</span>
+            </span>
             <span style="font-weight: 700; color: var(--text-primary);">${item.loadPercentage}%</span>
           </div>
           <div class="workload-bar-outer">
