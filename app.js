@@ -3044,7 +3044,7 @@ function renderQuoteView() {
         const diffTime = Math.abs(new Date() - qDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         if (diffDays >= 30) {
-          followupBadge = `<span title="발송 후 30일 경과 - 팔로업 필요" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">??</span>`;
+          followupBadge = `<span title="발송 후 30일 경과 - 팔로업 필요" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">⚠️</span>`;
         }
       }
 
@@ -3097,7 +3097,7 @@ function renderQuoteView() {
           <button class="btn-icon" onclick="openLinkProjectModal('${quote.id}', 'quote')" title="주간보고 연결" style="margin-left: 4px; vertical-align: middle; color: var(--primary);">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
           </button>
-          ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">?</span>` : ''}
+          ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle; color: var(--success);">✔️</span>` : ''}
         </td>
       `;
       tableBody.appendChild(tr);
@@ -5512,7 +5512,7 @@ function renderContractView() {
         <button class="btn-icon" onclick="openLinkProjectModal('${contract.id}', 'contract')" title="주간보고 연결" style="margin-left: 4px; vertical-align: middle; color: var(--primary);">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
         </button>
-        ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">?</span>` : ''}
+        ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle; color: var(--success);">✔️</span>` : ''}
       </td>
     `;
     tableBody.appendChild(tr);
