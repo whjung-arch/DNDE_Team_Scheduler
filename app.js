@@ -2978,6 +2978,7 @@ function renderQuoteView() {
 
       const qStatus = quote.status || '작성중';
       const qVersion = quote.version || 'v1.0';
+      const qColor = window.getQuoteStatusColor(qStatus);
 
       let followupBadge = '';
       if (qStatus === '발송완료' && quote.date) {
@@ -2998,7 +2999,7 @@ function renderQuoteView() {
         <td style="text-align: right;">${new Intl.NumberFormat().format(quote.amount || 0)}원</td>
         <td style="text-align: center;">${quote.assigneeName || ''}</td>
         <td style="text-align: center;">
-            <select class="form-control" style="padding: 0.2rem; font-size: 0.8rem; width: 90px; border-radius: 4px;" onchange="updateQuoteStatus('${quote.id}', this.value)">
+            <select class="form-control" style="padding: 0.2rem; font-size: 0.8rem; width: 90px; border-radius: 4px; background-color: ${qColor.bg}; color: ${qColor.text}; border-color: ${qColor.bg}; font-weight: 500;" onchange="updateQuoteStatus('${quote.id}', this.value); this.style.backgroundColor = window.getQuoteStatusColor(this.value).bg; this.style.borderColor = window.getQuoteStatusColor(this.value).bg; this.style.color = window.getQuoteStatusColor(this.value).text;">
                 <option value="작성중" ${qStatus === '작성중' ? 'selected' : ''}>작성중</option>
                 <option value="발송완료" ${qStatus === '발송완료' ? 'selected' : ''}>발송완료</option>
                 <option value="계약성사" ${qStatus === '계약성사' ? 'selected' : ''}>계약성사</option>
@@ -3167,6 +3168,16 @@ function updateQuoteStatus(id, newStatus) {
     alert('상태 변경 중 오류가 발생했습니다.');
   });
 }
+
+window.getQuoteStatusColor = function (status) {
+  switch (status) {
+    case '작성중': return { bg: '#94a3b8', text: '#ffffff' }; // Slate
+    case '발송완료': return { bg: '#3b82f6', text: '#ffffff' }; // Blue
+    case '계약성사': return { bg: '#10b981', text: '#ffffff' }; // Green
+    case '거절됨': return { bg: '#ef4444', text: '#ffffff' }; // Red
+    default: return { bg: '#94a3b8', text: '#ffffff' };
+  }
+};
 
 let quoteMonthlyChartInstance = null;
 let quoteStatusChartInstance = null;
