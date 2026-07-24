@@ -5440,13 +5440,7 @@ function renderContractView() {
         <input type="text" class="inline-edit-input" style="width: 130px; text-align: center;" value="${formattedPeriod}" placeholder="계약기간" onchange="window.updateContractInline('${contract.id}', 'period', this.value)">
       </td>
       <td>
-        <select class="inline-edit-input" style="width: 80px; text-align: center; text-align-last: center;" onchange="
-          const m = state.members.find(mem => mem.id === this.value);
-          window.updateContractInline('${contract.id}', 'assignee', this.value);
-          if(m) window.updateContractInline('${contract.id}', 'assigneeName', m.name);
-        ">
-          ${assigneeOptions}
-        </select>
+        <input type="text" class="inline-edit-input" style="width: 80px; text-align: center;" value="${contract.assigneeName || contract.assignee || ''}" placeholder="담당자" onchange="window.updateContractInline('${contract.id}', 'assigneeName', this.value); window.updateContractInline('${contract.id}', 'assignee', this.value);">
       </td>
       <td>${pdfLink}</td>
       <td style="white-space: nowrap;">
