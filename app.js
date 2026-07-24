@@ -271,8 +271,9 @@ const state = {
     invoiceStatus: 'all',
     invoiceMonth: 'all',
     quoteSearch: '',
-    quoteStart: getOffsetDateString(-7),
-    quoteEnd: getOffsetDateString(0),
+    quoteStatus: '',
+    quoteStart: '',
+    quoteEnd: '',
     contractStart: '',
     contractEnd: '',
     contractSearch: '',
@@ -859,6 +860,15 @@ function setupEventListeners() {
     });
   }
 
+  const filterQuoteStatus = document.getElementById('filter-quote-status');
+  if (filterQuoteStatus) {
+    filterQuoteStatus.addEventListener('change', (e) => {
+      state.filters.quoteStatus = e.target.value;
+      state.pagination.quote.currentPage = 1;
+      renderApp();
+    });
+  }
+
   const filterQuoteStart = document.getElementById('filter-quote-start');
   const filterQuoteEnd = document.getElementById('filter-quote-end');
 
@@ -964,6 +974,11 @@ function setupEventListeners() {
   const btnAddQuote = document.getElementById('btn-add-quote');
   if (btnAddQuote) {
     btnAddQuote.addEventListener('click', () => openQuoteModal());
+  }
+
+  const btnExportQuoteExcel = document.getElementById('btn-export-quote-excel');
+  if (btnExportQuoteExcel) {
+    btnExportQuoteExcel.addEventListener('click', () => exportQuoteListToExcel());
   }
 
   const btnUploadQuotePdf = document.getElementById('btn-upload-quote-pdf');
@@ -2869,6 +2884,14 @@ function renderQuoteView() {
   if (state.filters.quoteEnd) {
     filtered = filtered.filter(q => q.date && q.date <= state.filters.quoteEnd);
   }
+  if (state.filters.quoteStatus) {
+    filtered = filtered.filter(q => (q.status || '작성중') === state.filters.quoteStatus);
+  }
+
+  // Draw Charts
+  if (typeof drawQuoteCharts === 'function') {
+      drawQuoteCharts(filtered);
+  }
 
   // 통계 계산
   const totalCount = filtered.length;
@@ -2897,7 +2920,7 @@ function renderQuoteView() {
   const pageData = filtered.slice(startIdx, startIdx + pageSize);
 
   if (pageData.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem;">등록된 견적이 없습니다.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 2rem;">등록된 견적이 없습니다.</td></tr>`;
   } else {
     pageData.forEach(quote => {
       let quoteNo = '-';
@@ -2913,13 +2936,37 @@ function renderQuoteView() {
       const isLinked = state.reports.some(r => (r.linkedDocs || []).includes(quote.id));
       const isNew = quote.updatedAt && (new Date() - new Date(quote.updatedAt) < 3 * 24 * 60 * 60 * 1000);
       const newBadge = isNew ? `<span class="badge" style="background-color: var(--danger); color: white; margin-left: 6px; font-size: 10px; padding: 2px 5px;">NEW</span>` : '';
+      
+      const qStatus = quote.status || '작성중';
+      const qVersion = quote.version || 'v1.0';
+
+      let followupBadge = '';
+      if (qStatus === '발송완료' && quote.date) {
+        const qDate = new Date(quote.date);
+        const diffTime = Math.abs(new Date() - qDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays >= 7) {
+            followupBadge = `<span title="발송 후 7일 경과 - 팔로업 필요" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">⚠️</span>`;
+        }
+      }
+
       tr.innerHTML = `
         <td style="font-weight: 500; color: var(--primary);">${quoteNo}${newBadge}</td>
+        <td style="text-align: center;">${qVersion}</td>
         <td>${quote.date || ''}</td>
         <td>${quote.client || ''} ${quote.clientRep ? `(${quote.clientRep})` : ''}</td>
         <td>${quote.item || ''}</td>
         <td style="text-align: right;">${new Intl.NumberFormat().format(quote.amount || 0)}원</td>
         <td style="text-align: center;">${quote.assigneeName || ''}</td>
+        <td style="text-align: center;">
+            <select class="form-control" style="padding: 0.2rem; font-size: 0.8rem; width: 90px; border-radius: 4px;" onchange="updateQuoteStatus('${quote.id}', this.value)">
+                <option value="작성중" ${qStatus==='작성중'?'selected':''}>작성중</option>
+                <option value="발송완료" ${qStatus==='발송완료'?'selected':''}>발송완료</option>
+                <option value="계약성사" ${qStatus==='계약성사'?'selected':''}>계약성사</option>
+                <option value="거절됨" ${qStatus==='거절됨'?'selected':''}>거절됨</option>
+            </select>
+            ${followupBadge}
+        </td>
         <td style="text-align: center;">
           ${quote.pdfUrl ? `<button class="btn-secondary btn-sm" onclick="window.open('${quote.pdfUrl}', '_blank')">PDF 열기</button>` : '-'}
         </td>
@@ -2980,6 +3027,10 @@ function openQuoteModal(quoteId = null) {
       itemInput.value = q.item || '';
       pdfUrlInput.value = q.pdfUrl || '';
       pdfNameInput.value = q.pdfName || '';
+      const statusInput = document.getElementById('quote-status');
+      if (statusInput) statusInput.value = q.status || '작성중';
+      const versionInput = document.getElementById('quote-version');
+      if (versionInput) versionInput.value = q.version || 'v1.0';
     }
     deleteBtn.style.display = 'block';
   } else {
@@ -3005,6 +3056,10 @@ function openQuoteModal(quoteId = null) {
         assigneeSelect.value = matchedMember.id;
       }
     }
+    const statusInput = document.getElementById('quote-status');
+    if (statusInput) statusInput.value = '작성중';
+    const versionInput = document.getElementById('quote-version');
+    if (versionInput) versionInput.value = 'v1.0';
     deleteBtn.style.display = 'none';
   }
 
@@ -3027,6 +3082,8 @@ function saveQuote(e) {
     item: document.getElementById('quote-item').value,
     pdfUrl: document.getElementById('quote-pdf-url').value,
     pdfName: document.getElementById('quote-pdf-name').value,
+    status: document.getElementById('quote-status') ? document.getElementById('quote-status').value : '작성중',
+    version: document.getElementById('quote-version') ? document.getElementById('quote-version').value : 'v1.0',
     updatedAt: new Date().toISOString()
   };
 
@@ -3060,6 +3117,152 @@ function deleteQuote() {
       closeQuoteModal();
     });
   }
+}
+
+function updateQuoteStatus(id, newStatus) {
+  if (!id) return;
+  db.collection("quotes").doc(id).update({ status: newStatus, updatedAt: new Date().toISOString() }).then(() => {
+    showToast('견적 상태가 변경되었습니다.');
+  }).catch(err => {
+    console.error("Error updating quote status:", err);
+    alert('상태 변경 중 오류가 발생했습니다.');
+  });
+}
+
+let quoteMonthlyChartInstance = null;
+let quoteStatusChartInstance = null;
+
+function drawQuoteCharts(filteredData) {
+  const monthlyCtx = document.getElementById('quote-monthly-chart');
+  const statusCtx = document.getElementById('quote-status-chart');
+  
+  if (!monthlyCtx || !statusCtx) return;
+
+  const monthlyData = {};
+  const today = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthlyData[key] = 0;
+  }
+
+  const statusData = {
+    '작성중': 0,
+    '발송완료': 0,
+    '계약성사': 0,
+    '거절됨': 0
+  };
+
+  filteredData.forEach(q => {
+    if (q.date && q.amount) {
+      const monthKey = q.date.substring(0, 7);
+      if (monthlyData[monthKey] !== undefined) {
+        monthlyData[monthKey] += Number(q.amount);
+      }
+    }
+    const st = q.status || '작성중';
+    if (statusData[st] !== undefined) {
+      statusData[st]++;
+    } else {
+      statusData[st] = 1;
+    }
+  });
+
+  const monthLabels = Object.keys(monthlyData);
+  const monthValues = Object.values(monthlyData);
+
+  if (quoteMonthlyChartInstance) quoteMonthlyChartInstance.destroy();
+  quoteMonthlyChartInstance = new Chart(monthlyCtx, {
+    type: 'bar',
+    data: {
+      labels: monthLabels,
+      datasets: [{
+        label: '발송 금액(원)',
+        data: monthValues,
+        backgroundColor: '#0ea5e9',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  const statusLabels = Object.keys(statusData);
+  const statusValues = Object.values(statusData);
+  
+  if (quoteStatusChartInstance) quoteStatusChartInstance.destroy();
+  quoteStatusChartInstance = new Chart(statusCtx, {
+    type: 'doughnut',
+    data: {
+      labels: statusLabels,
+      datasets: [{
+        data: statusValues,
+        backgroundColor: ['#94a3b8', '#3b82f6', '#10b981', '#ef4444']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function exportQuoteListToExcel() {
+  if (!state.quotes || state.quotes.length === 0) {
+    alert("출력할 견적 데이터가 없습니다.");
+    return;
+  }
+
+  let filtered = [...state.quotes];
+  if (state.filters.quoteSearch) {
+    const s = state.filters.quoteSearch.toLowerCase();
+    filtered = filtered.filter(q =>
+      (q.client && q.client.toLowerCase().includes(s)) ||
+      (q.item && q.item.toLowerCase().includes(s))
+    );
+  }
+  if (state.filters.quoteStart) {
+    filtered = filtered.filter(q => q.date && q.date >= state.filters.quoteStart);
+  }
+  if (state.filters.quoteEnd) {
+    filtered = filtered.filter(q => q.date && q.date <= state.filters.quoteEnd);
+  }
+  if (state.filters.quoteStatus) {
+    filtered = filtered.filter(q => (q.status || '작성중') === state.filters.quoteStatus);
+  }
+
+  if (filtered.length === 0) {
+    alert("현재 필터 조건에 해당하는 데이터가 없습니다.");
+    return;
+  }
+
+  const exportData = filtered.map(q => ({
+    '일자': q.date || '',
+    '버전': q.version || 'v1.0',
+    '고객사(수신)': q.client || '',
+    '고객사 담당자': q.clientRep || '',
+    '품목/건명': q.item || '',
+    '견적금액': q.amount || 0,
+    '담당자': q.assigneeName || '',
+    '상태': q.status || '작성중',
+    '견적번호': q.pdfName ? q.pdfName.split('.').slice(0, -1).join('.') : '-'
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "견적관리");
+  
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+  
+  XLSX.writeFile(workbook, `견적관리목록_${dateStr}.xlsx`);
 }
 
 async function parseQuotePDF(file) {

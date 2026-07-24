@@ -435,6 +435,16 @@
                         style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; flex: 1;">
 
                         <div style="display: flex; align-items: center; gap: 0.25rem;">
+                            <select id="filter-quote-status" class="form-control"
+                                style="width: 100px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
+                                <option value="">전체 상태</option>
+                                <option value="작성중">작성중</option>
+                                <option value="발송완료">발송완료</option>
+                                <option value="계약성사">계약성사</option>
+                                <option value="거절됨">거절됨</option>
+                            </select>
+                            <input type="text" id="filter-quote-search" class="form-control" placeholder="고객사/담당자 검색"
+                                style="width: 130px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
                             <button class="btn-secondary" id="btn-quote-all-dates"
                                 style="width: auto; white-space: nowrap; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: 6px;">
                                 전체보기
@@ -444,10 +454,10 @@
                                 금주 일정
                             </button>
                             <input type="date" id="filter-quote-start" class="form-control"
-                                style="width: 130px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
+                                style="width: 120px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
                             <span style="color: var(--text-muted);">~</span>
                             <input type="date" id="filter-quote-end" class="form-control"
-                                style="width: 130px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
+                                style="width: 120px; padding: 0.4rem 0.5rem; font-size: 0.85rem; border-radius: 6px;">
                         </div>
                         <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
                             <span id="onedrive-sync-status"
@@ -461,6 +471,17 @@
                                     <line x1="5" y1="12" x2="19" y2="12"></line>
                                 </svg>
                                 수동 등록
+                            </button>
+                            <button class="btn-secondary" id="btn-export-quote-excel"
+                                style="width: auto; white-space: nowrap; flex-shrink: 0; padding: 0.5rem 0.75rem; font-size: 0.85rem; background: #107c41; color: white; border: none;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                엑셀 다운로드
                             </button>
                             <button class="btn-secondary" id="btn-sync-onedrive"
                                 style="width: auto; white-space: nowrap; flex-shrink: 0; background: #0078D4; color: white; border: none; padding: 0.5rem 0.75rem; font-size: 0.85rem;">
@@ -527,16 +548,39 @@
                     </div>
                 </div>
 
+                <!-- 대시보드 차트 영역 -->
+                <div class="quote-dashboard-charts"
+                    style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; padding: 0 1.5rem 1rem 1.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
+                    <div class="chart-container"
+                        style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <h3 style="margin-top: 0; font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.5rem;">
+                            월별 견적 발송 금액 추이</h3>
+                        <div style="position: relative; height: 200px;">
+                            <canvas id="quote-monthly-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container"
+                        style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <h3 style="margin-top: 0; font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.5rem;">
+                            견적 상태별 비율</h3>
+                        <div style="position: relative; height: 200px; display: flex; justify-content: center;">
+                            <canvas id="quote-status-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="report-table-wrapper">
                     <table class="report-table">
                         <thead>
                             <tr>
                                 <th>견적 번호</th>
+                                <th style="text-align: center;">버전</th>
                                 <th>일자</th>
                                 <th>거래처/발주처명</th>
                                 <th>품목/건명</th>
                                 <th style="text-align: right;">금액(원)</th>
                                 <th style="text-align: center;">담당자</th>
+                                <th style="text-align: center;">상태</th>
                                 <th style="text-align: center;">PDF 보기</th>
                                 <th>관리</th>
                             </tr>
@@ -1151,6 +1195,23 @@
                             <select class="form-control" id="quote-assignee" required>
                                 <!-- JS 동적 생성 -->
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="quote-status">견적 상태</label>
+                            <select class="form-control" id="quote-status" required>
+                                <option value="작성중">작성중</option>
+                                <option value="발송완료">발송완료</option>
+                                <option value="계약성사">계약성사</option>
+                                <option value="거절됨">거절됨</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="quote-version">버전</label>
+                            <input class="form-control" type="text" id="quote-version" required placeholder="예: v1.0"
+                                value="v1.0">
                         </div>
                     </div>
 
