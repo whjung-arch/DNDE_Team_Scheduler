@@ -357,11 +357,11 @@ function setupLogin() {
       // 세션 지속성 설정 후 로그인 시도 (창 닫으면 자동 로그아웃)
       firebase.auth().setPersistence(firebase.auth.Auth.Persistence.SESSION)
         .then(() => {
-          // 🟢 대소문자 오타 교정 완료: Password -> password
+          // ?? 대소문자 오타 교정 완료: Password -> password
           return firebase.auth().signInWithEmailAndPassword(username, password);
         })
         .then((userCredential) => {
-          // 🟢 로그인 성공 시 토스트 알림 및 즉시 대시보드 화면 열기 연동
+          // ?? 로그인 성공 시 토스트 알림 및 즉시 대시보드 화면 열기 연동
           showToast('CAE파트 일정 관리 시스템에 오신 것을 환영합니다.');
           if (loginContainer) loginContainer.style.display = 'none';
           if (appContainer) appContainer.style.display = 'flex';
@@ -1878,7 +1878,7 @@ function renderTimelineView() {
       if (event.category === 'project' && event.client) {
         displayTitle = displayTitle.replace('[프로젝트]', `[${event.client}]`);
       }
-      bar.innerHTML = `<span style="margin-right: 4px; position: relative; z-index: 2;">💼</span> <span style="position: relative; z-index: 2;">${escapeHTML(displayTitle)}</span>`;
+      bar.innerHTML = `<span style="margin-right: 4px; position: relative; z-index: 2;">??</span> <span style="position: relative; z-index: 2;">${escapeHTML(displayTitle)}</span>`;
 
       if (event.progress !== undefined) {
         const progressFill = document.createElement('div');
@@ -2283,12 +2283,12 @@ function calculateMemberWorkload() {
       if (amt === 0) {
         // 비용이 없는 업무의 경우 건당 약 15% 부하 책정 (예상기간 합산에서 제외)
         totalCalculatedLoad += 15;
-        breakdownLines.push(`• ${projectName}: 15% (무상)`);
+        breakdownLines.push(`? ${projectName}: 15% (무상)`);
       } else {
         // 모든 유상 프로젝트: 개별적으로 부하율 산정 후 합산 (병렬 진행 업무의 누적 부하율 반영)
         const projectLoad = (amt / Math.max(1, days)) * (30 / memberMH) * 100;
         totalCalculatedLoad += projectLoad;
-        breakdownLines.push(`• ${projectName}: ${Math.round(projectLoad)}% (${amt.toLocaleString()}만/${days}일)`);
+        breakdownLines.push(`? ${projectName}: ${Math.round(projectLoad)}% (${amt.toLocaleString()}만/${days}일)`);
       }
     });
 
@@ -2296,7 +2296,7 @@ function calculateMemberWorkload() {
     if (standaloneEventCount > 0) {
       const eventLoad = standaloneEventCount * 10;
       totalCalculatedLoad += eventLoad;
-      breakdownLines.push(`• 타임라인 일정(${standaloneEventCount}건): ${eventLoad}%`);
+      breakdownLines.push(`? 타임라인 일정(${standaloneEventCount}건): ${eventLoad}%`);
     }
 
     const loadPercentage = Math.round(totalCalculatedLoad);
@@ -2392,7 +2392,7 @@ function renderWorkloadDashboard() {
           <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">
             <span style="display: flex; align-items: center; gap: 4px;">
               종합 부하율 (M/H ${item.memberMH / 100}천만/월)
-              <span title="${item.breakdownText}" style="cursor: help; font-size: 14px; color: var(--primary);">ℹ️</span>
+              <span title="${item.breakdownText}" style="cursor: help; font-size: 14px; color: var(--primary);">??</span>
             </span>
             <span style="font-weight: 700; color: var(--text-primary);">${item.loadPercentage}%</span>
           </div>
@@ -3029,7 +3029,7 @@ function renderQuoteView() {
         const diffTime = Math.abs(new Date() - qDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         if (diffDays >= 30) {
-          followupBadge = `<span title="발송 후 30일 경과 - 팔로업 필요" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">⚠️</span>`;
+          followupBadge = `<span title="발송 후 30일 경과 - 팔로업 필요" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">??</span>`;
         }
       }
 
@@ -3082,7 +3082,7 @@ function renderQuoteView() {
           <button class="btn-icon" onclick="openLinkProjectModal('${quote.id}', 'quote')" title="주간보고 연결" style="margin-left: 4px; vertical-align: middle; color: var(--primary);">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
           </button>
-          ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">✅</span>` : ''}
+          ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">?</span>` : ''}
         </td>
       `;
       tableBody.appendChild(tr);
@@ -5368,7 +5368,7 @@ function renderContractView() {
   const elNew = document.getElementById('stat-new-contracts-week');
 
   if (elCount) elCount.textContent = totalCount + '건';
-  if (elAmount) elAmount.textContent = totalAmount.toLocaleString() + '원';
+  if (elAmount) elAmount.textContent = totalAmount.toLocaleString() + '만원';
   if (elNew) elNew.textContent = newThisWeek + '건';
 
   // 페이징
@@ -5463,7 +5463,7 @@ function renderContractView() {
         <button class="btn-icon" onclick="openLinkProjectModal('${contract.id}', 'contract')" title="주간보고 연결" style="margin-left: 4px; vertical-align: middle; color: var(--primary);">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
         </button>
-        ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">✅</span>` : ''}
+        ${isLinked ? `<span title="주간보고 프로젝트와 연결됨" style="margin-left: 4px; font-size: 14px; vertical-align: middle;">?</span>` : ''}
       </td>
     `;
     tableBody.appendChild(tr);
