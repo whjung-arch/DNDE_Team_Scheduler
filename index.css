@@ -973,6 +973,9 @@ body {
   right: 4px;
   top: 5px;
   pointer-events: auto;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
   border-radius: 6px;
   color: var(--text-inverse);
   font-size: 0.75rem;
@@ -991,6 +994,15 @@ body {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
   z-index: 5;
+}
+
+.timeline-event-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  pointer-events: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 /* --- 모달 다이얼로그 --- */

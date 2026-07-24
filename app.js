@@ -1724,6 +1724,7 @@ function renderTimelineView() {
         memberEvents.push({
           id: `e_r_${report.id}`,
           title: `[${report.client || ''}] ${report.project || ''}`,
+          progress: report.progress || 0,
           startDate: report.startDate,
           endDate: report.endDate,
           assignee: report.assignee,
@@ -1760,6 +1761,7 @@ function renderTimelineView() {
         memberEvents.push({
           id: `e_r_${report.id}`,
           title: `[${report.client || ''}] ${report.project || ''}`,
+          progress: report.progress || 0,
           startDate: report.startDate,
           endDate: report.endDate,
           assignee: report.assignee,
@@ -1795,6 +1797,7 @@ function renderTimelineView() {
         memberEvents.push({
           id: `e_r_${report.id}`,
           title: `[${report.client || ''}] ${report.project || ''}`,
+          progress: report.progress || 0,
           startDate: report.startDate,
           endDate: report.endDate,
           assignee: report.assignee,
@@ -1875,7 +1878,15 @@ function renderTimelineView() {
       if (event.category === 'project' && event.client) {
         displayTitle = displayTitle.replace('[프로젝트]', `[${event.client}]`);
       }
-      bar.innerHTML = `<span style="margin-right: 4px;">💼</span> ${escapeHTML(displayTitle)}`;
+      bar.innerHTML = `<span style="margin-right: 4px; position: relative; z-index: 2;">💼</span> <span style="position: relative; z-index: 2;">${escapeHTML(displayTitle)}</span>`;
+
+      if (event.progress !== undefined) {
+        const progressFill = document.createElement('div');
+        progressFill.className = 'timeline-event-progress-fill';
+        progressFill.style.width = `${event.progress}%`;
+        progressFill.style.backgroundColor = 'rgba(0,0,0,0.15)';
+        bar.appendChild(progressFill);
+      }
 
       if (event.priority === 'high' && event.id.startsWith('e_r_')) {
         bar.classList.add('urgent-timeline-event');
