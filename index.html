@@ -527,16 +527,34 @@
                     </div>
                 </div>
 
+                <!-- 견적 대시보드 차트 영역 -->
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; padding: 0 1.5rem;">
+                    <div class="card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: var(--shadow-sm);">
+                        <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--text-primary);">월별 견적 금액 추이</h3>
+                        <div style="height: 250px;">
+                            <canvas id="quote-monthly-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: var(--shadow-sm);">
+                        <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--text-primary);">견적 진행 상태 비율</h3>
+                        <div style="height: 250px; display: flex; justify-content: center;">
+                            <canvas id="quote-status-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="report-table-wrapper">
                     <table class="report-table">
                         <thead>
                             <tr>
                                 <th>견적 번호</th>
+                                <th style="text-align: center;">버전</th>
                                 <th>일자</th>
                                 <th>거래처/발주처명</th>
                                 <th>품목/건명</th>
                                 <th style="text-align: right;">금액(원)</th>
                                 <th style="text-align: center;">담당자</th>
+                                <th style="text-align: center;">진행상태</th>
                                 <th style="text-align: center;">PDF 보기</th>
                                 <th>관리</th>
                             </tr>
