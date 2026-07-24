@@ -2509,7 +2509,7 @@ function renderReportView() {
       </td>
       <td style="width: 1%; white-space: nowrap; text-align: center;">
         <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-          <div class="progress-bar-container" style="flex-shrink: 0; cursor: ew-resize;" onmousedown="startProgressDrag(event, '${report.id}')"><div class="progress-bar-fill" style="width: ${report.progress}%;"></div></div>
+          <div class="progress-bar-container" style="flex-shrink: 0; cursor: ew-resize;" onmousedown="startProgressDrag(event, '${report.id}')"><div class="progress-bar-fill" style="width: ${report.progress}%; background-color: ${window.getProgressColor(Number(report.progress || 0))};"></div></div>
           <div style="display: flex; align-items: center; justify-content: center; width: 45px;">
             <span id="progress_text_${report.id}" class="${report.progressModified ? 'modified-text' : ''}" style="width: 25px; text-align: right; font-weight: 500; font-size: 0.9rem;">${report.progress}</span>
             <div style="display: flex; flex-direction: column; margin-left: 4px; gap: 1px;">
@@ -2563,6 +2563,13 @@ window.formatShortDate = function (dateStr) {
   return dateStr;
 };
 
+window.getProgressColor = function (val) {
+  if (val < 30) return '#ef4444'; // Red (위험/초기)
+  if (val < 70) return '#f59e0b'; // Amber (진행중)
+  if (val < 100) return '#3b82f6'; // Blue (순조로움)
+  return '#10b981'; // Green (완료)
+};
+
 window.startProgressDrag = function (e, id) {
   e.preventDefault();
   const container = e.currentTarget;
@@ -2589,7 +2596,10 @@ window.startProgressDrag = function (e, id) {
       const activeRow = textEl.closest('td');
       if (activeRow) {
         const fill = activeRow.querySelector('.progress-bar-fill');
-        if (fill) fill.style.width = percentage + '%';
+        if (fill) {
+          fill.style.width = percentage + '%';
+          fill.style.backgroundColor = window.getProgressColor(percentage);
+        }
       }
     }
   };
@@ -2625,7 +2635,10 @@ window.changeProgress = function (id, delta) {
   const row = textEl.closest('td');
   if (row) {
     const fill = row.querySelector('.progress-bar-fill');
-    if (fill) fill.style.width = val + '%';
+    if (fill) {
+      fill.style.width = val + '%';
+      fill.style.backgroundColor = window.getProgressColor(val);
+    }
   }
 
   window.updateReportInline(id, 'progress', val);
@@ -4592,7 +4605,7 @@ window.openUrgentProjectModal = function (reportId, eventId) {
           <span>진행률:</span> <span>${progress}%</span>
         </div>
         <div style="width: 100%; background: var(--bg-hover); height: 8px; border-radius: 4px; overflow: hidden;">
-          <div style="width: ${progress}%; background: var(--primary); height: 100%;"></div>
+          <div style="width: ${progress}%; background-color: ${window.getProgressColor(Number(progress))}; height: 100%;"></div>
         </div>
       </div>
     </div>
